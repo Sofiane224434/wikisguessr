@@ -1,0 +1,60 @@
+{
+  "nav": {
+    "home": "Inicio",
+    "dashboard": "Panel de control",
+    "email": "Correo electrónico",
+    "login": "Iniciar sesión",
+    "register": "Registrarse",
+    "logout": "Cerrar sesión"
+  },
+  "home": {
+    "title": "Bienvenido a WikisGuessr",
+    "cta_start": "Empezar",
+    "cta_login": "Iniciar sesión",
+    "cta_dashboard": "Acceder al panel de control"
+  },
+  "login": {
+    "title": "Iniciar sesión",
+    "email": "Correo electrónico",
+    "password": "Contraseña",
+    "submit": "Iniciar sesión",
+    "loading": "Iniciando sesión...",
+    "no_account": "¿No tienes cuenta?",
+    "register_link": "Registrarse"
+  },
+  "register": {
+    "title": "Crear una cuenta",
+    "email": "Correo electrónico",
+    "password": "Contraseña",
+    "confirm_password": "Confirma la contraseña",
+    "submit": "Registrarse",
+    "loading": "Inscripción...",
+    "already_account": "¿Ya tienes una cuenta?",
+    "login_link": "Iniciar sesión"
+  },
+  "dashboard": {
+    "title": "¡Bienvenido, {{name}}!",
+    "email_label": "Correo electrónico:"
+  },
+  "email": {
+    "title": "Enviar un correo electrónico",
+    "subtitle": "Prueba el envío de un correo electrónico transaccional a través de Brevo desde WikisGuessr.",
+    "to": "Destinatario",
+    "name": "Nombre (opcional)",
+    "subject": "Tema",
+    "message": "Mensaje",
+    "submit": "Enviar el correo electrónico",
+    "sending": "Enviando...",
+    "success": "El correo electrónico se ha enviado correctamente",
+    "error": "No se puede enviar el correo electrónico"
+  },
+  "errors": {
+    "passwords_mismatch": "Las contraseñas no coinciden",
+    "password_too_short": "La contraseña debe tener al menos 6 caracteres",
+    "login_error": "Error de conexión",
+    "register_error": "Error al registrarse"
+  },
+  "footer": {
+    "copyright": "© {{year}} WikisGuessr. Todos los derechos reservados."
+  }
+}

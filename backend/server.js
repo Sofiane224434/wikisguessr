@@ -21,7 +21,7 @@ if (process.env.NODE_ENV !== 'production') {
 }
 // Routes
 app.get('/', (req, res) => {
-    res.json({ message: 'Starter Kit API (ES Modules)', status: 'online' });
+    res.json({ message: 'WikisGuessr API (ES Modules)', status: 'online' });
 });
 app.use('/api/auth', authRoutes);
 app.use('/api/email', emailRoutes);

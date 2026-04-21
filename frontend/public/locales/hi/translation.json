@@ -1,0 +1,60 @@
+{
+  "nav": {
+    "home": "होम",
+    "dashboard": "डैशबोर्ड",
+    "email": "ईमेल",
+    "login": "लॉग इन करें",
+    "register": "साइन अप करें",
+    "logout": "लॉग आउट करें"
+  },
+  "home": {
+    "title": "विकिसगेसर में आपका स्वागत है",
+    "cta_start": "शुरू करें",
+    "cta_login": "लॉग इन करें",
+    "cta_dashboard": "डैशबोर्ड पर जाएँ"
+  },
+  "login": {
+    "title": "लॉग इन करें",
+    "email": "ईमेल",
+    "password": "पासवर्ड",
+    "submit": "लॉग इन करें",
+    "loading": "लॉग इन हो रहा है...",
+    "no_account": "खाता नहीं है?",
+    "register_link": "साइन अप करें"
+  },
+  "register": {
+    "title": "खाता बनाएँ",
+    "email": "ईमेल",
+    "password": "पासवर्ड",
+    "confirm_password": "पासवर्ड की पुष्टि करें",
+    "submit": "साइन अप करें",
+    "loading": "पंजीकरण...",
+    "already_account": "क्या आपके पास पहले से ही खाता है?",
+    "login_link": "लॉग इन करें"
+  },
+  "dashboard": {
+    "title": "स्वागत है, {{name}}!",
+    "email_label": "ईमेल:"
+  },
+  "email": {
+    "title": "ईमेल भेजें",
+    "subtitle": "WikisGuessr से Brevo के माध्यम से एक लेन-देन संबंधी ईमेल भेजने का परीक्षण।",
+    "to": "प्राप्तकर्ता",
+    "name": "नाम (वैकल्पिक)",
+    "subject": "विषय",
+    "message": "संदेश",
+    "submit": "ईमेल भेजें",
+    "sending": "भेज रहा है...",
+    "success": "ईमेल सफलतापूर्वक भेजा गया",
+    "error": "ईमेल भेजने में असमर्थ"
+  },
+  "errors": {
+    "passwords_mismatch": "पासवर्ड मेल नहीं खाते",
+    "password_too_short": "पासवर्ड कम से कम 6 अक्षरों का होना चाहिए।",
+    "login_error": "कनेक्शन त्रुटि",
+    "register_error": "पंजीकरण के दौरान त्रुटि"
+  },
+  "footer": {
+    "copyright": "© {{year}} विकिसगेसर सर्वाधिकार सुरक्षित।"
+  }
+}

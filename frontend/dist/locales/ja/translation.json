@@ -1,0 +1,60 @@
+{
+  "nav": {
+    "home": "ホーム",
+    "dashboard": "ダッシュボード",
+    "email": "メールアドレス",
+    "login": "ログイン",
+    "register": "登録する",
+    "logout": "ログアウト"
+  },
+  "home": {
+    "title": "WikisGuessrへようこそ",
+    "cta_start": "始める",
+    "cta_login": "ログイン",
+    "cta_dashboard": "ダッシュボードにアクセスする"
+  },
+  "login": {
+    "title": "ログイン",
+    "email": "メールアドレス",
+    "password": "パスワード",
+    "submit": "ログイン",
+    "loading": "接続中...",
+    "no_account": "アカウントをお持ちではありませんか？",
+    "register_link": "登録する"
+  },
+  "register": {
+    "title": "アカウントを作成する",
+    "email": "メールアドレス",
+    "password": "パスワード",
+    "confirm_password": "パスワードの確認",
+    "submit": "登録する",
+    "loading": "登録...",
+    "already_account": "すでにアカウントをお持ちですか？",
+    "login_link": "ログイン"
+  },
+  "dashboard": {
+    "title": "ようこそ、{{name}}！",
+    "email_label": "メールアドレス："
+  },
+  "email": {
+    "title": "メールを送信する",
+    "subtitle": "WikisGuessrからBrevo経由でトランザクションメールを送信するテストを行ってください。",
+    "to": "宛先",
+    "name": "氏名（任意）",
+    "subject": "件名",
+    "message": "メッセージ",
+    "submit": "メールを送信する",
+    "sending": "送信中...",
+    "success": "メールの送信に成功しました",
+    "error": "メールを送信できません"
+  },
+  "errors": {
+    "passwords_mismatch": "パスワードが一致しません",
+    "password_too_short": "パスワードは6文字以上でなければなりません",
+    "login_error": "接続エラー",
+    "register_error": "登録中にエラーが発生しました"
+  },
+  "footer": {
+    "copyright": "© {{year}} WikisGuessr 無断転載禁止。"
+  }
+}

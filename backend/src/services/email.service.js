@@ -6,7 +6,7 @@ const { BrevoClient } = require('@getbrevo/brevo');
 const client = new BrevoClient({ apiKey: process.env.BREVO_API_KEY });
 
 const DEFAULT_SENDER = {
-    name: process.env.BREVO_SENDER_NAME || 'Starter Kit',
+    name: process.env.BREVO_SENDER_NAME || 'WikisGuessr',
     email: process.env.BREVO_SENDER_EMAIL,
 };
 

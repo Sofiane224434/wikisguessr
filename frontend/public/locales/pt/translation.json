@@ -1,0 +1,60 @@
+{
+  "nav": {
+    "home": "Página inicial",
+    "dashboard": "Painel de controlo",
+    "email": "E-mail",
+    "login": "Iniciar sessão",
+    "register": "Inscrever-se",
+    "logout": "Sair"
+  },
+  "home": {
+    "title": "Bem-vindo ao WikisGuessr",
+    "cta_start": "Começar",
+    "cta_login": "Iniciar sessão",
+    "cta_dashboard": "Aceder ao Painel de Controlo"
+  },
+  "login": {
+    "title": "Iniciar sessão",
+    "email": "E-mail",
+    "password": "Palavra-passe",
+    "submit": "Iniciar sessão",
+    "loading": "A ligar...",
+    "no_account": "Não tem conta?",
+    "register_link": "Inscrever-se"
+  },
+  "register": {
+    "title": "Criar uma conta",
+    "email": "E-mail",
+    "password": "Palavra-passe",
+    "confirm_password": "Confirmar a palavra-passe",
+    "submit": "Inscrever-se",
+    "loading": "Inscrição...",
+    "already_account": "Já tem uma conta?",
+    "login_link": "Iniciar sessão"
+  },
+  "dashboard": {
+    "title": "Bem-vindo, {{name}}!",
+    "email_label": "E-mail:"
+  },
+  "email": {
+    "title": "Enviar um e-mail",
+    "subtitle": "Testa o envio de um e-mail transacional através do Brevo a partir do WikisGuessr.",
+    "to": "Destinatário",
+    "name": "Nome (opcional)",
+    "subject": "Assunto",
+    "message": "Mensagem",
+    "submit": "Enviar o e-mail",
+    "sending": "Envio em curso...",
+    "success": "E-mail enviado com sucesso",
+    "error": "Não foi possível enviar o e-mail"
+  },
+  "errors": {
+    "passwords_mismatch": "As palavras-passe não correspondem",
+    "password_too_short": "A palavra-passe deve ter, pelo menos, 6 caracteres",
+    "login_error": "Erro de ligação",
+    "register_error": "Erro durante o registo"
+  },
+  "footer": {
+    "copyright": "© {{year}} WikisGuessr Todos os direitos reservados."
+  }
+}

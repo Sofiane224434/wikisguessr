@@ -1,0 +1,60 @@
+{
+  "nav": {
+    "home": "首页",
+    "dashboard": "仪表盘",
+    "email": "电子邮件",
+    "login": "登录",
+    "register": "注册",
+    "logout": "注销"
+  },
+  "home": {
+    "title": "欢迎来到WikisGuessr",
+    "cta_start": "开始",
+    "cta_login": "登录",
+    "cta_dashboard": "访问仪表盘"
+  },
+  "login": {
+    "title": "登录",
+    "email": "电子邮件",
+    "password": "密码",
+    "submit": "登录",
+    "loading": "正在登录...",
+    "no_account": "还没有账号吗？",
+    "register_link": "注册"
+  },
+  "register": {
+    "title": "注册账户",
+    "email": "电子邮件",
+    "password": "密码",
+    "confirm_password": "确认密码",
+    "submit": "注册",
+    "loading": "注册...",
+    "already_account": "已有账户？",
+    "login_link": "登录"
+  },
+  "dashboard": {
+    "title": "欢迎 {{name}}！",
+    "email_label": "电子邮件："
+  },
+  "email": {
+    "title": "发送电子邮件",
+    "subtitle": "通过WikisGuessr测试从Brevo发送一封交易邮件。",
+    "to": "收件人",
+    "name": "姓名（可选）",
+    "subject": "主题",
+    "message": "消息",
+    "submit": "发送电子邮件",
+    "sending": "正在发送...",
+    "success": "邮件已成功发送",
+    "error": "无法发送电子邮件"
+  },
+  "errors": {
+    "passwords_mismatch": "密码不匹配",
+    "password_too_short": "密码必须至少包含6个字符",
+    "login_error": "连接错误",
+    "register_error": "注册时出现错误"
+  },
+  "footer": {
+    "copyright": "© {{year}} WikisGuessr 保留所有权利。"
+  }
+}

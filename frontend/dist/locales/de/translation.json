@@ -1,0 +1,60 @@
+{
+  "nav": {
+    "home": "Startseite",
+    "dashboard": "Dashboard",
+    "email": "E-Mail",
+    "login": "Anmelden",
+    "register": "Anmelden",
+    "logout": "Abmelden"
+  },
+  "home": {
+    "title": "Willkommen bei WikisGuessr",
+    "cta_start": "Loslegen",
+    "cta_login": "Anmelden",
+    "cta_dashboard": "Zum Dashboard"
+  },
+  "login": {
+    "title": "Anmelden",
+    "email": "E-Mail",
+    "password": "Passwort",
+    "submit": "Anmelden",
+    "loading": "Anmeldung läuft...",
+    "no_account": "Noch kein Konto?",
+    "register_link": "Anmelden"
+  },
+  "register": {
+    "title": "Konto erstellen",
+    "email": "E-Mail",
+    "password": "Passwort",
+    "confirm_password": "Passwort bestätigen",
+    "submit": "Anmelden",
+    "loading": "Anmeldung...",
+    "already_account": "Hast du schon ein Konto?",
+    "login_link": "Anmelden"
+  },
+  "dashboard": {
+    "title": "Willkommen, {{name}}!",
+    "email_label": "E-Mail:"
+  },
+  "email": {
+    "title": "E-Mail senden",
+    "subtitle": "Teste den Versand einer Transaktions-E-Mail über Brevo von WikisGuessr aus.",
+    "to": "Empfänger",
+    "name": "Name (optional)",
+    "subject": "Thema",
+    "message": "Nachricht",
+    "submit": "E-Mail senden",
+    "sending": "Wird gesendet...",
+    "success": "E-Mail erfolgreich versendet",
+    "error": "Die E-Mail kann nicht gesendet werden"
+  },
+  "errors": {
+    "passwords_mismatch": "Die Passwörter stimmen nicht überein",
+    "password_too_short": "Das Passwort muss mindestens 6 Zeichen lang sein",
+    "login_error": "Verbindungsfehler",
+    "register_error": "Fehler bei der Registrierung"
+  },
+  "footer": {
+    "copyright": "© {{year}} WikisGuessr Alle Rechte vorbehalten."
+  }
+}
