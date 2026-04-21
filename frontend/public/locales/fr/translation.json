@@ -1,0 +1,61 @@
+{
+  "nav": {
+    "home": "Accueil",
+    "dashboard": "Dashboard",
+    "email": "Email",
+    "login": "Connexion",
+    "register": "S'inscrire",
+    "logout": "Déconnexion"
+  },
+  "home": {
+    "title": "Bienvenue sur le Starter Kit",
+    "subtitle": "Template moderne React + Node.js + MySQL",
+    "cta_start": "Commencer",
+    "cta_login": "Se connecter",
+    "cta_dashboard": "Accéder au Dashboard"
+  },
+  "login": {
+    "title": "Se connecter",
+    "email": "Email",
+    "password": "Mot de passe",
+    "submit": "Se connecter",
+    "loading": "Connexion en cours...",
+    "no_account": "Pas de compte ?",
+    "register_link": "S'inscrire"
+  },
+  "register": {
+    "title": "Créer un compte",
+    "email": "Email",
+    "password": "Mot de passe",
+    "confirm_password": "Confirmer le mot de passe",
+    "submit": "S'inscrire",
+    "loading": "Inscription...",
+    "already_account": "Déjà un compte ?",
+    "login_link": "Se connecter"
+  },
+  "dashboard": {
+    "title": "Bienvenue {{name}} !",
+    "email_label": "Email :"
+  },
+  "email": {
+    "title": "Envoyer un email",
+    "subtitle": "Teste l'envoi d'un email transactionnel via Brevo depuis le starter kit.",
+    "to": "Destinataire",
+    "name": "Nom (optionnel)",
+    "subject": "Sujet",
+    "message": "Message",
+    "submit": "Envoyer l'email",
+    "sending": "Envoi en cours...",
+    "success": "Email envoyé avec succès",
+    "error": "Impossible d'envoyer l'email"
+  },
+  "errors": {
+    "passwords_mismatch": "Les mots de passe ne correspondent pas",
+    "password_too_short": "Le mot de passe doit contenir au moins 6 caractères",
+    "login_error": "Erreur de connexion",
+    "register_error": "Erreur lors de l'inscription"
+  },
+  "footer": {
+    "copyright": "© {{year}} Azim404"
+  }
+}

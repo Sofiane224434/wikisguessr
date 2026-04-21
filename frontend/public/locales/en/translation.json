@@ -1,0 +1,61 @@
+{
+  "nav": {
+    "home": "Home",
+    "dashboard": "Dashboard",
+    "email": "Email",
+    "login": "Sign in",
+    "register": "Sign up",
+    "logout": "Sign out"
+  },
+  "home": {
+    "title": "Welcome to the Starter Kit",
+    "subtitle": "Modern React + Node.js + MySQL template",
+    "cta_start": "Get started",
+    "cta_login": "Sign in",
+    "cta_dashboard": "Go to Dashboard"
+  },
+  "login": {
+    "title": "Sign in",
+    "email": "Email",
+    "password": "Password",
+    "submit": "Sign in",
+    "loading": "Signing in...",
+    "no_account": "No account?",
+    "register_link": "Sign up"
+  },
+  "register": {
+    "title": "Create an account",
+    "email": "Email",
+    "password": "Password",
+    "confirm_password": "Confirm password",
+    "submit": "Sign up",
+    "loading": "Creating account...",
+    "already_account": "Already have an account?",
+    "login_link": "Sign in"
+  },
+  "dashboard": {
+    "title": "Welcome {{name}}!",
+    "email_label": "Email :"
+  },
+  "email": {
+    "title": "Send an email",
+    "subtitle": "Test sending a transactional email via Brevo from the starter kit.",
+    "to": "Recipient",
+    "name": "Name (optional)",
+    "subject": "Subject",
+    "message": "Message",
+    "submit": "Send email",
+    "sending": "Sending...",
+    "success": "Email sent successfully",
+    "error": "Unable to send email"
+  },
+  "errors": {
+    "passwords_mismatch": "Passwords don't match",
+    "password_too_short": "Password must be at least 6 characters",
+    "login_error": "Sign in failed",
+    "register_error": "Registration failed"
+  },
+  "footer": {
+    "copyright": "© {{year}} Azim404"
+  }
+}
