@@ -10,7 +10,8 @@ const PORT = process.env.PORT || 5000;
 // Connexion BDD
 testConnection();
 // Middlewares
-app.use(cors({ origin: 'http://localhost:5173', credentials: true }));
+const corsOrigin = process.env.CORS_ORIGIN || 'http://localhost:5173';
+app.use(cors({ origin: corsOrigin.split(',').map(s => s.trim()), credentials: true }));
 app.use(express.json());
 // Logger (dev)
 if (process.env.NODE_ENV !== 'production') {
