@@ -1,0 +1,68 @@
+name: Deploy to VPS
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-vps
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.VPS_SSH_KEY }}" | base64 -d > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -p ${{ secrets.VPS_PORT }} -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Deploy via SSH
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_APP_DIR: ${{ vars.VPS_APP_DIR }}
+          VPS_COMPOSE_PROJECT: ${{ vars.VPS_COMPOSE_PROJECT }}
+        run: |
+          ssh -i ~/.ssh/id_ed25519 -p "$VPS_PORT" "$VPS_USER@$VPS_HOST" bash -s <<EOF
+            set -euo pipefail
+
+            APP_DIR="$VPS_APP_DIR"
+            PROJECT="$VPS_COMPOSE_PROJECT"
+
+            if [ ! -d "\$APP_DIR/.git" ]; then
+              echo "Cloning repository into \$APP_DIR"
+              mkdir -p "\$APP_DIR"
+              git clone https://github.com/${{ github.repository }}.git "\$APP_DIR"
+            fi
+
+            cd "\$APP_DIR"
+
+            echo "==> git fetch + reset"
+            git fetch --all --prune
+            git reset --hard origin/main
+            git clean -fd -e .env -e backend/.env -e frontend/.env
+
+            if [ ! -f .env ]; then
+              echo "ERREUR: .env manquant dans \$APP_DIR. Copier .env.example et renseigner les secrets."
+              exit 1
+            fi
+
+            echo "==> docker compose up -d --build"
+            docker compose -p "\$PROJECT" pull db || true
+            docker compose -p "\$PROJECT" up -d --build --remove-orphans
+
+            echo "==> docker compose ps"
+            docker compose -p "\$PROJECT" ps
+
+            echo "==> nettoyage images orphelines"
+            docker image prune -f
+          EOF
