@@ -14,6 +14,20 @@ import Shop from './pages/Shop.jsx';
 import ErrorPage from './pages/Error.jsx';
 import VerifyEmail from './pages/VerifyEmail.jsx';
 
+function GuestOnlyRoute({ children }) {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return null;
+  }
+
+  if (user) {
+    return <Navigate to="/lobby" replace />;
+  }
+
+  return children;
+}
+
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
   const location = useLocation();
@@ -51,7 +65,14 @@ function App() {
   return (
     <Routes>
       <Route element={<MainLayout />}>
-        <Route path="/" element={<Home />} />
+        <Route
+          path="/"
+          element={(
+            <GuestOnlyRoute>
+              <Home />
+            </GuestOnlyRoute>
+          )}
+        />
         <Route
           path="/lobby"
           element={(
@@ -78,7 +99,14 @@ function App() {
             </ProtectedRoute>
           )}
         />
-        <Route path="/login" element={<Login />} />
+        <Route
+          path="/login"
+          element={(
+            <GuestOnlyRoute>
+              <Login />
+            </GuestOnlyRoute>
+          )}
+        />
         <Route
           path="/profile"
           element={(
