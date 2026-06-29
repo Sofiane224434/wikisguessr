@@ -6,6 +6,7 @@ import LanguageDetector from 'i18next-browser-languagedetector';
 import HttpBackend from 'i18next-http-backend';
 import { initReactI18next } from 'react-i18next';
 import { BrowserRouter } from 'react-router-dom';
+import { AuthProvider } from './context/Authcontext.jsx';
 import App from './App.jsx';
 import './index.css';
 
@@ -28,7 +29,9 @@ i18n
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <BrowserRouter>
-      <App />
+      <AuthProvider>
+        <App />
+      </AuthProvider>
     </BrowserRouter>
   </React.StrictMode>
 );
