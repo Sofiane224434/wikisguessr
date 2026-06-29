@@ -1,5 +1,5 @@
 // App.jsx
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from './context/Authcontext.jsx';
 import MainLayout from './layouts/MainLayout.jsx';
 import Home from './pages/Home.jsx';
@@ -13,6 +13,21 @@ import Help from './pages/Help.jsx';
 import Shop from './pages/Shop.jsx';
 import ErrorPage from './pages/Error.jsx';
 import VerifyEmail from './pages/VerifyEmail.jsx';
+
+function ProtectedRoute({ children }) {
+  const { user, loading } = useAuth();
+  const location = useLocation();
+
+  if (loading) {
+    return null;
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace state={{ from: location }} />;
+  }
+
+  return children;
+}
 
 function AdminRoute({ children }) {
   const { user, loading } = useAuth();
@@ -37,22 +52,73 @@ function App() {
     <Routes>
       <Route element={<MainLayout />}>
         <Route path="/" element={<Home />} />
-        <Route path="/lobby" element={<Lobby />} />
-        <Route path="/game" element={<Game />} />
+        <Route
+          path="/lobby"
+          element={(
+            <ProtectedRoute>
+              <Lobby />
+            </ProtectedRoute>
+          )}
+        />
+        <Route
+          path="/game"
+          element={(
+            <ProtectedRoute>
+              <Game />
+            </ProtectedRoute>
+          )}
+        />
         <Route
           path="/admin"
           element={(
-            <AdminRoute>
-              <Admin />
-            </AdminRoute>
+            <ProtectedRoute>
+              <AdminRoute>
+                <Admin />
+              </AdminRoute>
+            </ProtectedRoute>
           )}
         />
         <Route path="/login" element={<Login />} />
-        <Route path="/profile" element={<Profile />} />
-        <Route path="/leaderboard" element={<Leaderboard />} />
-        <Route path="/help" element={<Help />} />
-        <Route path="/shop" element={<Shop />} />
-        <Route path="/error" element={<ErrorPage />} />
+        <Route
+          path="/profile"
+          element={(
+            <ProtectedRoute>
+              <Profile />
+            </ProtectedRoute>
+          )}
+        />
+        <Route
+          path="/leaderboard"
+          element={(
+            <ProtectedRoute>
+              <Leaderboard />
+            </ProtectedRoute>
+          )}
+        />
+        <Route
+          path="/help"
+          element={(
+            <ProtectedRoute>
+              <Help />
+            </ProtectedRoute>
+          )}
+        />
+        <Route
+          path="/shop"
+          element={(
+            <ProtectedRoute>
+              <Shop />
+            </ProtectedRoute>
+          )}
+        />
+        <Route
+          path="/error"
+          element={(
+            <ProtectedRoute>
+              <ErrorPage />
+            </ProtectedRoute>
+          )}
+        />
         <Route path="/verify-email" element={<VerifyEmail />} />
       </Route>
       <Route path="*" element={<Navigate to="/" />} />
