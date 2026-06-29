@@ -26,6 +26,8 @@ npm run dev
 Backend : http://localhost:5000
 Frontend : http://localhost:5173
 
+Connexion utilisateur : l'authentification accepte l'email ou le username (champ unique) avec le mot de passe.
+
 Variables backend (`backend/.env`) :
 
 ```env

@@ -12,7 +12,7 @@ function VerifyEmail() {
 
     useEffect(() => {
         const token = searchParams.get('token');
-        const next = searchParams.get('next') || '/lobby';
+        const next = searchParams.get('next') || '/';
 
         if (!token) {
             setStatus(null);

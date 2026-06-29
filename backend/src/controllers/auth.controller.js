@@ -151,8 +151,14 @@ export const register = async (req, res) => {
 // POST /api/auth/login
 export const login = async (req, res) => {
     try {
-        const { email, password } = req.body;
-        const user = await User.findByEmail(email);
+        const { identifier, email, password } = req.body;
+        const loginIdentifier = String(identifier || email || '').trim();
+
+        if (!loginIdentifier || !password) {
+            return res.status(400).json({ error: 'Email/username et mot de passe requis' });
+        }
+
+        const user = await User.findByEmailOrUsername(loginIdentifier);
         if (!user || !(await User.verifyPassword(password, user.password))) {
             return res.status(401).json({ error: 'Identifiants incorrects' });
         }

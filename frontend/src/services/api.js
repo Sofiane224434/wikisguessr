@@ -28,9 +28,9 @@ export const authService = {
         method: 'POST',
         body: JSON.stringify(userData)
     }),
-    login: (email, password) => fetchAPI('/auth/login', {
+    login: (identifier, password) => fetchAPI('/auth/login', {
         method: 'POST',
-        body: JSON.stringify({ email, password })
+        body: JSON.stringify({ identifier, password })
     }),
     getProfile: () => fetchAPI('/auth/me'),
     verifyEmail: (token) => fetchAPI(`/auth/verify-email?token=${encodeURIComponent(token)}`),

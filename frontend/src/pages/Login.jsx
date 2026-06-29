@@ -7,7 +7,7 @@ function Login() {
     const [isRegister, setIsRegister] = useState(false);
     const [isForgotPassword, setIsForgotPassword] = useState(false);
     const [username, setUsername] = useState('');
-    const [email, setEmail] = useState('');
+    const [identifier, setIdentifier] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [newPassword, setNewPassword] = useState('');
@@ -31,7 +31,7 @@ function Login() {
             ? nextFromUrl
             : fromPath && fromPath !== '/login'
                 ? fromPath
-                : '/lobby';
+                : '/';
 
     useEffect(() => {
         if (!tokenFromUrl || lastHandledTokenRef.current === tokenFromUrl) {
@@ -79,7 +79,7 @@ function Login() {
             }
 
             if (isForgotPassword) {
-                const data = await authService.forgotPassword(email);
+                const data = await authService.forgotPassword(identifier);
                 setSuccessMessage(data.message || 'Si cet email existe, un lien de reinitialisation a ete envoye.');
                 return;
             }
@@ -90,8 +90,8 @@ function Login() {
             }
 
             const data = isRegister
-                ? await authService.register({ username, email, password, confirmPassword, redirectPath: targetAfterAuth })
-                : await authService.login(email, password);
+                ? await authService.register({ username, email: identifier, password, confirmPassword, redirectPath: targetAfterAuth })
+                : await authService.login(identifier, password);
 
             if (isRegister) {
                 setIsRegister(false);
@@ -99,6 +99,7 @@ function Login() {
                 setPassword('');
                 setConfirmPassword('');
                 setUsername('');
+                setIdentifier('');
                 return;
             }
 
@@ -138,12 +139,15 @@ function Login() {
                 )}
                 {!isResetPasswordMode && (
                     <div>
-                        <label htmlFor="email">Email:</label>
+                        <label htmlFor="email">
+                            {isRegister || isForgotPassword ? 'Email:' : 'Email ou username:'}
+                        </label>
                         <input
-                            type="email"
+                            type={isRegister || isForgotPassword ? 'email' : 'text'}
                             id="email"
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
+                            value={identifier}
+                            onChange={(e) => setIdentifier(e.target.value)}
+                            placeholder={isRegister || isForgotPassword ? 'email' : 'email ou username'}
                             required
                         />
                     </div>

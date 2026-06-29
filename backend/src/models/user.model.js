@@ -16,6 +16,14 @@ const User = {
         return results[0] || null;
     },
 
+    // Trouver par email ou username (login)
+    async findByEmailOrUsername(identifier) {
+        const normalizedIdentifier = String(identifier || '').trim();
+        const sql = 'SELECT * FROM users WHERE email = ? OR username = ? LIMIT 1';
+        const results = await query(sql, [normalizedIdentifier.toLowerCase(), normalizedIdentifier]);
+        return results[0] || null;
+    },
+
     async findByVerificationToken(token) {
         const sql = `
 SELECT id, username, email, role, email_verified, email_verification_expires_at
