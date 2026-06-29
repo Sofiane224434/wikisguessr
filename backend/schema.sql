@@ -17,3 +17,19 @@ CREATE TABLE IF NOT EXISTS `users` (
 	UNIQUE KEY `uniq_users_username` (`username`),
 	UNIQUE KEY `uniq_users_email` (`email`)
 );
+
+CREATE TABLE IF NOT EXISTS `games` (
+	`id` INT NOT NULL AUTO_INCREMENT,
+	`code` VARCHAR(12) NOT NULL,
+	`title` VARCHAR(255) NOT NULL,
+	`start_article` VARCHAR(255) NOT NULL,
+	`target_article` VARCHAR(255) NOT NULL,
+	`mode` ENUM('normal','knowledge') NOT NULL DEFAULT 'normal',
+	`status` ENUM('waiting','running','finished') NOT NULL DEFAULT 'waiting',
+	`created_by` INT NOT NULL,
+	`created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+	PRIMARY KEY (`id`),
+	UNIQUE KEY `uniq_games_code` (`code`),
+	KEY `idx_games_created_by` (`created_by`),
+	CONSTRAINT `fk_games_created_by` FOREIGN KEY (`created_by`) REFERENCES `users`(`id`) ON DELETE CASCADE
+);

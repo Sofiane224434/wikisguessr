@@ -50,3 +50,11 @@ export const emailService = {
         body: JSON.stringify(payload)
     })
 }
+
+export const gameService = {
+    create: (payload) => fetchAPI('/games', {
+        method: 'POST',
+        body: JSON.stringify(payload)
+    }),
+    getMine: () => fetchAPI('/games/my')
+}
