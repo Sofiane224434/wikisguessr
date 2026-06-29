@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { gameService } from '../services/api.js';
 
 const MODE_LABELS = {
@@ -7,6 +8,7 @@ const MODE_LABELS = {
 };
 
 function Lobby() {
+    const navigate = useNavigate();
     const [mode, setMode] = useState('normal');
     const [games, setGames] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -42,6 +44,7 @@ function Lobby() {
 
             setSuccess(`Partie creee avec succes. Code: ${data.game.code}`);
             await loadGames();
+            navigate(`/game/${data.game.code}`);
         } catch (err) {
             setError(err.message || 'Impossible de creer la partie');
         } finally {

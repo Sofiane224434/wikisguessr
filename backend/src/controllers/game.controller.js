@@ -51,3 +51,18 @@ export const getMyGames = async (req, res) => {
     return res.status(500).json({ error: 'Impossible de recuperer les parties' });
   }
 };
+
+export const getGameByCode = async (req, res) => {
+  try {
+    const game = await Game.findByCode(req.params.code);
+
+    if (!game) {
+      return res.status(404).json({ error: 'Partie introuvable' });
+    }
+
+    return res.json({ game });
+  } catch (error) {
+    console.error('getGameByCode error:', error);
+    return res.status(500).json({ error: 'Impossible de recuperer la partie' });
+  }
+};

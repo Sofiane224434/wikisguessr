@@ -95,6 +95,19 @@ LIMIT 20
 `;
 
     return query(sql, [createdBy]);
+  },
+
+  async findByCode(code) {
+    await this.ensureTable();
+    const sql = `
+SELECT id, code, title, start_article, target_article, mode, status, created_by, created_at
+FROM games
+WHERE code = ?
+LIMIT 1
+`;
+
+    const results = await query(sql, [String(code || '').trim().toUpperCase()]);
+    return results[0] || null;
   }
 };
 

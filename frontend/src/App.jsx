@@ -90,6 +90,14 @@ function App() {
           )}
         />
         <Route
+          path="/game/:code"
+          element={(
+            <ProtectedRoute>
+              <Game />
+            </ProtectedRoute>
+          )}
+        />
+        <Route
           path="/admin"
           element={(
             <ProtectedRoute>
