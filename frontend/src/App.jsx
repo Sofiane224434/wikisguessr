@@ -1,5 +1,6 @@
 // App.jsx
 import { Routes, Route, Navigate } from 'react-router-dom';
+import { useAuth } from './context/Authcontext.jsx';
 import MainLayout from './layouts/MainLayout.jsx';
 import Home from './pages/Home.jsx';
 import Lobby from './pages/Lobby.jsx';
@@ -13,6 +14,24 @@ import Shop from './pages/Shop.jsx';
 import ErrorPage from './pages/Error.jsx';
 import VerifyEmail from './pages/VerifyEmail.jsx';
 
+function AdminRoute({ children }) {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return null;
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (user.role !== 'admin') {
+    return <Navigate to="/" replace />;
+  }
+
+  return children;
+}
+
 function App() {
   return (
     <Routes>
@@ -20,7 +39,14 @@ function App() {
         <Route path="/" element={<Home />} />
         <Route path="/lobby" element={<Lobby />} />
         <Route path="/game" element={<Game />} />
-        <Route path="/admin" element={<Admin />} />
+        <Route
+          path="/admin"
+          element={(
+            <AdminRoute>
+              <Admin />
+            </AdminRoute>
+          )}
+        />
         <Route path="/login" element={<Login />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/leaderboard" element={<Leaderboard />} />
