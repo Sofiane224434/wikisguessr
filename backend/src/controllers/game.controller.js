@@ -2,16 +2,26 @@ import Game from '../models/game.model.js';
 
 const parseText = (value) => String(value || '').trim();
 
+const DEFAULT_MATCHUPS = [
+  { start: 'Paris', target: 'Tour Eiffel' },
+  { start: 'Lion', target: 'Savane' },
+  { start: 'Minecraft', target: 'Mojang Studios' },
+  { start: 'Marseille', target: 'Mediterranee' },
+  { start: 'Jupiter', target: 'Galilee' }
+];
+
+const pickRandomMatchup = () => {
+  const index = Math.floor(Math.random() * DEFAULT_MATCHUPS.length);
+  return DEFAULT_MATCHUPS[index];
+};
+
 export const createGame = async (req, res) => {
   try {
-    const title = parseText(req.body.title) || `Partie de ${req.user.username}`;
-    const startArticle = parseText(req.body.startArticle);
-    const targetArticle = parseText(req.body.targetArticle);
     const mode = parseText(req.body.mode).toLowerCase() || 'normal';
-
-    if (!startArticle || !targetArticle) {
-      return res.status(400).json({ error: 'Articles de depart et cible requis' });
-    }
+    const fallbackMatchup = pickRandomMatchup();
+    const startArticle = parseText(req.body.startArticle) || fallbackMatchup.start;
+    const targetArticle = parseText(req.body.targetArticle) || fallbackMatchup.target;
+    const title = parseText(req.body.title) || `Partie ${mode} de ${req.user.username}`;
 
     if (startArticle.toLowerCase() === targetArticle.toLowerCase()) {
       return res.status(400).json({ error: 'Les articles de depart et cible doivent etre differents' });

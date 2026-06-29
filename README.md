@@ -29,7 +29,7 @@ Frontend : http://localhost:5173
 Connexion utilisateur : l'authentification accepte l'email ou le username (champ unique) avec le mot de passe.
 Quand un utilisateur est deja connecte, les pages `/` et `/login` redirigent automatiquement vers `/lobby`.
 
-Creation de partie MVP : depuis `/lobby` (utilisateur connecte), renseigner article de depart + article cible puis cliquer sur "Creer la partie". Un code de partie unique est genere.
+Creation de partie MVP : depuis `/lobby` (utilisateur connecte), choisir le mode avec un bouton puis cliquer sur "Lancer". Un code de partie unique est genere.
 
 Variables backend (`backend/.env`) :
 
