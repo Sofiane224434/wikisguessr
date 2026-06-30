@@ -1,9 +1,21 @@
 // layouts/MainLayout.jsx
-import { Outlet } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router-dom';
 import Header from '../components/layouts/Header.jsx';
 import Footer from '../components/layouts/Footer.jsx';
 import SideColumn from '../components/layouts/SideColumn.jsx';
+
 function MainLayout() {
+    const location = useLocation();
+    const isGameRoute = location.pathname === '/game';
+
+    if (isGameRoute) {
+        return (
+            <div className="min-h-screen bg-white">
+                <Outlet />
+            </div>
+        );
+    }
+
     return (
         <div className="flex min-h-screen flex-col">
             <Header />

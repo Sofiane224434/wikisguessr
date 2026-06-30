@@ -133,8 +133,8 @@ function Game() {
     }
 
     return (
-        <div className="flex h-[calc(100vh-120px)] flex-col">
-            <div className="border-b border-slate-200 bg-white px-4 py-3">
+        <div className="flex h-screen flex-col bg-white">
+            <div className="border-b border-slate-200 bg-white px-4 py-2">
                 <p className="text-sm text-slate-600">
                     Code: <strong>{game.code}</strong> | Mode: <strong>{game.mode}</strong>
                 </p>
@@ -157,7 +157,7 @@ function Game() {
                     title="Wikipedia Game Frame"
                     src={iframeSrc}
                     onLoad={handleFrameLoad}
-                    className="h-full w-full border-0"
+                    className="h-full w-full flex-1 border-0 bg-white"
                 />
             ) : null}
         </div>
