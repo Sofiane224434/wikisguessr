@@ -29,8 +29,8 @@ Frontend : http://localhost:5173
 Connexion utilisateur : l'authentification accepte l'email ou le username (champ unique) avec le mot de passe.
 Quand un utilisateur est deja connecte, les pages `/` et `/login` redirigent automatiquement vers `/lobby`.
 
-Creation de partie MVP : depuis `/lobby` (utilisateur connecte), choisir le mode avec un bouton puis cliquer sur "Lancer". Un code de partie unique est genere.
-Boucle de jeu MVP : apres lancement, le joueur arrive sur `/game/:code`, demarre sur un article Wikipedia et avance en cliquant des liens proposes jusqu'a atteindre l'article cible (chrono + clics suivis).
+Creation de partie MVP : depuis `/lobby` (utilisateur connecte), choisir le mode avec un bouton puis cliquer sur "Lancer". Un code de partie unique est genere et la partie s'ouvre sur `/game`.
+Boucle de jeu MVP : la page `/game` affiche le vrai site Wikipedia dans un iframe via un proxy backend (`/api/wiki/page`) pour garder la navigation dans la boucle et verifier l'article cible.
 
 Variables backend (`backend/.env`) :
 

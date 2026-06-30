@@ -57,5 +57,5 @@ export const gameService = {
         body: JSON.stringify(payload)
     }),
     getMine: () => fetchAPI('/games/my'),
-    getByCode: (code) => fetchAPI(`/games/${encodeURIComponent(code)}`)
+    getByCode: (code) => fetchAPI(`/games/by-code/${encodeURIComponent(code)}`)
 }

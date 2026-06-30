@@ -44,7 +44,7 @@ function Lobby() {
 
             setSuccess(`Partie creee avec succes. Code: ${data.game.code}`);
             await loadGames();
-            navigate(`/game/${data.game.code}`);
+            navigate(`/game?code=${encodeURIComponent(data.game.code)}`);
         } catch (err) {
             setError(err.message || 'Impossible de creer la partie');
         } finally {

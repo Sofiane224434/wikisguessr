@@ -24,69 +24,69 @@ CREATE TABLE IF NOT EXISTS games (
 const normalizeMode = (mode) => (GAME_MODES.has(mode) ? mode : 'normal');
 
 const generateCode = () => {
-  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  const bytes = crypto.randomBytes(6);
-  let code = '';
+    const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    const bytes = crypto.randomBytes(6);
+    let code = '';
 
-  for (let i = 0; i < bytes.length; i += 1) {
-    code += alphabet[bytes[i] % alphabet.length];
-  }
+    for (let i = 0; i < bytes.length; i += 1) {
+        code += alphabet[bytes[i] % alphabet.length];
+    }
 
-  return code;
+    return code;
 };
 
 const Game = {
-  async ensureTable() {
-    await query(CREATE_GAMES_TABLE_SQL);
-  },
+    async ensureTable() {
+        await query(CREATE_GAMES_TABLE_SQL);
+    },
 
-  async create({ title, startArticle, targetArticle, mode = 'normal', createdBy }) {
-    await this.ensureTable();
+    async create({ title, startArticle, targetArticle, mode = 'normal', createdBy }) {
+        await this.ensureTable();
 
-    const safeMode = normalizeMode(mode);
+        const safeMode = normalizeMode(mode);
 
-    for (let attempt = 0; attempt < 6; attempt += 1) {
-      const code = generateCode();
+        for (let attempt = 0; attempt < 6; attempt += 1) {
+            const code = generateCode();
 
-      try {
-        const sql = `
+            try {
+                const sql = `
 INSERT INTO games (code, title, start_article, target_article, mode, created_by)
 VALUES (?, ?, ?, ?, ?, ?)
 `;
-        const result = await query(sql, [
-          code,
-          title,
-          startArticle,
-          targetArticle,
-          safeMode,
-          createdBy
-        ]);
+                const result = await query(sql, [
+                    code,
+                    title,
+                    startArticle,
+                    targetArticle,
+                    safeMode,
+                    createdBy
+                ]);
 
-        return {
-          id: result.insertId,
-          code,
-          title,
-          start_article: startArticle,
-          target_article: targetArticle,
-          mode: safeMode,
-          status: 'waiting',
-          created_by: createdBy
-        };
-      } catch (error) {
-        if (error && error.code === 'ER_DUP_ENTRY') {
-          continue;
+                return {
+                    id: result.insertId,
+                    code,
+                    title,
+                    start_article: startArticle,
+                    target_article: targetArticle,
+                    mode: safeMode,
+                    status: 'waiting',
+                    created_by: createdBy
+                };
+            } catch (error) {
+                if (error && error.code === 'ER_DUP_ENTRY') {
+                    continue;
+                }
+
+                throw error;
+            }
         }
 
-        throw error;
-      }
-    }
+        throw new Error('Impossible de generer un code de partie unique');
+    },
 
-    throw new Error('Impossible de generer un code de partie unique');
-  },
-
-  async listByCreator(createdBy) {
-    await this.ensureTable();
-    const sql = `
+    async listByCreator(createdBy) {
+        await this.ensureTable();
+        const sql = `
 SELECT id, code, title, start_article, target_article, mode, status, created_at
 FROM games
 WHERE created_by = ?
@@ -94,21 +94,21 @@ ORDER BY created_at DESC
 LIMIT 20
 `;
 
-    return query(sql, [createdBy]);
-  },
+        return query(sql, [createdBy]);
+    },
 
-  async findByCode(code) {
-    await this.ensureTable();
-    const sql = `
+    async findByCode(code) {
+        await this.ensureTable();
+        const sql = `
 SELECT id, code, title, start_article, target_article, mode, status, created_by, created_at
 FROM games
 WHERE code = ?
 LIMIT 1
 `;
 
-    const results = await query(sql, [String(code || '').trim().toUpperCase()]);
-    return results[0] || null;
-  }
+        const results = await query(sql, [String(code || '').trim().toUpperCase()]);
+        return results[0] || null;
+    }
 };
 
 export default Game;

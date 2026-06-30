@@ -6,6 +6,6 @@ const router = Router();
 
 router.post('/', authMiddleware, createGame);
 router.get('/my', authMiddleware, getMyGames);
-router.get('/:code', authMiddleware, getGameByCode);
+router.get('/by-code/:code', authMiddleware, getGameByCode);
 
 export default router;
