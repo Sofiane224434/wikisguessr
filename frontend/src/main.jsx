@@ -18,9 +18,14 @@ i18n
     backend: {
       loadPath: '/locales/{{lng}}/translation.json',
     },
+    lng: 'fr',
     load: 'languageOnly',
     fallbackLng: 'fr',
     supportedLngs: ['fr', 'en'],
+    detection: {
+      order: ['localStorage', 'cookie'],
+      caches: ['localStorage', 'cookie'],
+    },
     interpolation: {
       escapeValue: false,
     },
