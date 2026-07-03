@@ -413,7 +413,7 @@ function Game() {
             return;
         }
 
-        fetchArticlePayload(article).catch(() => {});
+        fetchArticlePayload(article).catch(() => { });
     };
 
     const handleQuitGame = () => {
