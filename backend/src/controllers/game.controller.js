@@ -1,26 +1,106 @@
 import Game from '../models/game.model.js';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const parseText = (value) => String(value || '').trim();
 
-const DEFAULT_MATCHUPS = [
-    { start: 'Paris', target: 'Tour Eiffel' },
-    { start: 'Lion', target: 'Savane' },
-    { start: 'Minecraft', target: 'Mojang Studios' },
-    { start: 'Marseille', target: 'Mediterranee' },
-    { start: 'Jupiter', target: 'Galilee' }
-];
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const ARTICLES_FILE_PATH = path.resolve(__dirname, '../data/wiki-articles.json');
+
+const normalizeArticle = (value) => String(value || '').trim().replace(/\s+/g, ' ').toLowerCase();
+
+const loadThemePools = () => {
+    try {
+        const raw = fs.readFileSync(ARTICLES_FILE_PATH, 'utf-8');
+        const parsed = JSON.parse(raw);
+
+        if (Array.isArray(parsed)) {
+            const articles = parsed.map((item) => String(item || '').trim()).filter(Boolean);
+            return articles.length ? [{ theme: 'default', articles }] : [];
+        }
+
+        if (!parsed || typeof parsed !== 'object') {
+            return [];
+        }
+
+        return Object.entries(parsed)
+            .map(([theme, articles]) => ({
+                theme: String(theme || '').trim(),
+                articles: Array.isArray(articles)
+                    ? articles.map((item) => String(item || '').trim()).filter(Boolean)
+                    : []
+            }))
+            .filter((item) => item.theme && item.articles.length > 0);
+    } catch (error) {
+        console.error('loadThemePools error:', error);
+        return [];
+    }
+};
+
+const THEME_POOLS = loadThemePools();
+
+const pickRandomItem = (items) => items[Math.floor(Math.random() * items.length)];
 
 const pickRandomMatchup = () => {
-    const index = Math.floor(Math.random() * DEFAULT_MATCHUPS.length);
-    return DEFAULT_MATCHUPS[index];
+    const validThemes = THEME_POOLS.filter((item) => item.articles.length > 0);
+
+    if (validThemes.length < 2) {
+        const fallback = ['Couleur', 'France'];
+        return {
+            startArticle: fallback[0],
+            targetArticle: fallback[1],
+            startTheme: 'fallback',
+            targetTheme: 'fallback'
+        };
+    }
+
+    for (let attempt = 0; attempt < 30; attempt += 1) {
+        const startTheme = pickRandomItem(validThemes);
+        let targetTheme = pickRandomItem(validThemes);
+
+        while (targetTheme.theme === startTheme.theme && validThemes.length > 1) {
+            targetTheme = pickRandomItem(validThemes);
+        }
+
+        const startArticle = pickRandomItem(startTheme.articles);
+        const targetArticle = pickRandomItem(targetTheme.articles);
+
+        if (normalizeArticle(startArticle) && normalizeArticle(targetArticle) && normalizeArticle(startArticle) !== normalizeArticle(targetArticle)) {
+            return {
+                startArticle,
+                targetArticle,
+                startTheme: startTheme.theme,
+                targetTheme: targetTheme.theme
+            };
+        }
+    }
+
+    return {
+        startArticle: 'Couleur',
+        targetArticle: 'France',
+        startTheme: 'fallback',
+        targetTheme: 'fallback'
+    };
+};
+
+export const getRandomRoll = async (_req, res) => {
+    try {
+        const roll = pickRandomMatchup();
+        return res.json({ roll });
+    } catch (error) {
+        console.error('getRandomRoll error:', error);
+        return res.status(500).json({ error: 'Impossible de generer un roll' });
+    }
 };
 
 export const createGame = async (req, res) => {
     try {
         const mode = parseText(req.body.mode).toLowerCase() || 'normal';
         const fallbackMatchup = pickRandomMatchup();
-        const startArticle = parseText(req.body.startArticle) || fallbackMatchup.start;
-        const targetArticle = parseText(req.body.targetArticle) || fallbackMatchup.target;
+        const startArticle = parseText(req.body.startArticle) || fallbackMatchup.startArticle;
+        const targetArticle = parseText(req.body.targetArticle) || fallbackMatchup.targetArticle;
         const title = parseText(req.body.title) || `Partie ${mode} de ${req.user.username}`;
 
         if (startArticle.toLowerCase() === targetArticle.toLowerCase()) {

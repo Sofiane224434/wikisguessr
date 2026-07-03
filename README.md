@@ -30,7 +30,8 @@ Connexion utilisateur : l'authentification accepte l'email ou le username (champ
 Quand un utilisateur est deja connecte, les pages `/` et `/login` redirigent automatiquement vers `/lobby`.
 
 Creation de partie MVP : depuis `/lobby` (utilisateur connecte), choisir le mode avec un bouton puis cliquer sur "Lancer". Un code de partie unique est genere et la partie s'ouvre sur `/game`.
-Boucle de jeu MVP : la page `/game` affiche le vrai site Wikipedia dans un iframe via un proxy backend (`/api/wiki/page`) pour garder la navigation dans la boucle et verifier l'article cible.
+Aleatoire MVP : les articles de depart/cible sont tires aleatoirement depuis `backend/src/data/wiki-articles.json` (pages Wikipedia connues et noms communs, ex: `Couleur`, `Science`, `Internet`).
+Boucle de jeu MVP : la page `/game` recupere le contenu Wikipedia en `mobile-html` via le backend (`/api/wiki/mobile-html`) puis le rend dans l'interface sans iframe, en gardant la navigation interne dans la boucle, les images et le chronometre.
 
 Variables backend (`backend/.env`) :
 

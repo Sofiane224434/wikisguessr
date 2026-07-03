@@ -28,3 +28,120 @@
 .btn-primary { @apply bg-indigo-600 text-white hover:bg-indigo-700; }
 .form-input { @apply w-full px-4 py-2 border-2 rounded-lg; }
 }
+
+@layer components {
+  .wiki-mobile-html {
+    color: #1f2937;
+    line-height: 1.7;
+  }
+
+  .wiki-mobile-html h1,
+  .wiki-mobile-html h2,
+  .wiki-mobile-html h3,
+  .wiki-mobile-html h4,
+  .wiki-mobile-html h5,
+  .wiki-mobile-html h6 {
+    scroll-margin-top: 7rem;
+    line-height: 1.2;
+    font-weight: 700;
+  }
+
+  .wiki-mobile-html img,
+  .wiki-mobile-html video,
+  .wiki-mobile-html audio {
+    max-width: 100%;
+  }
+
+  .wiki-mobile-html img {
+    display: block;
+    height: auto;
+    margin: 0.75rem auto;
+    border-radius: 0.75rem;
+  }
+
+  .wiki-mobile-html figure {
+    margin: 1rem auto;
+    text-align: center;
+  }
+
+  .wiki-mobile-html figure figcaption,
+  .wiki-mobile-html .thumbcaption,
+  .wiki-mobile-html .infobox-caption {
+    margin-top: 0.5rem;
+    font-size: 0.875rem;
+    line-height: 1.4;
+    color: #475569;
+  }
+
+  .wiki-mobile-html table {
+    border-collapse: collapse;
+  }
+
+  .wiki-mobile-html table.infobox,
+  .wiki-mobile-html table.navbox,
+  .wiki-mobile-html table.ambox {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .wiki-mobile-html table.infobox,
+  .wiki-mobile-html table.navbox,
+  .wiki-mobile-html table.ambox,
+  .wiki-mobile-html table.wikitable {
+    margin: 1rem 0;
+    border: 1px solid #dbe4ee;
+    background: #fff;
+  }
+
+  .wiki-mobile-html th,
+  .wiki-mobile-html td {
+    border: 1px solid #dbe4ee;
+    padding: 0.5rem 0.65rem;
+    vertical-align: top;
+  }
+
+  .wiki-mobile-html .wiki-collapse-unwrapped {
+    margin: 0 0 1rem;
+  }
+
+  .wiki-mobile-html .pcs-collapse-table-container {
+    margin: 0 0 1rem;
+  }
+
+  .wiki-mobile-html .pcs-collapse-table-collapsed-container,
+  .wiki-mobile-html .pcs-collapse-table-collapse-text,
+  .wiki-mobile-html .pcs-collapse-table-aria,
+  .wiki-mobile-html .pcs-edit-section-header,
+  .wiki-mobile-html .pcs-header-inner-left,
+  .wiki-mobile-html .pcs-header-inner-right {
+    display: none !important;
+  }
+
+  .wiki-mobile-html a {
+    color: #0f766e;
+    text-decoration: underline;
+    text-underline-offset: 0.15em;
+  }
+
+  .wiki-mobile-html audio,
+  .wiki-mobile-html video {
+    width: 100%;
+    margin: 0.75rem 0;
+  }
+
+  .wiki-mobile-html p,
+  .wiki-mobile-html ul,
+  .wiki-mobile-html ol,
+  .wiki-mobile-html blockquote,
+  .wiki-mobile-html table,
+  .wiki-mobile-html figure {
+    margin-bottom: 1rem;
+  }
+
+  .wiki-mobile-html .reference,
+  .wiki-mobile-html .mw-editsection,
+  .wiki-mobile-html .navbox,
+  .wiki-mobile-html .vertical-navbox {
+    font-size: 0.875rem;
+  }
+}

@@ -10,22 +10,12 @@ const MODE_LABELS = {
 function Lobby() {
     const navigate = useNavigate();
     const [mode, setMode] = useState('normal');
-    const [games, setGames] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [success, setSuccess] = useState(null);
 
-    const loadGames = async () => {
-        try {
-            const data = await gameService.getMine();
-            setGames(data.games || []);
-        } catch {
-            setGames([]);
-        }
-    };
-
     useEffect(() => {
-        loadGames();
+        // Rien à charger ici: le lobby sert seulement à démarrer une nouvelle partie.
     }, []);
 
     const toggleMode = () => {
@@ -43,7 +33,6 @@ function Lobby() {
             });
 
             setSuccess(`Partie creee avec succes. Code: ${data.game.code}`);
-            await loadGames();
             navigate(`/game?code=${encodeURIComponent(data.game.code)}`);
         } catch (err) {
             setError(err.message || 'Impossible de creer la partie');
@@ -78,24 +67,6 @@ function Lobby() {
 
                 {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
                 {success && <p className="mt-3 text-sm text-emerald-700">{success}</p>}
-            </div>
-
-            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-                <h2 className="mb-4 text-xl font-semibold text-slate-900">Mes parties recentes</h2>
-                {games.length === 0 ? (
-                    <p className="text-sm text-slate-600">Aucune partie creee pour le moment.</p>
-                ) : (
-                    <ul className="space-y-3">
-                        {games.map((game) => (
-                            <li key={game.id} className="rounded-lg border border-slate-200 p-3">
-                                <p className="font-semibold text-slate-900">{game.title}</p>
-                                <p className="text-sm text-slate-600">
-                                    Code: {game.code} | {game.start_article} {'->'} {game.target_article} | Mode: {game.mode}
-                                </p>
-                            </li>
-                        ))}
-                    </ul>
-                )}
             </div>
         </div>
     );
