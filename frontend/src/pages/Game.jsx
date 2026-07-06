@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { gameService } from '../services/api.js';
 
@@ -8,9 +8,60 @@ const normalizeArticle = (value) =>
         .trim()
         .toLowerCase();
 
+const isLikelyPlayableWikiTitle = (value) => {
+    const title = String(value || '').trim();
+    if (!title) {
+        return false;
+    }
+
+    // Exclut les IDs Wikidata et chemins externes typiques non-articles.
+    if (/^Q\d+$/i.test(title)) {
+        return false;
+    }
+
+    if (/\.php($|\?)/i.test(title) || /\//.test(title)) {
+        return false;
+    }
+
+    return true;
+};
+
+const TIMER_STORAGE_PREFIX = 'wikisguessr:game:start:';
+
+const toTimerStorageKey = (code) => `${TIMER_STORAGE_PREFIX}${String(code || '').trim().toUpperCase()}`;
+
+const readPersistedStartAt = (code) => {
+    try {
+        const key = toTimerStorageKey(code);
+        const raw = localStorage.getItem(key);
+        const value = Number(raw);
+        if (Number.isFinite(value) && value > 0) {
+            return value;
+        }
+    } catch {
+        return null;
+    }
+
+    return null;
+};
+
+const persistStartAt = (code, timestamp) => {
+    try {
+        if (!code || !timestamp) {
+            return;
+        }
+
+        localStorage.setItem(toTimerStorageKey(code), String(timestamp));
+    } catch {
+        // Ignore storage errors (private mode, quota exceeded, etc.).
+    }
+};
+
 const extractTitleFromHref = (href) => {
     try {
         const url = new URL(href, window.location.origin);
+        const isLocalHost = url.hostname === window.location.hostname;
+        const isFrWiki = url.hostname === 'fr.wikipedia.org';
 
         if (url.pathname === '/api/wiki/mobile-html') {
             const title = url.searchParams.get('title');
@@ -19,23 +70,20 @@ const extractTitleFromHref = (href) => {
             }
         }
 
-        if (url.hostname === 'fr.wikipedia.org' && url.pathname.startsWith('/wiki/')) {
+        if (isFrWiki && url.pathname.startsWith('/wiki/')) {
             return decodeURIComponent(url.pathname.slice('/wiki/'.length)).replace(/_/g, ' ').trim();
         }
 
-        if (url.hostname === 'fr.wikipedia.org' && url.pathname === '/w/index.php') {
+        if (isFrWiki && url.pathname === '/w/index.php') {
             const title = url.searchParams.get('title');
             if (title) {
                 return decodeURIComponent(title).replace(/_/g, ' ').trim();
             }
         }
 
-        if (url.pathname.startsWith('/wiki/')) {
+        // Accepte les chemins /wiki/... seulement s'ils sont locaux (liens relatifs restants).
+        if (isLocalHost && url.pathname.startsWith('/wiki/')) {
             return decodeURIComponent(url.pathname.slice('/wiki/'.length)).replace(/_/g, ' ').trim();
-        }
-
-        if (url.pathname && url.pathname !== '/' && !url.pathname.startsWith('/api/') && !/\.(?:css|js|json|png|jpg|jpeg|gif|svg|webp|ico|pdf)$/i.test(url.pathname)) {
-            return decodeURIComponent(url.pathname.replace(/^\/+/, '')).replace(/_/g, ' ').trim();
         }
     } catch {
         return '';
@@ -197,6 +245,27 @@ const extractRenderableHtml = (rawHtml) => {
             media.setAttribute('preload', media.getAttribute('preload') || 'metadata');
         });
 
+        // Neutralise tous les liens qui ne pointent pas vers un article jouable.
+        articleRoot.querySelectorAll('a').forEach((anchor) => {
+            const href = anchor.getAttribute('href') || anchor.href || '';
+
+            if (!href || href.startsWith('#')) {
+                return;
+            }
+
+            const title = extractTitleFromHref(href);
+            if (isLikelyPlayableWikiTitle(title)) {
+                return;
+            }
+
+            const span = doc.createElement('span');
+            while (anchor.firstChild) {
+                span.appendChild(anchor.firstChild);
+            }
+
+            anchor.replaceWith(span);
+        });
+
         const bodyHtml = articleRoot.innerHTML?.trim();
 
         if (bodyHtml) {
@@ -219,7 +288,7 @@ function Game() {
     const lastArticleRef = useRef('');
 
     const [game, setGame] = useState(null);
-    const [loadingGame, setLoadingGame] = useState(Boolean(searchParams.get('code')));
+    const [loadingGame, setLoadingGame] = useState(Boolean(searchParams.get('code') || searchParams.get('previewTitle')));
     const [loadingArticle, setLoadingArticle] = useState(false);
     const [error, setError] = useState(null);
     const [currentArticle, setCurrentArticle] = useState('');
@@ -231,10 +300,12 @@ function Game() {
     const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
     const gameCode = searchParams.get('code');
+    const previewTitle = searchParams.get('previewTitle');
+    const isPreviewMode = !gameCode && Boolean(previewTitle);
 
-    const fetchArticlePayload = async (title) => {
+    const fetchArticlePayload = useCallback(async (title) => {
         const normalizedTitle = String(title || '').trim();
-        if (!normalizedTitle) {
+        if (!isLikelyPlayableWikiTitle(normalizedTitle)) {
             throw new Error('Titre Wikipedia manquant');
         }
 
@@ -258,9 +329,9 @@ function Game() {
         }
 
         return articleCacheRef.current.get(normalizedTitle);
-    };
+    }, []);
 
-    const loadArticle = async (title, targetArticle, isInitial = false, options = {}) => {
+    const loadArticle = useCallback(async (title, targetArticle, isInitial = false, options = {}) => {
         const { fromHistory = false } = options;
         const requestId = ++requestIdRef.current;
         setLoadingArticle(true);
@@ -278,14 +349,22 @@ function Game() {
             setHtml(extractRenderableHtml(data.html || ''));
             setCurrentArticle(resolvedArticle);
 
+            if (contentRef.current) {
+                contentRef.current.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+            }
+
             if (isInitial) {
                 setClicks(0);
                 setWon(false);
-                setElapsedSeconds(0);
                 setArticleHistory([resolvedArticle]);
-                const startTime = Date.now();
+
+                const persistedStart = readPersistedStartAt(gameCode);
+                const startTime = persistedStart || Date.now();
                 startedAtRef.current = startTime;
                 setStartedAt(startTime);
+
+                setElapsedSeconds(Math.max(0, Math.floor((Date.now() - startTime) / 1000)));
+                persistStartAt(gameCode, startTime);
             } else {
                 if (lastArticleRef.current && normalizeArticle(lastArticleRef.current) !== normalizeArticle(resolvedArticle)) {
                     if (!fromHistory) {
@@ -297,6 +376,7 @@ function Game() {
                     const startTime = Date.now();
                     startedAtRef.current = startTime;
                     setStartedAt(startTime);
+                    persistStartAt(gameCode, startTime);
                 }
 
                 if (!fromHistory) {
@@ -329,7 +409,7 @@ function Game() {
                 setLoadingArticle(false);
             }
         }
-    };
+    }, [fetchArticlePayload, gameCode]);
 
     useEffect(() => {
         if (!gameCode) {
@@ -348,7 +428,35 @@ function Game() {
             .finally(() => {
                 setLoadingGame(false);
             });
-    }, [gameCode]);
+    }, [gameCode, loadArticle]);
+
+    useEffect(() => {
+        if (gameCode || !previewTitle) {
+            return;
+        }
+
+        const initialTitle = decodeURIComponent(String(previewTitle || '')).replace(/_/g, ' ').trim();
+        if (!isLikelyPlayableWikiTitle(initialTitle)) {
+            setError('Titre de previsualisation invalide');
+            setLoadingGame(false);
+            return;
+        }
+
+        const previewGame = {
+            mode: 'Apercu',
+            start_article: initialTitle,
+            target_article: initialTitle
+        };
+
+        setGame(previewGame);
+        loadArticle(initialTitle, initialTitle, true)
+            .catch((err) => {
+                setError(err.message || 'Impossible de charger la previsualisation');
+            })
+            .finally(() => {
+                setLoadingGame(false);
+            });
+    }, [gameCode, previewTitle, loadArticle]);
 
     useEffect(() => {
         if (!startedAt || won) {
@@ -373,10 +481,11 @@ function Game() {
 
         const href = anchor.getAttribute('href') || anchor.href || '';
         const article = extractTitleFromHref(href);
-        if (!article || !game?.target_article) {
+        if (!article) {
             return;
         }
-        loadArticle(article, game.target_article, false);
+
+        loadArticle(article, game?.target_article || '', false);
     };
 
     useEffect(() => {
@@ -417,28 +526,28 @@ function Game() {
     };
 
     const handleQuitGame = () => {
-        navigate('/lobby');
+        navigate(isPreviewMode ? '/admin/articles' : '/lobby');
     };
 
     const handleGoBack = async () => {
-        if (!game?.target_article || articleHistory.length < 2 || loadingArticle) {
+        if (articleHistory.length < 2 || loadingArticle) {
             return;
         }
 
         const previousArticle = articleHistory[articleHistory.length - 2];
         setArticleHistory((previous) => previous.slice(0, -1));
         setClicks((previous) => Math.max(0, previous - 1));
-        await loadArticle(previousArticle, game.target_article, false, { fromHistory: true });
+        await loadArticle(previousArticle, game?.target_article || '', false, { fromHistory: true });
     };
 
     if (loadingGame) {
         return <div className="p-6 text-slate-700">Chargement de la partie...</div>;
     }
 
-    if (!gameCode) {
+    if (!gameCode && !isPreviewMode) {
         return (
             <div className="p-6">
-                <p className="text-red-600">Code de partie manquant</p>
+                <p className="text-red-600">Code de partie ou titre de previsualisation manquant</p>
                 <button
                     type="button"
                     className="mt-4 rounded-lg bg-slate-900 px-4 py-2 text-white"
@@ -467,45 +576,62 @@ function Game() {
 
     const minutes = String(Math.floor(elapsedSeconds / 60)).padStart(2, '0');
     const seconds = String(elapsedSeconds % 60).padStart(2, '0');
+    const isOnStartArticle = normalizeArticle(currentArticle) === normalizeArticle(game.start_article);
+    const currentArticleLabel = isOnStartArticle ? 'Depart' : (currentArticle || '...');
 
     return (
         <div className="flex h-screen flex-col bg-slate-50 text-slate-900">
             <div className="border-b border-slate-200/80 bg-white/85 px-3 py-2 backdrop-blur">
-                <div className="mx-auto flex max-w-6xl flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
-                    <div className="flex flex-wrap items-center gap-2 text-[11px] uppercase tracking-[0.22em] text-slate-500">
+                <div className="mx-auto grid max-w-6xl grid-cols-1 gap-2 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+                    <div className="flex min-w-0 items-center gap-2 overflow-hidden text-[11px] uppercase tracking-[0.22em] text-slate-500">
                         <span className="rounded-full bg-slate-900 px-2.5 py-1 font-semibold text-white">{game.mode}</span>
-                        <span className="rounded-full border border-cyan-200 bg-cyan-50 px-2.5 py-1 text-cyan-800">
-                            Départ: <strong className="font-semibold text-cyan-950">{game.start_article}</strong>
+                        <span className="inline-flex min-w-0 items-center gap-1 rounded-full border border-cyan-200 bg-cyan-50 px-2.5 py-1 text-cyan-800">
+                            Départ:
+                            <strong className="max-w-40 truncate font-semibold normal-case text-cyan-950 md:max-w-56 lg:max-w-64" title={game.start_article}>{game.start_article}</strong>
                         </span>
-                        <span className="rounded-full border border-fuchsia-200 bg-fuchsia-50 px-2.5 py-1 text-fuchsia-800">
-                            Cible: <strong className="font-semibold text-fuchsia-950">{game.target_article}</strong>
+                        <span className="inline-flex min-w-0 items-center gap-1 rounded-full border border-fuchsia-200 bg-fuchsia-50 px-2.5 py-1 text-fuchsia-800">
+                            Cible:
+                            <strong className="max-w-36 truncate font-semibold normal-case text-fuchsia-950 md:max-w-52 lg:max-w-60" title={game.target_article}>{game.target_article}</strong>
                         </span>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-2 text-[11px] uppercase tracking-[0.22em] text-slate-500">
-                        <span className="rounded-full border border-slate-200 bg-white px-2.5 py-1">
-                            Article: <strong className="font-semibold text-slate-900 normal-case">{currentArticle || '...'}</strong>
+                    <div className="flex min-w-0 items-center justify-start gap-2 overflow-hidden text-[11px] uppercase tracking-[0.22em] text-slate-500 lg:justify-end">
+                        <span className="inline-flex min-w-0 items-center gap-1 rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-blue-800">
+                            Article:
+                            <strong className="max-w-32 truncate font-semibold normal-case text-blue-950 md:max-w-48 lg:max-w-56" title={currentArticle || '...'}>{currentArticleLabel}</strong>
                         </span>
-                        <span className="rounded-full border border-slate-200 bg-white px-2.5 py-1">
-                            Clics: <strong className="font-semibold text-slate-900">{clicks}</strong>
+                        <span className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-amber-800">
+                            Clics: <strong className="font-semibold text-amber-950">{clicks}</strong>
                         </span>
-                        <span className="rounded-full border border-slate-200 bg-white px-2.5 py-1">
-                            Temps: <strong className="font-semibold text-slate-900">{minutes}:{seconds}</strong>
+                        <span className="rounded-full border border-violet-200 bg-violet-50 px-2.5 py-1 text-violet-800">
+                            Temps: <strong className="font-semibold text-violet-950">{minutes}:{seconds}</strong>
                         </span>
                         <button
                             type="button"
                             onClick={handleGoBack}
                             disabled={articleHistory.length < 2 || loadingArticle}
-                            className="rounded-full border border-slate-200 bg-white px-3 py-1 font-semibold text-slate-700 transition enabled:hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
+                            aria-label="Retour à l'article précédent"
+                            title="Retour"
+                            className="h-8 w-8 shrink-0 rounded-md border border-slate-200 bg-white text-slate-700 transition enabled:hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
+                            style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: 0, lineHeight: 1 }}
                         >
-                            Retour
+                            <svg viewBox="0 0 24 24" aria-hidden="true" className="block h-4 w-4" style={{ display: 'block' }}>
+                                <path d="M15 18l-6-6 6-6" fill="none" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
                         </button>
                         <button
                             type="button"
                             onClick={handleQuitGame}
-                            className="rounded-full border border-rose-200 bg-rose-50 px-3 py-1 font-semibold text-rose-700 transition hover:bg-rose-100 hover:text-rose-800"
+                            aria-label="Quitter la partie"
+                            title="Quitter"
+                            className="h-8 w-8 shrink-0 rounded-md border border-rose-200 bg-rose-50 text-rose-700 transition hover:bg-rose-100 hover:text-rose-800"
+                            style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: 0, lineHeight: 1 }}
                         >
-                            Quitter
+                            <svg viewBox="0 0 24 24" aria-hidden="true" className="block h-4 w-4" style={{ display: 'block' }}>
+                                <path d="M7 3h10a1 1 0 011 1v16a1 1 0 01-1 1H7a1 1 0 01-1-1V4a1 1 0 011-1z" fill="none" stroke="currentColor" strokeWidth="1.8" />
+                                <path d="M10 3v18" fill="none" stroke="currentColor" strokeWidth="1.8" />
+                                <circle cx="13.5" cy="12" r="1" fill="currentColor" />
+                            </svg>
                         </button>
                     </div>
                 </div>

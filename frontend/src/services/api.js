@@ -60,3 +60,46 @@ export const gameService = {
     getMine: () => fetchAPI('/games/my'),
     getByCode: (code) => fetchAPI(`/games/by-code/${encodeURIComponent(code)}`)
 }
+
+export const wikiService = {
+    getArticles: () => fetchAPI('/wiki/articles'),
+    addArticle: (payload) => fetchAPI('/wiki/articles', {
+        method: 'POST',
+        body: JSON.stringify(payload)
+    }),
+    validateArticles: (payload) => fetchAPI('/wiki/articles/validate', {
+        method: 'POST',
+        body: JSON.stringify(payload)
+    }),
+    validateArticlesStream: (payload) => {
+        const token = localStorage.getItem('token');
+        const headers = {
+            'Content-Type': 'application/json',
+            ...(token && { Authorization: `Bearer ${token}` })
+        };
+
+        return fetch(`${API_URL}/wiki/articles/validate-stream`, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(payload)
+        });
+    },
+    updateArticle: (articleId, payload) => fetchAPI(`/wiki/articles/${encodeURIComponent(articleId)}`, {
+        method: 'PUT',
+        body: JSON.stringify(payload)
+    }),
+    getDisambiguationPending: () => fetchAPI('/wiki/articles/disambiguation-pending'),
+    resolveDisambiguation: (articleId, payload) => fetchAPI(`/wiki/articles/${encodeURIComponent(articleId)}/resolve-disambiguation`, {
+        method: 'POST',
+        body: JSON.stringify(payload)
+    }),
+    rejectDisambiguation: (articleId) => fetchAPI(`/wiki/articles/${encodeURIComponent(articleId)}/reject-disambiguation`, {
+        method: 'POST'
+    }),
+    unrejectDisambiguation: (articleId) => fetchAPI(`/wiki/articles/${encodeURIComponent(articleId)}/unreject-disambiguation`, {
+        method: 'POST'
+    }),
+    deleteArticle: (articleId) => fetchAPI(`/wiki/articles/${encodeURIComponent(articleId)}`, {
+        method: 'DELETE'
+    })
+}

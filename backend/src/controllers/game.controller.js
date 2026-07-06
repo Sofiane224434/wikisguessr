@@ -8,16 +8,61 @@ const parseText = (value) => String(value || '').trim();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const ARTICLES_FILE_PATH = path.resolve(__dirname, '../data/wiki-articles.json');
+const DISAMBIGUATION_FILE_PATH = path.resolve(__dirname, '../data/wiki-disambiguation-pending.json');
+
+const toDatasetKey = (theme, name) => `${String(theme || '').trim().toLowerCase()}::${String(name || '').trim().toLowerCase()}`;
 
 const normalizeArticle = (value) => String(value || '').trim().replace(/\s+/g, ' ').toLowerCase();
 
+const isLikelyPlayableWikiTitle = (value) => {
+    const title = String(value || '').trim();
+    if (!title) {
+        return false;
+    }
+
+    if (/^Q\d+$/i.test(title)) {
+        return false;
+    }
+
+    if (/\.php($|\?)/i.test(title) || /\//.test(title)) {
+        return false;
+    }
+
+    return true;
+};
+
+const loadPendingDisambiguationKeys = () => {
+    try {
+        if (!fs.existsSync(DISAMBIGUATION_FILE_PATH)) {
+            return new Set();
+        }
+
+        const raw = fs.readFileSync(DISAMBIGUATION_FILE_PATH, 'utf-8');
+        const sanitized = raw.charCodeAt(0) === 0xFEFF ? raw.slice(1) : raw;
+        const parsed = JSON.parse(sanitized);
+        const pending = parsed?.pending && typeof parsed.pending === 'object' ? parsed.pending : {};
+
+        const keys = Object.values(pending)
+            .map((entry) => toDatasetKey(entry?.theme, entry?.name))
+            .filter(Boolean);
+
+        return new Set(keys);
+    } catch {
+        return new Set();
+    }
+};
+
 const loadThemePools = () => {
     try {
+        const pendingKeys = loadPendingDisambiguationKeys();
         const raw = fs.readFileSync(ARTICLES_FILE_PATH, 'utf-8');
-        const parsed = JSON.parse(raw);
+        const sanitized = raw.charCodeAt(0) === 0xFEFF ? raw.slice(1) : raw;
+        const parsed = JSON.parse(sanitized);
 
         if (Array.isArray(parsed)) {
-            const articles = parsed.map((item) => String(item || '').trim()).filter(Boolean);
+            const articles = parsed
+                .map((item) => String(item || '').trim())
+                .filter((item) => isLikelyPlayableWikiTitle(item));
             return articles.length ? [{ theme: 'default', articles }] : [];
         }
 
@@ -29,7 +74,10 @@ const loadThemePools = () => {
             .map(([theme, articles]) => ({
                 theme: String(theme || '').trim(),
                 articles: Array.isArray(articles)
-                    ? articles.map((item) => String(item || '').trim()).filter(Boolean)
+                    ? articles
+                        .map((item) => String(item || '').trim())
+                        .filter((item) => isLikelyPlayableWikiTitle(item))
+                        .filter((item) => !pendingKeys.has(toDatasetKey(theme, item)))
                     : []
             }))
             .filter((item) => item.theme && item.articles.length > 0);
@@ -39,12 +87,11 @@ const loadThemePools = () => {
     }
 };
 
-const THEME_POOLS = loadThemePools();
-
 const pickRandomItem = (items) => items[Math.floor(Math.random() * items.length)];
 
 const pickRandomMatchup = () => {
-    const validThemes = THEME_POOLS.filter((item) => item.articles.length > 0);
+    const themePools = loadThemePools();
+    const validThemes = themePools.filter((item) => item.articles.length > 0);
 
     if (validThemes.length < 2) {
         const fallback = ['Couleur', 'France'];

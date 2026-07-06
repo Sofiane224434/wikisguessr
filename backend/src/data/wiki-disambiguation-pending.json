@@ -1,0 +1,137 @@
+{
+  "pending": {},
+  "refused": {
+    "tissu": {
+      "name": "Tissu",
+      "articleId": "Mati%C3%A8res::Tissu",
+      "theme": "Matières",
+      "updatedAt": "2026-07-06T21:08:16.968Z"
+    },
+    "the office": {
+      "name": "The Office",
+      "articleId": "S%C3%A9ries%20t%C3%A9l%C3%A9vis%C3%A9es%20populaires::The%20Office",
+      "theme": "Séries télévisées populaires",
+      "updatedAt": "2026-07-06T21:08:29.236Z"
+    },
+    "the witcher": {
+      "name": "The Witcher",
+      "articleId": "S%C3%A9ries%20t%C3%A9l%C3%A9vis%C3%A9es%20populaires::The%20Witcher",
+      "theme": "Séries télévisées populaires",
+      "updatedAt": "2026-07-06T21:08:37.700Z"
+    },
+    "aigle": {
+      "name": "Aigle",
+      "articleId": "Animaux%20sauvages::Aigle",
+      "theme": "Animaux sauvages",
+      "updatedAt": "2026-07-06T21:11:31.224Z"
+    },
+    "cahier": {
+      "name": "Cahier",
+      "articleId": "Objets%20du%20quotidien::Cahier",
+      "theme": "Objets du quotidien",
+      "updatedAt": "2026-07-06T21:12:32.120Z"
+    },
+    "caoutchouc": {
+      "name": "Caoutchouc",
+      "articleId": "Mati%C3%A8res::Caoutchouc",
+      "theme": "Matières",
+      "updatedAt": "2026-07-06T21:12:37.189Z"
+    },
+    "cellule": {
+      "name": "Cellule",
+      "articleId": "Concepts%20scientifiques::Cellule",
+      "theme": "Concepts scientifiques",
+      "updatedAt": "2026-07-06T21:12:57.333Z"
+    },
+    "lapin": {
+      "name": "Lapin",
+      "articleId": "Animaux%20domestiques::Lapin",
+      "theme": "Animaux domestiques",
+      "updatedAt": "2026-07-06T21:14:10.798Z"
+    },
+    "magenta": {
+      "name": "Magenta",
+      "articleId": "Couleurs::Magenta",
+      "theme": "Couleurs",
+      "updatedAt": "2026-07-06T21:14:58.918Z"
+    },
+    "turquoise": {
+      "name": "Turquoise",
+      "articleId": "Couleurs::Turquoise",
+      "theme": "Couleurs",
+      "updatedAt": "2026-07-06T21:18:11.257Z"
+    },
+    "serviette": {
+      "name": "Serviette",
+      "articleId": "Objets%20du%20quotidien::Serviette",
+      "theme": "Objets du quotidien",
+      "updatedAt": "2026-07-06T21:19:17.392Z"
+    },
+    "rose": {
+      "name": "Rose",
+      "articleId": "Couleurs::Rose",
+      "theme": "Couleurs",
+      "updatedAt": "2026-07-06T21:19:54.788Z"
+    },
+    "orange": {
+      "name": "Orange",
+      "articleId": "Couleurs::Orange",
+      "theme": "Couleurs",
+      "updatedAt": "2026-07-06T21:22:20.696Z"
+    },
+    "perroquet": {
+      "name": "Perroquet",
+      "articleId": "Animaux%20domestiques::Perroquet",
+      "theme": "Animaux domestiques",
+      "updatedAt": "2026-07-06T21:22:35.804Z"
+    },
+    "ail": {
+      "name": "Ail",
+      "articleId": "L%C3%A9gumes::Ail",
+      "theme": "Légumes",
+      "updatedAt": "2026-07-06T21:25:07.256Z"
+    },
+    "anguille": {
+      "name": "Anguille",
+      "articleId": "Poissons::Anguille",
+      "theme": "Poissons",
+      "updatedAt": "2026-07-06T21:26:59.487Z"
+    },
+    "bae": {
+      "name": "Bae",
+      "articleId": "Gen-Z%20expressions::Bae",
+      "theme": "Gen-Z expressions",
+      "updatedAt": "2026-07-06T21:27:33.623Z"
+    },
+    "mérou": {
+      "name": "Mérou",
+      "articleId": "Poissons::M%C3%A9rou",
+      "theme": "Poissons",
+      "updatedAt": "2026-07-06T21:34:01.152Z"
+    },
+    "thon": {
+      "name": "Thon",
+      "articleId": "Poissons::Thon",
+      "theme": "Poissons",
+      "updatedAt": "2026-07-06T21:37:22.500Z"
+    },
+    "saumon": {
+      "name": "Saumon",
+      "articleId": "Poissons::Saumon",
+      "theme": "Poissons",
+      "updatedAt": "2026-07-06T21:37:53.443Z"
+    },
+    "maquereau": {
+      "name": "Maquereau",
+      "articleId": "Poissons::Maquereau",
+      "theme": "Poissons",
+      "updatedAt": "2026-07-06T21:38:20.664Z"
+    },
+    "flétan": {
+      "name": "Flétan",
+      "articleId": "Poissons::Fl%C3%A9tan",
+      "theme": "Poissons",
+      "updatedAt": "2026-07-06T21:41:35.926Z"
+    }
+  }
+}

@@ -6,6 +6,7 @@ import Home from './pages/Home.jsx';
 import Lobby from './pages/Lobby.jsx';
 import Game from './pages/Game.jsx';
 import Admin from './pages/Admin.jsx';
+import AdminArticles from './pages/AdminArticles.jsx';
 import Login from './pages/Login.jsx';
 import Profile from './pages/Profile.jsx';
 import Leaderboard from './pages/Leaderboard.jsx';
@@ -95,6 +96,16 @@ function App() {
             <ProtectedRoute>
               <AdminRoute>
                 <Admin />
+              </AdminRoute>
+            </ProtectedRoute>
+          )}
+        />
+        <Route
+          path="/admin/articles"
+          element={(
+            <ProtectedRoute>
+              <AdminRoute>
+                <AdminArticles />
               </AdminRoute>
             </ProtectedRoute>
           )}

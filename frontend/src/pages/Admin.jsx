@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { gameService } from '../services/api.js';
 
 function Admin() {
+    const navigate = useNavigate();
     const [roll, setRoll] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -35,13 +37,22 @@ function Admin() {
                     </p>
                 </div>
 
-                <button
-                    type="button"
-                    onClick={loadRoll}
-                    className="rounded-full bg-cyan-400 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300"
-                >
-                    Nouveau roll
-                </button>
+                <div className="flex flex-wrap items-center gap-3">
+                    <button
+                        type="button"
+                        onClick={loadRoll}
+                        className="rounded-full bg-cyan-400 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300"
+                    >
+                        Nouveau roll
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => navigate('/admin/articles')}
+                        className="rounded-full border border-slate-700 bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
+                    >
+                        Voir tous les articles
+                    </button>
+                </div>
 
                 {loading && <p className="text-slate-300">Chargement du roll...</p>}
                 {error && <p className="text-red-300">{error}</p>}
