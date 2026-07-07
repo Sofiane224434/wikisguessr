@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS `users` (
 	`email_verification_expires_at` DATETIME DEFAULT NULL,
 	`password_reset_token` VARCHAR(255) DEFAULT NULL,
 	`password_reset_expires_at` DATETIME DEFAULT NULL,
-	`role` ENUM('user','admin') NOT NULL DEFAULT 'user',
+	`role` ENUM('user','moderator','admin') NOT NULL DEFAULT 'user',
 	`password` VARCHAR(255) NOT NULL,
 	`created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 	PRIMARY KEY (`id`),

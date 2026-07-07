@@ -297,3 +297,21 @@ export const resetPassword = async (req, res) => {
 export const getProfile = async (req, res) => {
     res.json({ user: req.user });
 };
+
+// GET /api/auth/users (admin)
+export const getUsers = async (req, res) => {
+    try {
+        if (!req.user || req.user.role !== 'admin') {
+            return res.status(403).json({ error: 'Acces admin requis' });
+        }
+
+        const users = await User.listForAdmin();
+        return res.json({
+            total: users.length,
+            users
+        });
+    } catch (error) {
+        console.error('getUsers error:', error);
+        return res.status(500).json({ error: 'Impossible de recuperer les joueurs' });
+    }
+};

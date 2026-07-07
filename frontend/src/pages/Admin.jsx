@@ -1,29 +1,35 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { gameService } from '../services/api.js';
+import { authService, gameService } from '../services/api.js';
 
 function Admin() {
     const navigate = useNavigate();
     const [roll, setRoll] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [players, setPlayers] = useState([]);
 
-    const loadRoll = async () => {
+    const loadAdminData = async () => {
         setLoading(true);
         setError(null);
 
         try {
-            const data = await gameService.getRandomRoll();
-            setRoll(data.roll);
+            const [rollData, usersData] = await Promise.all([
+                gameService.getRandomRoll(),
+                authService.getUsers()
+            ]);
+
+            setRoll(rollData.roll);
+            setPlayers(Array.isArray(usersData.users) ? usersData.users : []);
         } catch (err) {
-            setError(err.message || 'Impossible de charger le roll');
+            setError(err.message || 'Impossible de charger les donnees admin');
         } finally {
             setLoading(false);
         }
     };
 
     useEffect(() => {
-        loadRoll();
+        loadAdminData();
     }, []);
 
     return (
@@ -40,10 +46,10 @@ function Admin() {
                 <div className="flex flex-wrap items-center gap-3">
                     <button
                         type="button"
-                        onClick={loadRoll}
+                        onClick={loadAdminData}
                         className="rounded-full bg-cyan-400 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300"
                     >
-                        Nouveau roll
+                        Rafraichir
                     </button>
                     <button
                         type="button"
@@ -69,6 +75,40 @@ function Admin() {
                             <p className="text-xs uppercase tracking-[0.3em] text-slate-400">Cible</p>
                             <p className="mt-3 text-3xl font-bold text-fuchsia-300">{roll.targetArticle}</p>
                             <p className="mt-3 text-sm text-slate-400">Thème: {roll.targetTheme}</p>
+                        </div>
+                    </div>
+                )}
+
+                {!loading && players.length > 0 && (
+                    <div className="rounded-3xl border border-slate-800 bg-slate-900 p-5 shadow-2xl shadow-slate-950/30">
+                        <div className="mb-3 flex items-center justify-between">
+                            <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Joueurs</p>
+                            <p className="text-xs text-slate-400">{players.length} comptes</p>
+                        </div>
+
+                        <div className="max-h-80 overflow-auto rounded-xl border border-slate-800">
+                            <table className="w-full border-collapse text-sm">
+                                <thead className="sticky top-0 bg-slate-950/95 text-left text-slate-300">
+                                    <tr>
+                                        <th className="px-3 py-2 font-semibold">Pseudo</th>
+                                        <th className="px-3 py-2 font-semibold">Email</th>
+                                        <th className="px-3 py-2 font-semibold">Role</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {players.map((player) => (
+                                        <tr key={player.id} className="border-t border-slate-800/80 text-slate-200">
+                                            <td className="px-3 py-2">{player.username}</td>
+                                            <td className="px-3 py-2 text-slate-300">{player.email}</td>
+                                            <td className="px-3 py-2">
+                                                <span className="rounded-full border border-slate-700 bg-slate-950 px-2 py-0.5 text-xs uppercase tracking-[0.08em] text-cyan-300">
+                                                    {player.role}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 )}

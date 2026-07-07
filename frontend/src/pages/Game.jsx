@@ -559,7 +559,7 @@ function Game() {
         );
     }
 
-    if (error || !game) {
+    if (!game) {
         return (
             <div className="p-6">
                 <p className="text-red-600">{error || 'Partie introuvable'}</p>
@@ -644,7 +644,14 @@ function Game() {
             </div>
 
             <div className="flex-1 overflow-hidden bg-[linear-gradient(180deg,rgba(248,250,252,1)_0%,rgba(241,245,249,1)_100%)]">
-                {loadingArticle && !html ? (
+                {error ? (
+                    <div className="flex h-full items-center justify-center px-4">
+                        <div className="rounded-xl border border-rose-200 bg-rose-50 px-6 py-5 text-center text-rose-800">
+                            <p className="text-lg font-semibold uppercase tracking-[0.16em]">Erreur</p>
+                            <p className="mt-2 text-sm">{error}</p>
+                        </div>
+                    </div>
+                ) : loadingArticle && !html ? (
                     <div className="flex h-full items-center justify-center text-slate-600">Chargement de l’article...</div>
                 ) : (
                     <div

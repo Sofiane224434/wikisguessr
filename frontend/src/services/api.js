@@ -33,6 +33,7 @@ export const authService = {
         body: JSON.stringify({ identifier, password })
     }),
     getProfile: () => fetchAPI('/auth/me'),
+    getUsers: () => fetchAPI('/auth/users'),
     verifyEmail: (token) => fetchAPI(`/auth/verify-email?token=${encodeURIComponent(token)}`),
     forgotPassword: (email) => fetchAPI('/auth/forgot-password', {
         method: 'POST',

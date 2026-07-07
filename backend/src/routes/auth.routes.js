@@ -4,6 +4,7 @@ import {
 	register,
 	login,
 	getProfile,
+	getUsers,
 	verifyEmail,
 	forgotPassword,
 	resetPassword
@@ -18,4 +19,5 @@ router.post('/forgot-password', forgotPassword);
 router.post('/reset-password', resetPassword);
 // Routes protégées
 router.get('/me', authMiddleware, getProfile);
+router.get('/users', authMiddleware, getUsers);
 export default router;

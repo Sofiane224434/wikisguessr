@@ -53,6 +53,15 @@ LIMIT 1
         return results[0] || null;
     },
 
+    async listForAdmin() {
+        const sql = `
+SELECT id, username, email, role, email_verified, created_at
+FROM users
+ORDER BY created_at DESC, id DESC
+`;
+        return query(sql);
+    },
+
     // Créer un utilisateur
     async create({ username, email, password, role = 'user', emailVerified = 0, verificationToken = null, verificationExpiresAt = null }) {
         const hashedPassword = await bcrypt.hash(password, 10);

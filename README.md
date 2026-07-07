@@ -26,6 +26,19 @@ npm run dev
 Backend : http://localhost:5000
 Frontend : http://localhost:5173
 
+Smoke test admin+jeu (local):
+
+```bash
+# Variables requises pour un run complet
+set SMOKE_ADMIN_IDENTIFIER=admin@example.com
+set SMOKE_ADMIN_PASSWORD=motdepasse
+
+# Lance les verifications critiques (auth admin, users, roll, wiki mobile-html, pending disambiguation)
+npm run smoke:admin-game
+```
+
+Sans ces variables, le script affiche `SMOKE SKIPPED` puis sort proprement.
+
 Connexion utilisateur : l'authentification accepte l'email ou le username (champ unique) avec le mot de passe.
 Quand un utilisateur est deja connecte, les pages `/` et `/login` redirigent automatiquement vers `/lobby`.
 

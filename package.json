@@ -8,6 +8,7 @@
     "dev:all": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\" \"npm run translate:watch\"",
     "dev:backend": "cd backend && npm run dev",
     "dev:frontend": "cd frontend && npm run dev",
+    "smoke:admin-game": "node scripts/smoke-admin-game.mjs",
     "translate": "node scripts/translate.js",
     "translate:watch": "node scripts/translate.js --watch"
   }
