@@ -4,8 +4,11 @@ import { gameService } from '../services/api.js';
 
 const MODE_LABELS = {
     normal: 'Normal',
-    knowledge: 'Connaissance'
+    knowledge: 'Connaissance',
+    chrono: 'Chrono'
 };
+
+const MODE_SEQUENCE = ['normal', 'knowledge', 'chrono'];
 
 function Lobby() {
     const navigate = useNavigate();
@@ -19,7 +22,11 @@ function Lobby() {
     }, []);
 
     const toggleMode = () => {
-        setMode((prev) => (prev === 'normal' ? 'knowledge' : 'normal'));
+        setMode((prev) => {
+            const index = MODE_SEQUENCE.indexOf(prev);
+            const nextIndex = index >= 0 ? (index + 1) % MODE_SEQUENCE.length : 0;
+            return MODE_SEQUENCE[nextIndex];
+        });
     };
 
     const handleCreateGame = async () => {

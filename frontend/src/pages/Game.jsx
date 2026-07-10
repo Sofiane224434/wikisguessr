@@ -27,6 +27,15 @@ const isLikelyPlayableWikiTitle = (value) => {
 };
 
 const TIMER_STORAGE_PREFIX = 'wikisguessr:game:start:';
+const CHRONO_START_SECONDS = 5 * 60;
+const CHRONO_SCORE_DECAY_INTERVAL_SECONDS = 2;
+
+const MODE_LABELS = {
+    normal: 'Normal',
+    knowledge: 'Connaissance',
+    chrono: 'Chrono',
+    apercu: 'Apercu'
+};
 
 const toTimerStorageKey = (code) => `${TIMER_STORAGE_PREFIX}${String(code || '').trim().toUpperCase()}`;
 
@@ -286,6 +295,7 @@ function Game() {
     const articleCacheRef = useRef(new Map());
     const startedAtRef = useRef(null);
     const lastArticleRef = useRef('');
+    const chronoScoreTickRef = useRef(0);
 
     const [game, setGame] = useState(null);
     const [loadingGame, setLoadingGame] = useState(Boolean(searchParams.get('code') || searchParams.get('previewTitle')));
@@ -298,10 +308,16 @@ function Game() {
     const [won, setWon] = useState(false);
     const [startedAt, setStartedAt] = useState(null);
     const [elapsedSeconds, setElapsedSeconds] = useState(0);
+    const [chronoRemainingSeconds, setChronoRemainingSeconds] = useState(CHRONO_START_SECONDS);
+    const [chronoScore, setChronoScore] = useState(CHRONO_START_SECONDS);
 
     const gameCode = searchParams.get('code');
     const previewTitle = searchParams.get('previewTitle');
     const isPreviewMode = !gameCode && Boolean(previewTitle);
+    const gameMode = String(game?.mode || '').trim().toLowerCase();
+    const isChronoMode = gameMode === 'chrono';
+    const chronoDefeat = isChronoMode && !won && (chronoRemainingSeconds <= 0 || chronoScore <= 0);
+    const canInteractWithArticle = !won && !chronoDefeat;
 
     const fetchArticlePayload = useCallback(async (title) => {
         const normalizedTitle = String(title || '').trim();
@@ -332,7 +348,8 @@ function Game() {
     }, []);
 
     const loadArticle = useCallback(async (title, targetArticle, isInitial = false, options = {}) => {
-        const { fromHistory = false } = options;
+        const { fromHistory = false, mode = '' } = options;
+        const isChronoGame = String(mode || gameMode).trim().toLowerCase() === 'chrono';
         const requestId = ++requestIdRef.current;
         setLoadingArticle(true);
         setError(null);
@@ -357,6 +374,9 @@ function Game() {
                 setClicks(0);
                 setWon(false);
                 setArticleHistory([resolvedArticle]);
+                setChronoRemainingSeconds(CHRONO_START_SECONDS);
+                setChronoScore(CHRONO_START_SECONDS);
+                chronoScoreTickRef.current = 0;
 
                 const persistedStart = readPersistedStartAt(gameCode);
                 const startTime = persistedStart || Date.now();
@@ -369,6 +389,11 @@ function Game() {
                 if (lastArticleRef.current && normalizeArticle(lastArticleRef.current) !== normalizeArticle(resolvedArticle)) {
                     if (!fromHistory) {
                         setClicks((previous) => previous + 1);
+
+                        if (isChronoGame) {
+                            setChronoRemainingSeconds((previous) => previous + 5);
+                            setChronoScore((previous) => Math.max(0, previous - 10));
+                        }
                     }
                 }
 
@@ -409,7 +434,7 @@ function Game() {
                 setLoadingArticle(false);
             }
         }
-    }, [fetchArticlePayload, gameCode]);
+    }, [fetchArticlePayload, gameCode, gameMode]);
 
     useEffect(() => {
         if (!gameCode) {
@@ -420,7 +445,7 @@ function Game() {
             .getByCode(gameCode)
             .then(async (data) => {
                 setGame(data.game);
-                await loadArticle(data.game.start_article, data.game.target_article, true);
+                await loadArticle(data.game.start_article, data.game.target_article, true, { mode: data.game.mode });
             })
             .catch((err) => {
                 setError(err.message || 'Impossible de charger la partie');
@@ -449,7 +474,7 @@ function Game() {
         };
 
         setGame(previewGame);
-        loadArticle(initialTitle, initialTitle, true)
+        loadArticle(initialTitle, initialTitle, true, { mode: previewGame.mode })
             .catch((err) => {
                 setError(err.message || 'Impossible de charger la previsualisation');
             })
@@ -459,18 +484,32 @@ function Game() {
     }, [gameCode, previewTitle, loadArticle]);
 
     useEffect(() => {
-        if (!startedAt || won) {
+        if (!startedAt || won || chronoDefeat) {
             return undefined;
         }
 
         const intervalId = setInterval(() => {
             setElapsedSeconds(Math.floor((Date.now() - startedAt) / 1000));
+
+            if (isChronoMode) {
+                setChronoRemainingSeconds((previous) => Math.max(0, previous - 1));
+
+                chronoScoreTickRef.current += 1;
+                if (chronoScoreTickRef.current >= CHRONO_SCORE_DECAY_INTERVAL_SECONDS) {
+                    chronoScoreTickRef.current = 0;
+                    setChronoScore((previous) => Math.max(0, previous - 1));
+                }
+            }
         }, 1000);
 
         return () => clearInterval(intervalId);
-    }, [startedAt, won]);
+    }, [startedAt, won, isChronoMode, chronoDefeat]);
 
     const handleContentClick = (event) => {
+        if (!canInteractWithArticle) {
+            return;
+        }
+
         const anchor = event.target.closest('a');
         if (!anchor) {
             return;
@@ -485,7 +524,7 @@ function Game() {
             return;
         }
 
-        loadArticle(article, game?.target_article || '', false);
+        loadArticle(article, game?.target_article || '', false, { mode: game?.mode });
     };
 
     useEffect(() => {
@@ -530,14 +569,14 @@ function Game() {
     };
 
     const handleGoBack = async () => {
-        if (articleHistory.length < 2 || loadingArticle) {
+        if (articleHistory.length < 2 || loadingArticle || !canInteractWithArticle) {
             return;
         }
 
         const previousArticle = articleHistory[articleHistory.length - 2];
         setArticleHistory((previous) => previous.slice(0, -1));
         setClicks((previous) => Math.max(0, previous - 1));
-        await loadArticle(previousArticle, game?.target_article || '', false, { fromHistory: true });
+        await loadArticle(previousArticle, game?.target_article || '', false, { fromHistory: true, mode: game?.mode });
     };
 
     if (loadingGame) {
@@ -574,17 +613,19 @@ function Game() {
         );
     }
 
-    const minutes = String(Math.floor(elapsedSeconds / 60)).padStart(2, '0');
-    const seconds = String(elapsedSeconds % 60).padStart(2, '0');
+    const displayedSeconds = isChronoMode ? chronoRemainingSeconds : elapsedSeconds;
+    const minutes = String(Math.floor(displayedSeconds / 60)).padStart(2, '0');
+    const seconds = String(displayedSeconds % 60).padStart(2, '0');
     const isOnStartArticle = normalizeArticle(currentArticle) === normalizeArticle(game.start_article);
     const currentArticleLabel = isOnStartArticle ? 'Depart' : (currentArticle || '...');
+    const modeLabel = MODE_LABELS[gameMode] || game.mode;
 
     return (
         <div className="flex h-screen flex-col bg-slate-50 text-slate-900">
             <div className="border-b border-slate-200/80 bg-white/85 px-3 py-2 backdrop-blur">
                 <div className="mx-auto grid max-w-6xl grid-cols-1 gap-2 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
                     <div className="flex min-w-0 items-center gap-2 overflow-hidden text-[11px] uppercase tracking-[0.22em] text-slate-500">
-                        <span className="rounded-full bg-slate-900 px-2.5 py-1 font-semibold text-white">{game.mode}</span>
+                        <span className="rounded-full bg-slate-900 px-2.5 py-1 font-semibold text-white">{modeLabel}</span>
                         <span className="inline-flex min-w-0 items-center gap-1 rounded-full border border-cyan-200 bg-cyan-50 px-2.5 py-1 text-cyan-800">
                             Départ:
                             <strong className="max-w-40 truncate font-semibold normal-case text-cyan-950 md:max-w-56 lg:max-w-64" title={game.start_article}>{game.start_article}</strong>
@@ -604,8 +645,13 @@ function Game() {
                             Clics: <strong className="font-semibold text-amber-950">{clicks}</strong>
                         </span>
                         <span className="rounded-full border border-violet-200 bg-violet-50 px-2.5 py-1 text-violet-800">
-                            Temps: <strong className="font-semibold text-violet-950">{minutes}:{seconds}</strong>
+                            {isChronoMode ? 'Temps restant' : 'Temps'}: <strong className="font-semibold text-violet-950">{minutes}:{seconds}</strong>
                         </span>
+                        {isChronoMode && (
+                            <span className="rounded-full border border-rose-200 bg-rose-50 px-2.5 py-1 text-rose-800">
+                                Points: <strong className="font-semibold text-rose-950">{chronoScore}</strong>
+                            </span>
+                        )}
                         <button
                             type="button"
                             onClick={handleGoBack}
@@ -638,7 +684,13 @@ function Game() {
 
                 {won && (
                     <div className="mx-auto mt-2 max-w-6xl rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-800">
-                        Objectif atteint ! Tu as trouvé l’article cible en {minutes}:{seconds}.
+                        Objectif atteint ! Tu as trouvé l’article cible {isChronoMode ? `avec ${chronoScore} points restants.` : `en ${minutes}:${seconds}.`}
+                    </div>
+                )}
+
+                {chronoDefeat && (
+                    <div className="mx-auto mt-2 max-w-6xl rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-800">
+                        Defaite chrono: tu as atteint 0 point ou 0 temps.
                     </div>
                 )}
             </div>

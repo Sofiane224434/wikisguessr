@@ -1,7 +1,7 @@
 import crypto from 'crypto';
 import { query } from '../config/db.js';
 
-const GAME_MODES = new Set(['normal', 'knowledge']);
+const GAME_MODES = new Set(['normal', 'knowledge', 'chrono']);
 
 const CREATE_GAMES_TABLE_SQL = `
 CREATE TABLE IF NOT EXISTS games (
@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS games (
   title VARCHAR(255) NOT NULL,
   start_article VARCHAR(255) NOT NULL,
   target_article VARCHAR(255) NOT NULL,
-  mode ENUM('normal','knowledge') NOT NULL DEFAULT 'normal',
+    mode ENUM('normal','knowledge','chrono') NOT NULL DEFAULT 'normal',
   status ENUM('waiting','running','finished') NOT NULL DEFAULT 'waiting',
   created_by INT NOT NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -19,6 +19,11 @@ CREATE TABLE IF NOT EXISTS games (
   KEY idx_games_created_by (created_by),
   CONSTRAINT fk_games_created_by FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE
 )
+`;
+
+const ENSURE_GAMES_MODE_ENUM_SQL = `
+ALTER TABLE games
+MODIFY COLUMN mode ENUM('normal','knowledge','chrono') NOT NULL DEFAULT 'normal'
 `;
 
 const normalizeMode = (mode) => (GAME_MODES.has(mode) ? mode : 'normal');
@@ -38,6 +43,7 @@ const generateCode = () => {
 const Game = {
     async ensureTable() {
         await query(CREATE_GAMES_TABLE_SQL);
+        await query(ENSURE_GAMES_MODE_ENUM_SQL);
     },
 
     async create({ title, startArticle, targetArticle, mode = 'normal', createdBy }) {

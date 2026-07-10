@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS `games` (
 	`title` VARCHAR(255) NOT NULL,
 	`start_article` VARCHAR(255) NOT NULL,
 	`target_article` VARCHAR(255) NOT NULL,
-	`mode` ENUM('normal','knowledge') NOT NULL DEFAULT 'normal',
+	`mode` ENUM('normal','knowledge','chrono') NOT NULL DEFAULT 'normal',
 	`status` ENUM('waiting','running','finished') NOT NULL DEFAULT 'waiting',
 	`created_by` INT NOT NULL,
 	`created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,

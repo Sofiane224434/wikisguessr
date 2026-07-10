@@ -45,6 +45,7 @@ Quand un utilisateur est deja connecte, les pages `/` et `/login` redirigent aut
 Creation de partie MVP : depuis `/lobby` (utilisateur connecte), choisir le mode avec un bouton puis cliquer sur "Lancer". Un code de partie unique est genere et la partie s'ouvre sur `/game`.
 Aleatoire MVP : les articles de depart/cible sont tires aleatoirement depuis `backend/src/data/wiki-articles.json` (pages Wikipedia connues et noms communs, ex: `Couleur`, `Science`, `Internet`).
 Boucle de jeu MVP : la page `/game` recupere le contenu Wikipedia en `mobile-html` via le backend (`/api/wiki/mobile-html`) puis le rend dans l'interface sans iframe, en gardant la navigation interne dans la boucle, les images et le chronometre.
+Mode chrono : depart a 5 minutes et 300 points. Les points descendent plus lentement: `1 point toutes les 2 secondes` (soit `10 points en 20 s`). Chaque changement d'article via un lien ajoute `+5 s` au chrono mais retire `-10 points`. La partie est perdue si le temps ou les points atteignent 0.
 
 Variables backend (`backend/.env`) :
 
