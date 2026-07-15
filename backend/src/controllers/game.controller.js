@@ -2,6 +2,7 @@ import Game from '../models/game.model.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { readSiteState } from '../services/site-state.service.js';
 
 const parseText = (value) => String(value || '').trim();
 
@@ -9,6 +10,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const ARTICLES_FILE_PATH = path.resolve(__dirname, '../data/wiki-articles.json');
 const DISAMBIGUATION_FILE_PATH = path.resolve(__dirname, '../data/wiki-disambiguation-pending.json');
+const OFFLINE_DEMO_FILE_PATH = path.resolve(__dirname, '../data/wiki-offline-demo.json');
 
 const toDatasetKey = (theme, name) => `${String(theme || '').trim().toLowerCase()}::${String(name || '').trim().toLowerCase()}`;
 
@@ -89,7 +91,57 @@ const loadThemePools = () => {
 
 const pickRandomItem = (items) => items[Math.floor(Math.random() * items.length)];
 
-const pickRandomMatchup = () => {
+const isOfflineDemoModeEnabled = () => {
+    const envOffline = String(process.env.OFFLINE_DEMO_MODE || '').trim().toLowerCase() === 'true';
+    const stateOffline = Boolean(readSiteState()?.offline);
+    return envOffline || stateOffline;
+};
+
+const loadOfflineDemoMatchups = (mode = 'normal') => {
+    try {
+        if (!fs.existsSync(OFFLINE_DEMO_FILE_PATH)) {
+            return [];
+        }
+
+        const raw = fs.readFileSync(OFFLINE_DEMO_FILE_PATH, 'utf-8');
+        const sanitized = raw.charCodeAt(0) === 0xFEFF ? raw.slice(1) : raw;
+        const parsed = JSON.parse(sanitized);
+        const modeKey = String(mode || 'normal').trim().toLowerCase();
+        const modeMatchups = parsed?.modeMatchups && typeof parsed.modeMatchups === 'object'
+            ? parsed.modeMatchups
+            : null;
+
+        const scopedList = modeMatchups && Array.isArray(modeMatchups[modeKey])
+            ? modeMatchups[modeKey]
+            : [];
+        const fallbackList = Array.isArray(parsed?.matchups) ? parsed.matchups : [];
+        const list = scopedList.length > 0 ? scopedList : fallbackList;
+
+        return list
+            .map((item) => ({
+                startArticle: String(item?.startArticle || '').trim(),
+                targetArticle: String(item?.targetArticle || '').trim()
+            }))
+            .filter((item) => item.startArticle && item.targetArticle && normalizeArticle(item.startArticle) !== normalizeArticle(item.targetArticle));
+    } catch {
+        return [];
+    }
+};
+
+const pickRandomMatchup = (mode = 'normal') => {
+    if (isOfflineDemoModeEnabled()) {
+        const offlineMatchups = loadOfflineDemoMatchups(mode);
+        if (offlineMatchups.length > 0) {
+            const picked = pickRandomItem(offlineMatchups);
+            return {
+                startArticle: picked.startArticle,
+                targetArticle: picked.targetArticle,
+                startTheme: 'offline_demo',
+                targetTheme: 'offline_demo'
+            };
+        }
+    }
+
     const themePools = loadThemePools();
     const validThemes = themePools.filter((item) => item.articles.length > 0);
 
@@ -134,7 +186,8 @@ const pickRandomMatchup = () => {
 
 export const getRandomRoll = async (_req, res) => {
     try {
-        const roll = pickRandomMatchup();
+        const requestedMode = parseText(_req?.query?.mode).toLowerCase() || 'normal';
+        const roll = pickRandomMatchup(requestedMode);
         return res.json({ roll });
     } catch (error) {
         console.error('getRandomRoll error:', error);
@@ -145,7 +198,7 @@ export const getRandomRoll = async (_req, res) => {
 export const createGame = async (req, res) => {
     try {
         const mode = parseText(req.body.mode).toLowerCase() || 'normal';
-        const fallbackMatchup = pickRandomMatchup();
+        const fallbackMatchup = pickRandomMatchup(mode);
         const startArticle = parseText(req.body.startArticle) || fallbackMatchup.startArticle;
         const targetArticle = parseText(req.body.targetArticle) || fallbackMatchup.targetArticle;
         const title = parseText(req.body.title) || `Partie ${mode} de ${req.user.username}`;

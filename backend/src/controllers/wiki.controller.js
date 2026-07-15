@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { readSiteState } from '../services/site-state.service.js';
 
 const WIKI_ORIGIN = 'https://fr.wikipedia.org';
 const WIKI_MOBILE_HTML_ORIGIN = 'https://fr.wikipedia.org/api/rest_v1/page/mobile-html';
@@ -10,6 +11,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const ARTICLES_FILE_PATH = path.resolve(__dirname, '../data/wiki-articles.json');
 const DISAMBIGUATION_FILE_PATH = path.resolve(__dirname, '../data/wiki-disambiguation-pending.json');
+const OFFLINE_DEMO_FILE_PATH = path.resolve(__dirname, '../data/wiki-offline-demo.json');
 const DEFAULT_ADMIN_THEME = 'admin_custom';
 const DEFAULT_VALIDATION_CONCURRENCY = 2;
 const MOBILE_HTML_RETRY_ATTEMPTS = 4;
@@ -18,6 +20,80 @@ const TRANSIENT_HTTP_STATUSES = new Set([408, 425, 429, 500, 502, 503, 504]);
 const sleep = (ms) => new Promise((resolve) => {
     setTimeout(resolve, ms);
 });
+
+const isOfflineDemoModeEnabled = () => {
+    const envOffline = String(process.env.OFFLINE_DEMO_MODE || '').trim().toLowerCase() === 'true';
+    const stateOffline = Boolean(readSiteState()?.offline);
+    return envOffline || stateOffline;
+};
+
+const normalizeOfflineTitle = (value) => String(value || '').trim().replace(/\s+/g, ' ').toLowerCase();
+
+const readOfflineDemoDataset = () => {
+    try {
+        if (!fs.existsSync(OFFLINE_DEMO_FILE_PATH)) {
+            return null;
+        }
+
+        const raw = fs.readFileSync(OFFLINE_DEMO_FILE_PATH, 'utf-8');
+        const sanitized = raw.charCodeAt(0) === 0xFEFF ? raw.slice(1) : raw;
+        const parsed = JSON.parse(sanitized);
+        const articles = Array.isArray(parsed?.articles) ? parsed.articles : [];
+
+        const byTitle = new Map();
+        articles.forEach((item) => {
+            const title = String(item?.title || '').trim();
+            const html = String(item?.html || '').trim();
+            const key = normalizeOfflineTitle(title);
+            if (!title || !html || !key) {
+                return;
+            }
+
+            byTitle.set(key, { title, html });
+        });
+
+        const defaultStartArticle = String(parsed?.defaultStartArticle || '').trim();
+
+        return {
+            byTitle,
+            defaultStartArticle
+        };
+    } catch {
+        return null;
+    }
+};
+
+const buildOfflineMobileHtmlPayload = (requestedTitle) => {
+    const dataset = readOfflineDemoDataset();
+    if (!dataset || !(dataset.byTitle instanceof Map) || dataset.byTitle.size === 0) {
+        return null;
+    }
+
+    const requestedKey = normalizeOfflineTitle(requestedTitle);
+    const requested = dataset.byTitle.get(requestedKey);
+    if (requested) {
+        return {
+            title: requested.title,
+            html: rewriteMobileHtmlLinks(requested.html),
+            sourceUrl: `offline://demo/${encodeURIComponent(requested.title)}`,
+            offline: true
+        };
+    }
+
+    const fallbackKey = normalizeOfflineTitle(dataset.defaultStartArticle);
+    const fallback = dataset.byTitle.get(fallbackKey) || Array.from(dataset.byTitle.values())[0];
+    if (!fallback) {
+        return null;
+    }
+
+    return {
+        title: fallback.title,
+        html: rewriteMobileHtmlLinks(fallback.html),
+        sourceUrl: `offline://demo/${encodeURIComponent(fallback.title)}`,
+        offline: true,
+        requestedTitle: String(requestedTitle || '').trim()
+    };
+};
 
 const fetchMobileHtmlByTitle = async (title) => {
     const targetUrl = `${WIKI_MOBILE_HTML_ORIGIN}/${encodeURIComponent(String(title || '').trim().replace(/\s+/g, '_'))}`;
@@ -1128,6 +1204,15 @@ export const fetchWikiMobileHtml = async (req, res) => {
             return res.status(400).json({ error: 'Parametre title requis' });
         }
 
+        if (isOfflineDemoModeEnabled()) {
+            const forcedOfflinePayload = buildOfflineMobileHtmlPayload(title);
+            if (forcedOfflinePayload) {
+                return res.status(200).json(forcedOfflinePayload);
+            }
+
+            return res.status(503).json({ error: 'Mode offline actif mais parcours JSON indisponible' });
+        }
+
         let requestedTitle = title;
         let response = await fetchMobileHtmlByTitle(requestedTitle);
 
@@ -1140,6 +1225,11 @@ export const fetchWikiMobileHtml = async (req, res) => {
         }
 
         if (!response.ok) {
+            const offlinePayload = buildOfflineMobileHtmlPayload(requestedTitle);
+            if (offlinePayload) {
+                return res.status(200).json(offlinePayload);
+            }
+
             return res.status(502).json({ error: 'Impossible de recuperer la page Wikipedia' });
         }
 
@@ -1153,6 +1243,13 @@ export const fetchWikiMobileHtml = async (req, res) => {
         });
     } catch (error) {
         console.error('fetchWikiMobileHtml error:', error);
+
+        const title = String(req.query.title || '').trim();
+        const offlinePayload = buildOfflineMobileHtmlPayload(title);
+        if (offlinePayload) {
+            return res.status(200).json(offlinePayload);
+        }
+
         return res.status(500).json({ error: 'Erreur mobile-html Wikipedia' });
     }
 };

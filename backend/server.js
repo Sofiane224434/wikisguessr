@@ -7,6 +7,7 @@ import authRoutes from './src/routes/auth.routes.js';
 import emailRoutes from './src/routes/email.routes.js';
 import gameRoutes from './src/routes/game.routes.js';
 import wikiRoutes from './src/routes/wiki.routes.js';
+import siteStateRoutes from './src/routes/site-state.routes.js';
 const app = express();
 const PORT = process.env.PORT || 5000;
 // Connexion BDD
@@ -25,6 +26,7 @@ if (process.env.NODE_ENV !== 'production') {
 app.get('/', (req, res) => {
     res.json({ message: 'WikisGuessr API (ES Modules)', status: 'online' });
 });
+app.use('/api/site-state', siteStateRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/email', emailRoutes);
 app.use('/api/games', gameRoutes);

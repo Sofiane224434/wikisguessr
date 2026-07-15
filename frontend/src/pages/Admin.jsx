@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { authService, gameService } from '../services/api.js';
+import { authService, gameService, siteService } from '../services/api.js';
 
 function Admin() {
     const navigate = useNavigate();
@@ -8,12 +8,25 @@ function Admin() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [players, setPlayers] = useState([]);
+    const [offline, setOffline] = useState(false);
+    const [updatingOffline, setUpdatingOffline] = useState(false);
 
     const loadAdminData = async () => {
         setLoading(true);
         setError(null);
 
         try {
+            const siteStateData = await siteService.getState();
+            const isOffline = Boolean(siteStateData?.state?.offline);
+            setOffline(isOffline);
+
+            if (isOffline) {
+                setRoll(null);
+                setPlayers([]);
+                setLoading(false);
+                return;
+            }
+
             const [rollData, usersData] = await Promise.all([
                 gameService.getRandomRoll(),
                 authService.getUsers()
@@ -25,6 +38,20 @@ function Admin() {
             setError(err.message || 'Impossible de charger les donnees admin');
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleToggleOffline = async () => {
+        setUpdatingOffline(true);
+        setError(null);
+
+        try {
+            const data = await siteService.setOfflineMode(!offline);
+            setOffline(Boolean(data?.state?.offline));
+        } catch (err) {
+            setError(err.message || 'Impossible de changer le mode offline');
+        } finally {
+            setUpdatingOffline(false);
         }
     };
 
@@ -58,7 +85,26 @@ function Admin() {
                     >
                         Voir tous les articles
                     </button>
+                    <button
+                        type="button"
+                        onClick={handleToggleOffline}
+                        disabled={updatingOffline}
+                        className={`rounded-full px-5 py-3 text-sm font-semibold transition disabled:opacity-60 ${offline
+                            ? 'bg-emerald-400 text-slate-950 hover:bg-emerald-300'
+                            : 'bg-amber-400 text-slate-950 hover:bg-amber-300'
+                            }`}
+                    >
+                        {updatingOffline
+                            ? 'Mise a jour...'
+                            : offline
+                                ? 'Desactiver parcours offline global'
+                                : 'Activer parcours offline global'}
+                    </button>
                 </div>
+
+                <p className="text-xs text-slate-300">
+                    Etat global: <strong className={offline ? 'text-amber-300' : 'text-emerald-300'}>{offline ? 'parcours offline demo pour tous les comptes' : 'online'}</strong>
+                </p>
 
                 {loading && <p className="text-slate-300">Chargement du roll...</p>}
                 {error && <p className="text-red-300">{error}</p>}

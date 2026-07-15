@@ -61,6 +61,15 @@ BREVO_SENDER_EMAIL=...
 BREVO_SENDER_NAME=WikisGuessr
 ```
 
+Mode demo offline (examen) :
+
+- Le fichier `backend/src/data/wiki-offline-demo.json` contient les pages Wikipedia mises en cache et des matchups separes par mode (`normal`, `chrono`, `knowledge`).
+- Le mode `normal` garde son parcours de reference (`Internet` -> `Quebec`).
+- Les modes `chrono` et `knowledge` utilisent des articles differents du mode `normal`.
+- Pour forcer ce parcours sans dependre d Internet, activer `OFFLINE_DEMO_MODE=true` dans l environnement backend puis relancer l API.
+- En mode force, la creation de partie utilise les matchups du JSON et le endpoint `/api/wiki/mobile-html` sert les pages du JSON.
+- Meme sans mode force, si Wikipedia est indisponible, l API tente automatiquement ce fallback JSON.
+
 Variables frontend (`frontend/.env`, optionnel) :
 
 ```env

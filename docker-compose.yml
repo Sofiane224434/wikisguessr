@@ -38,6 +38,7 @@ services:
       BREVO_API_KEY: ${BREVO_API_KEY}
       BREVO_SENDER_EMAIL: ${BREVO_SENDER_EMAIL}
       BREVO_SENDER_NAME: ${BREVO_SENDER_NAME}
+      OFFLINE_DEMO_MODE: ${OFFLINE_DEMO_MODE}
     depends_on:
       db:
         condition: service_healthy

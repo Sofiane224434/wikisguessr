@@ -104,3 +104,11 @@ export const wikiService = {
         method: 'DELETE'
     })
 }
+
+export const siteService = {
+    getState: () => fetchAPI('/site-state'),
+    setOfflineMode: (offline) => fetchAPI('/site-state/offline', {
+        method: 'PUT',
+        body: JSON.stringify({ offline: Boolean(offline) })
+    })
+}
