@@ -1,12 +1,12 @@
 import { Router } from 'express';
 import authMiddleware from '../middlewares/auth.middleware.js';
 import {
-	createGame,
-	generateKnowledgeQuizForGame,
-	getKnowledgeQuizUsage,
-	getGameByCode,
-	getMyGames,
-	getRandomRoll
+    createGame,
+    generateKnowledgeQuizForGame,
+    getKnowledgeQuizUsage,
+    getGameByCode,
+    getMyGames,
+    getRandomRoll
 } from '../controllers/game.controller.js';
 
 const router = Router();
