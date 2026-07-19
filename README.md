@@ -26,18 +26,27 @@ npm run dev
 Backend : http://localhost:5000
 Frontend : http://localhost:5173
 
-Smoke test admin+jeu (local):
+Simulation CLI knowledge (A -> Z simplifie) :
 
 ```bash
-# Variables requises pour un run complet
-set SMOKE_ADMIN_IDENTIFIER=admin@example.com
-set SMOKE_ADMIN_PASSWORD=motdepasse
-
-# Lance les verifications critiques (auth admin, users, roll, wiki mobile-html, pending disambiguation)
-npm run smoke:admin-game
+npm run smoke:knowledge-sim
 ```
 
-Sans ces variables, le script affiche `SMOKE SKIPPED` puis sort proprement.
+Ce script :
+- se connecte,
+- cree une partie `knowledge`,
+- prend les 10 premiers liens jouables de l article de depart,
+- simule un parcours intermediaire,
+- force la fin sur la cible,
+- appelle le quiz IA et affiche les questions + choix + `sourceQuote` en console,
+- enregistre aussi le dernier quiz dans `scripts/smoke-knowledge-last.txt`.
+
+Variables optionnelles :
+- `SMOKE_BASE_URL` (defaut: `http://127.0.0.1:5000/api`)
+- `SMOKE_KNOWLEDGE_IDENTIFIER` (defaut: `autotestquiz`)
+- `SMOKE_KNOWLEDGE_PASSWORD` (defaut: `Test1234!`)
+- `SMOKE_KNOWLEDGE_MAX_STEPS` (defaut: `10`)
+- `SMOKE_KNOWLEDGE_OUTPUT_FILE` (chemin du fichier de sortie, defaut: `scripts/smoke-knowledge-last.txt`)
 
 Connexion utilisateur : l'authentification accepte l'email ou le username (champ unique) avec le mot de passe.
 Quand un utilisateur est deja connecte, les pages `/` et `/login` redirigent automatiquement vers `/lobby`.
@@ -59,7 +68,24 @@ CORS_ORIGIN=http://localhost:5173
 BREVO_API_KEY=...
 BREVO_SENDER_EMAIL=...
 BREVO_SENDER_NAME=WikisGuessr
+GEMINI_API_KEY=...
+GEMINI_MODEL=gemini-3.1-flash-lite
 ```
+
+Quiz IA mode connaissance :
+
+- Quand une partie `knowledge` est gagnee, le front appelle `POST /api/games/:code/knowledge-quiz`.
+- Le backend envoie un seul prompt a Gemini avec les articles intermediaires visites et demande 5 QCM.
+- Le quiz knowledge est strictement IA: si Gemini est indisponible (quota, API down, reponse invalide, config absente), l API retourne une erreur sans fallback local.
+- Si le contexte de navigation est vide (aucun article intermediaire), l API repond en `400` avec un message explicite.
+- Les questions sont forcees vers des details lisibles dans les extraits (pas de culture generale) et incluent une courte citation source (`sourceQuote`).
+
+Consommation IA (admin) :
+
+- L admin affiche les compteurs de consommation du quiz knowledge (appels, tokens prompt/generation/total, dernieres executions).
+- L admin affiche aussi le restant quotidien estime (`remainingDailyCalls`) avec une limite configurable via `GEMINI_DAILY_REQUEST_LIMIT` (500 par defaut).
+- Optionnel: configurer `GEMINI_DAILY_TOKEN_LIMIT` pour afficher un restant tokens.
+- Endpoint backend: `GET /api/games/knowledge-quiz/usage` (acces admin uniquement).
 
 Mode demo offline (examen) :
 

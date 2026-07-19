@@ -287,6 +287,21 @@ const extractRenderableHtml = (rawHtml) => {
     return html;
 };
 
+const extractSnippetFromHtml = (rawHtml) => {
+    try {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(String(rawHtml || ''), 'text/html');
+        const root = doc.querySelector('.mw-parser-output') || doc.body;
+        const text = String(root?.textContent || '')
+            .replace(/\s+/g, ' ')
+            .trim();
+
+        return text.slice(0, 260);
+    } catch {
+        return '';
+    }
+};
+
 function Game() {
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
@@ -296,6 +311,8 @@ function Game() {
     const startedAtRef = useRef(null);
     const lastArticleRef = useRef('');
     const chronoScoreTickRef = useRef(0);
+    const visitedArticleDetailsRef = useRef(new Map());
+    const knowledgeQuizRequestedRef = useRef(false);
 
     const [game, setGame] = useState(null);
     const [loadingGame, setLoadingGame] = useState(Boolean(searchParams.get('code') || searchParams.get('previewTitle')));
@@ -310,12 +327,18 @@ function Game() {
     const [elapsedSeconds, setElapsedSeconds] = useState(0);
     const [chronoRemainingSeconds, setChronoRemainingSeconds] = useState(CHRONO_START_SECONDS);
     const [chronoScore, setChronoScore] = useState(CHRONO_START_SECONDS);
+    const [knowledgeQuiz, setKnowledgeQuiz] = useState([]);
+    const [knowledgeQuizLoading, setKnowledgeQuizLoading] = useState(false);
+    const [knowledgeQuizError, setKnowledgeQuizError] = useState('');
+    const [knowledgeQuizAnswers, setKnowledgeQuizAnswers] = useState({});
+    const [knowledgeQuizSubmitted, setKnowledgeQuizSubmitted] = useState(false);
 
     const gameCode = searchParams.get('code');
     const previewTitle = searchParams.get('previewTitle');
     const isPreviewMode = !gameCode && Boolean(previewTitle);
     const gameMode = String(game?.mode || '').trim().toLowerCase();
     const isChronoMode = gameMode === 'chrono';
+    const isKnowledgeMode = gameMode === 'knowledge';
     const chronoDefeat = isChronoMode && !won && (chronoRemainingSeconds <= 0 || chronoScore <= 0);
     const canInteractWithArticle = !won && !chronoDefeat;
 
@@ -362,6 +385,7 @@ function Game() {
             }
 
             const resolvedArticle = String(data.title || title).trim();
+            const snippet = extractSnippetFromHtml(data.html || '');
 
             setHtml(extractRenderableHtml(data.html || ''));
             setCurrentArticle(resolvedArticle);
@@ -377,6 +401,19 @@ function Game() {
                 setChronoRemainingSeconds(CHRONO_START_SECONDS);
                 setChronoScore(CHRONO_START_SECONDS);
                 chronoScoreTickRef.current = 0;
+                setKnowledgeQuiz([]);
+                setKnowledgeQuizError('');
+                setKnowledgeQuizAnswers({});
+                setKnowledgeQuizSubmitted(false);
+                knowledgeQuizRequestedRef.current = false;
+                visitedArticleDetailsRef.current = new Map();
+
+                if (snippet) {
+                    visitedArticleDetailsRef.current.set(normalizeArticle(resolvedArticle), {
+                        title: resolvedArticle,
+                        snippet
+                    });
+                }
 
                 const persistedStart = readPersistedStartAt(gameCode);
                 const startTime = persistedStart || Date.now();
@@ -418,6 +455,13 @@ function Game() {
                         return [...previous, resolvedArticle];
                     });
                 }
+
+                if (snippet) {
+                    visitedArticleDetailsRef.current.set(normalizeArticle(resolvedArticle), {
+                        title: resolvedArticle,
+                        snippet
+                    });
+                }
             }
 
             lastArticleRef.current = resolvedArticle;
@@ -435,6 +479,62 @@ function Game() {
             }
         }
     }, [fetchArticlePayload, gameCode, gameMode]);
+
+    useEffect(() => {
+        if (!won || !isKnowledgeMode || !gameCode || isPreviewMode) {
+            return;
+        }
+
+        if (knowledgeQuizRequestedRef.current) {
+            return;
+        }
+
+        knowledgeQuizRequestedRef.current = true;
+        setKnowledgeQuizLoading(true);
+        setKnowledgeQuizError('');
+
+        const visitedArticlesPayload = articleHistory
+            .map((title) => {
+                const key = normalizeArticle(title);
+                const details = visitedArticleDetailsRef.current.get(key);
+
+                return {
+                    title: details?.title || title,
+                    snippet: details?.snippet || ''
+                };
+            })
+            .filter((item) => String(item.title || '').trim());
+
+        gameService
+            .generateKnowledgeQuiz(gameCode, { visitedArticles: visitedArticlesPayload })
+            .then((data) => {
+                const questions = Array.isArray(data?.quiz?.questions) ? data.quiz.questions : [];
+                setKnowledgeQuiz(questions);
+                setKnowledgeQuizAnswers({});
+                setKnowledgeQuizSubmitted(false);
+
+                if (!questions.length) {
+                    setKnowledgeQuizError('Quiz non disponible pour cette partie.');
+                }
+            })
+            .catch((err) => {
+                if (Number(err?.status) === 429) {
+                    setKnowledgeQuizError('Quota IA atteint temporairement. Reessaie dans quelques instants.');
+                    return;
+                }
+
+                setKnowledgeQuizError(err?.message || 'Impossible de generer le quiz.');
+            })
+            .finally(() => {
+                setKnowledgeQuizLoading(false);
+            });
+    }, [
+        articleHistory,
+        gameCode,
+        isKnowledgeMode,
+        isPreviewMode,
+        won
+    ]);
 
     useEffect(() => {
         if (!gameCode) {
@@ -568,6 +668,21 @@ function Game() {
         navigate(isPreviewMode ? '/admin/articles' : '/lobby');
     };
 
+    const handleSelectKnowledgeAnswer = (questionIndex, answerIndex) => {
+        if (knowledgeQuizSubmitted) {
+            return;
+        }
+
+        setKnowledgeQuizAnswers((previous) => ({
+            ...previous,
+            [questionIndex]: answerIndex
+        }));
+    };
+
+    const handleSubmitKnowledgeQuiz = () => {
+        setKnowledgeQuizSubmitted(true);
+    };
+
     const handleGoBack = async () => {
         if (articleHistory.length < 2 || loadingArticle || !canInteractWithArticle) {
             return;
@@ -619,6 +734,12 @@ function Game() {
     const isOnStartArticle = normalizeArticle(currentArticle) === normalizeArticle(game.start_article);
     const currentArticleLabel = isOnStartArticle ? 'Depart' : (currentArticle || '...');
     const modeLabel = MODE_LABELS[gameMode] || game.mode;
+    const knowledgeAnsweredCount = Object.keys(knowledgeQuizAnswers).length;
+    const knowledgeAllAnswered = knowledgeQuiz.length > 0 && knowledgeAnsweredCount === knowledgeQuiz.length;
+    const knowledgeScore = knowledgeQuiz.reduce((total, item, index) => {
+        const selected = knowledgeQuizAnswers[index];
+        return total + (selected === item.answerIndex ? 1 : 0);
+    }, 0);
 
     return (
         <div className="flex h-screen flex-col bg-slate-50 text-slate-900">
@@ -685,6 +806,90 @@ function Game() {
                 {won && (
                     <div className="mx-auto mt-2 max-w-6xl rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-800">
                         Objectif atteint ! Tu as trouvé l’article cible {isChronoMode ? `avec ${chronoScore} points restants.` : `en ${minutes}:${seconds}.`}
+                    </div>
+                )}
+
+                {won && isKnowledgeMode && (
+                    <div className="mx-auto mt-2 max-w-6xl rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-3 text-indigo-900">
+                        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-700">Quiz connaissance</p>
+
+                        {knowledgeQuizLoading ? (
+                            <p className="mt-2 text-sm">Generation du quiz en cours...</p>
+                        ) : knowledgeQuizError ? (
+                            <p className="mt-2 text-sm text-rose-700">{knowledgeQuizError}</p>
+                        ) : knowledgeQuiz.length > 0 ? (
+                            <div className="mt-3 space-y-3">
+                                {knowledgeQuiz.map((item, questionIndex) => {
+                                    const selectedAnswer = knowledgeQuizAnswers[questionIndex];
+                                    const isAnswered = Number.isInteger(selectedAnswer);
+
+                                    return (
+                                        <div key={`${questionIndex}-${item.question}`} className="rounded-lg border border-indigo-200 bg-white p-3">
+                                            <p className="text-sm font-semibold text-slate-900">{questionIndex + 1}. {item.question}</p>
+                                            <div className="mt-2 grid gap-2 md:grid-cols-2">
+                                                {item.choices.map((choice, choiceIndex) => {
+                                                    const isSelected = selectedAnswer === choiceIndex;
+                                                    const isRightChoice = item.answerIndex === choiceIndex;
+                                                    const showCorrection = knowledgeQuizSubmitted;
+
+                                                    let buttonClass = 'border-slate-200 bg-white text-slate-800';
+                                                    if (isSelected) {
+                                                        buttonClass = 'border-indigo-300 bg-indigo-50 text-indigo-900';
+                                                    }
+
+                                                    if (showCorrection && isRightChoice) {
+                                                        buttonClass = 'border-emerald-300 bg-emerald-50 text-emerald-900';
+                                                    } else if (showCorrection && isSelected && !isRightChoice) {
+                                                        buttonClass = 'border-rose-300 bg-rose-50 text-rose-900';
+                                                    }
+
+                                                    return (
+                                                        <button
+                                                            key={`${questionIndex}-${choiceIndex}`}
+                                                            type="button"
+                                                            className={`rounded-md border px-3 py-2 text-left text-sm transition ${buttonClass}`}
+                                                            onClick={() => handleSelectKnowledgeAnswer(questionIndex, choiceIndex)}
+                                                            disabled={knowledgeQuizSubmitted}
+                                                        >
+                                                            {choice}
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                            {knowledgeQuizSubmitted && (
+                                                <div className="mt-2 space-y-1">
+                                                    <p className="text-xs text-slate-600">
+                                                        {isAnswered && selectedAnswer === item.answerIndex ? 'Bonne reponse.' : `Bonne reponse: ${item.choices[item.answerIndex]}`}
+                                                    </p>
+                                                    {item.sourceQuote && (
+                                                        <p className="text-xs italic text-slate-500">
+                                                            Indice texte lu: "{item.sourceQuote}"{item.sourceTitle ? ` (${item.sourceTitle})` : ''}
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+
+                                <div className="flex flex-wrap items-center gap-3">
+                                    <button
+                                        type="button"
+                                        onClick={handleSubmitKnowledgeQuiz}
+                                        disabled={!knowledgeAllAnswered || knowledgeQuizSubmitted}
+                                        className="rounded-lg border border-indigo-300 bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition enabled:hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                    >
+                                        Valider le quiz
+                                    </button>
+                                    <p className="text-sm text-slate-700">
+                                        Reponses: {knowledgeAnsweredCount}/{knowledgeQuiz.length}
+                                        {knowledgeQuizSubmitted ? ` | Score: ${knowledgeScore}/${knowledgeQuiz.length}` : ''}
+                                    </p>
+                                </div>
+                            </div>
+                        ) : (
+                            <p className="mt-2 text-sm">Aucune question disponible.</p>
+                        )}
                     </div>
                 )}
 

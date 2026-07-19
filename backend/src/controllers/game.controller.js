@@ -3,6 +3,11 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { readSiteState } from '../services/site-state.service.js';
+import {
+    getKnowledgeQuizUsageSummary,
+    KnowledgeQuizError,
+    generateKnowledgeQuiz
+} from '../services/knowledge-quiz.service.js';
 
 const parseText = (value) => String(value || '').trim();
 
@@ -250,5 +255,72 @@ export const getGameByCode = async (req, res) => {
     } catch (error) {
         console.error('getGameByCode error:', error);
         return res.status(500).json({ error: 'Impossible de recuperer la partie' });
+    }
+};
+
+export const getKnowledgeQuizUsage = async (req, res) => {
+    try {
+        if (!req.user || req.user.role !== 'admin') {
+            return res.status(403).json({ error: 'Acces admin requis' });
+        }
+
+        const usage = getKnowledgeQuizUsageSummary();
+        return res.json({ usage });
+    } catch {
+        return res.status(500).json({ error: 'Impossible de recuperer la consommation IA' });
+    }
+};
+
+export const generateKnowledgeQuizForGame = async (req, res) => {
+    try {
+        const code = parseText(req.params.code).toUpperCase();
+
+        if (!code) {
+            return res.status(400).json({ error: 'Code de partie requis' });
+        }
+
+        const game = await Game.findByCode(code);
+
+        if (!game) {
+            return res.status(404).json({ error: 'Partie introuvable' });
+        }
+
+        const gameMode = parseText(game.mode).toLowerCase();
+        if (gameMode !== 'knowledge') {
+            return res.status(400).json({ error: 'Quiz reserve au mode connaissance' });
+        }
+
+        const visitedArticles = Array.isArray(req.body?.visitedArticles) ? req.body.visitedArticles : [];
+
+        const intermediateVisitedArticles = visitedArticles.filter((item) => {
+            const title = parseText(item?.title);
+            if (!title) {
+                return false;
+            }
+
+            const normalized = normalizeArticle(title);
+            return normalized !== normalizeArticle(game.start_article)
+                && normalized !== normalizeArticle(game.target_article);
+        });
+
+        const quiz = await generateKnowledgeQuiz({
+            startArticle: game.start_article,
+            targetArticle: game.target_article,
+            visitedArticles: intermediateVisitedArticles,
+            questionCount: 5
+        });
+
+        return res.json({ quiz });
+    } catch (error) {
+        const message = String(error?.message || 'Impossible de generer le quiz');
+        let status = 500;
+
+        if (error instanceof KnowledgeQuizError && Number.isInteger(error.status)) {
+            status = error.status;
+        } else if (/quota|rate|429|resource_exhausted/i.test(message)) {
+            status = 429;
+        }
+
+        return res.status(status).json({ error: message });
     }
 };

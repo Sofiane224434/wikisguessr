@@ -10,12 +10,86 @@ function Admin() {
     const [players, setPlayers] = useState([]);
     const [offline, setOffline] = useState(false);
     const [updatingOffline, setUpdatingOffline] = useState(false);
+    const [quizUsage, setQuizUsage] = useState(null);
+
+    const toNumberOrNull = (value) => {
+        const parsed = Number(value);
+        return Number.isFinite(parsed) ? parsed : null;
+    };
+
+    const dailyRequestLimit = (() => {
+        const value = toNumberOrNull(quizUsage?.dailyRequestLimit);
+        return value && value > 0 ? value : 500;
+    })();
+
+    const dailyCalls = (() => {
+        const value = toNumberOrNull(quizUsage?.dailyCalls);
+        if (value !== null) {
+            return value;
+        }
+
+        const totalCalls = toNumberOrNull(quizUsage?.totalCalls);
+        return totalCalls !== null ? totalCalls : 0;
+    })();
+
+    const remainingDailyCalls = (() => {
+        const value = toNumberOrNull(quizUsage?.remainingDailyCalls);
+        if (value !== null) {
+            return value;
+        }
+
+        return Math.max(0, dailyRequestLimit - dailyCalls);
+    })();
+
+    const dailyTokenLimit = (() => {
+        const value = toNumberOrNull(quizUsage?.dailyTokenLimit);
+        return value && value > 0 ? value : null;
+    })();
+
+    const dailyTotalTokens = (() => {
+        const value = toNumberOrNull(quizUsage?.dailyTotalTokens);
+        if (value !== null) {
+            return value;
+        }
+
+        const totalTokens = toNumberOrNull(quizUsage?.totalTokens);
+        return totalTokens !== null ? totalTokens : 0;
+    })();
+
+    const remainingDailyTokens = (() => {
+        const value = toNumberOrNull(quizUsage?.remainingDailyTokens);
+        if (value !== null) {
+            return value;
+        }
+
+        if (dailyTokenLimit === null) {
+            return null;
+        }
+
+        return Math.max(0, dailyTokenLimit - dailyTotalTokens);
+    })();
+
+    const hasTokenUsageInfo = (() => {
+        if (dailyTokenLimit !== null) {
+            return true;
+        }
+
+        const prompt = toNumberOrNull(quizUsage?.totalPromptTokens) || 0;
+        const candidate = toNumberOrNull(quizUsage?.totalCandidateTokens) || 0;
+        const total = toNumberOrNull(quizUsage?.totalTokens) || 0;
+        const daily = toNumberOrNull(quizUsage?.dailyTotalTokens) || 0;
+
+        return prompt > 0 || candidate > 0 || total > 0 || daily > 0;
+    })();
 
     const loadAdminData = async () => {
         setLoading(true);
         setError(null);
 
         try {
+            const usageData = await gameService.getKnowledgeQuizUsage();
+            setQuizUsage(usageData?.usage || null);
+
             const siteStateData = await siteService.getState();
             const isOffline = Boolean(siteStateData?.state?.offline);
             setOffline(isOffline);
@@ -156,6 +230,89 @@ function Admin() {
                                 </tbody>
                             </table>
                         </div>
+                    </div>
+                )}
+
+                {!loading && quizUsage && (
+                    <div className="rounded-3xl border border-slate-800 bg-slate-900 p-5 shadow-2xl shadow-slate-950/30">
+                        <div className="mb-3 flex items-center justify-between">
+                            <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Consommation IA quiz knowledge</p>
+                            <p className="text-xs text-slate-400">Mode: Gemini</p>
+                        </div>
+
+                        <div className={`grid gap-3 ${hasTokenUsageInfo ? 'md:grid-cols-3' : 'md:grid-cols-2'}`}>
+                            <div className="rounded-xl border border-slate-800 bg-slate-950 p-3">
+                                <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Appels</p>
+                                <p className="mt-2 text-2xl font-semibold text-cyan-300">{quizUsage.totalCalls || 0}</p>
+                                <p className="mt-1 text-xs text-slate-400">OK: {quizUsage.successCalls || 0} | KO: {quizUsage.failedCalls || 0}</p>
+                            </div>
+                            {hasTokenUsageInfo && (
+                                <div className="rounded-xl border border-slate-800 bg-slate-950 p-3">
+                                    <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Prompt tokens</p>
+                                    <p className="mt-2 text-2xl font-semibold text-amber-300">{quizUsage.totalPromptTokens || 0}</p>
+                                </div>
+                            )}
+                            {hasTokenUsageInfo && (
+                                <div className="rounded-xl border border-slate-800 bg-slate-950 p-3">
+                                    <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Total tokens</p>
+                                    <p className="mt-2 text-2xl font-semibold text-fuchsia-300">{quizUsage.totalTokens || 0}</p>
+                                    <p className="mt-1 text-xs text-slate-400">Generation: {quizUsage.totalCandidateTokens || 0}</p>
+                                </div>
+                            )}
+                        </div>
+
+                        <div className={`mt-3 grid gap-3 ${hasTokenUsageInfo ? 'md:grid-cols-2' : 'md:grid-cols-1'}`}>
+                            <div className="rounded-xl border border-slate-800 bg-slate-950 p-3">
+                                <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Reste aujourd hui (appels)</p>
+                                <p className="mt-2 text-2xl font-semibold text-emerald-300">{remainingDailyCalls}</p>
+                                <p className="mt-1 text-xs text-slate-400">Utilises: {dailyCalls} / Limite: {dailyRequestLimit}</p>
+                            </div>
+                            {hasTokenUsageInfo && (
+                                <div className="rounded-xl border border-slate-800 bg-slate-950 p-3">
+                                    <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Reste aujourd hui (tokens)</p>
+                                    <p className="mt-2 text-2xl font-semibold text-sky-300">{remainingDailyTokens ?? 'N/A'}</p>
+                                    <p className="mt-1 text-xs text-slate-400">
+                                        Utilises: {dailyTotalTokens}
+                                        {' / Limite: '}
+                                        {dailyTokenLimit !== null ? dailyTokenLimit : 'non definie'}
+                                    </p>
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="mt-3 text-xs text-slate-400">
+                            Dernier appel: {quizUsage.lastCallAt ? new Date(quizUsage.lastCallAt).toLocaleString() : 'aucun'}
+                            {quizUsage.lastError ? ` | Derniere erreur: ${quizUsage.lastError}` : ''}
+                        </div>
+
+                        {Array.isArray(quizUsage.recentCalls) && quizUsage.recentCalls.length > 0 && (
+                            <div className="mt-4 max-h-64 overflow-auto rounded-xl border border-slate-800">
+                                <table className="w-full border-collapse text-xs">
+                                    <thead className="sticky top-0 bg-slate-950/95 text-left text-slate-300">
+                                        <tr>
+                                            <th className="px-3 py-2 font-semibold">Date</th>
+                                            <th className="px-3 py-2 font-semibold">Statut</th>
+                                            <th className="px-3 py-2 font-semibold">Modele</th>
+                                            <th className="px-3 py-2 font-semibold">Tokens</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {quizUsage.recentCalls.slice(0, 12).map((entry, index) => (
+                                            <tr key={`${entry.at}-${index}`} className="border-t border-slate-800/80 text-slate-200">
+                                                <td className="px-3 py-2">{entry.at ? new Date(entry.at).toLocaleString() : '-'}</td>
+                                                <td className="px-3 py-2">
+                                                    <span className={`rounded-full border px-2 py-0.5 ${entry.ok ? 'border-emerald-700 bg-emerald-950/50 text-emerald-300' : 'border-rose-700 bg-rose-950/40 text-rose-300'}`}>
+                                                        {entry.ok ? 'OK' : 'KO'}
+                                                    </span>
+                                                </td>
+                                                <td className="px-3 py-2 text-slate-300">{entry.model || '-'}</td>
+                                                <td className="px-3 py-2 text-slate-300">{entry.totalTokens || 0}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
                     </div>
                 )}
             </div>

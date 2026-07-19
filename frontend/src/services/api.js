@@ -59,7 +59,12 @@ export const gameService = {
     }),
     getRandomRoll: () => fetchAPI('/games/random-roll'),
     getMine: () => fetchAPI('/games/my'),
-    getByCode: (code) => fetchAPI(`/games/by-code/${encodeURIComponent(code)}`)
+    getKnowledgeQuizUsage: () => fetchAPI('/games/knowledge-quiz/usage'),
+    getByCode: (code) => fetchAPI(`/games/by-code/${encodeURIComponent(code)}`),
+    generateKnowledgeQuiz: (code, payload) => fetchAPI(`/games/${encodeURIComponent(code)}/knowledge-quiz`, {
+        method: 'POST',
+        body: JSON.stringify(payload)
+    })
 }
 
 export const wikiService = {
