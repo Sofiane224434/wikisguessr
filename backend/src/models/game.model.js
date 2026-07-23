@@ -117,4 +117,142 @@ LIMIT 1
     }
 };
 
+// ─── GameResult model ─────────────────────────────────────────────────────────
+
+const CREATE_GAME_RESULTS_TABLE_SQL = `
+CREATE TABLE IF NOT EXISTS \`game_results\` (
+  \`id\` INT NOT NULL AUTO_INCREMENT,
+  \`game_id\` INT NOT NULL,
+  \`user_id\` INT NOT NULL,
+  \`mode\` ENUM('normal','knowledge','chrono') NOT NULL DEFAULT 'normal',
+  \`clicks\` INT NOT NULL DEFAULT 0,
+  \`time_seconds\` INT NOT NULL DEFAULT 0,
+  \`score\` INT NOT NULL DEFAULT 0,
+  \`knowledge_score\` INT DEFAULT NULL,
+  \`won\` TINYINT(1) NOT NULL DEFAULT 0,
+  \`played_at\` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (\`id\`),
+  UNIQUE KEY \`uniq_result_game_user\` (\`game_id\`, \`user_id\`),
+  KEY \`idx_result_user\` (\`user_id\`),
+  KEY \`idx_result_mode\` (\`mode\`),
+  CONSTRAINT \`fk_result_game\` FOREIGN KEY (\`game_id\`) REFERENCES \`games\`(\`id\`) ON DELETE CASCADE,
+  CONSTRAINT \`fk_result_user\` FOREIGN KEY (\`user_id\`) REFERENCES \`users\`(\`id\`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+`;
+
+export const GameResult = {
+    async ensureTable() {
+        try {
+            console.log('[GameResult] Ensuring table exists...');
+            await query(CREATE_GAME_RESULTS_TABLE_SQL);
+            console.log('[GameResult] Table ensured successfully');
+        } catch (error) {
+            console.error('[GameResult] ensureTable error:', error.message);
+            throw error;
+        }
+    },
+
+    async submit({ gameId, userId, mode, clicks, timeSeconds, score, won }) {
+        await this.ensureTable();
+        const sql = `
+INSERT INTO game_results (game_id, user_id, mode, clicks, time_seconds, score, won)
+VALUES (?, ?, ?, ?, ?, ?, ?)
+ON DUPLICATE KEY UPDATE
+  clicks = VALUES(clicks),
+  time_seconds = VALUES(time_seconds),
+  score = VALUES(score),
+  won = VALUES(won)
+`;
+        return query(sql, [gameId, userId, mode, clicks, timeSeconds, score, won ? 1 : 0]);
+    },
+
+    async updateKnowledgeScore({ gameId, userId, knowledgeScore }) {
+        await this.ensureTable();
+        const sql = `
+UPDATE game_results
+SET knowledge_score = ?
+WHERE game_id = ? AND user_id = ?
+`;
+        return query(sql, [knowledgeScore, gameId, userId]);
+    },
+
+    async getByUser(userId, limit = 30) {
+        await this.ensureTable();
+        const limitNum = Math.max(1, Math.min(parseInt(limit) || 30, 1000)); // Clamp between 1 and 1000
+        const sql = `
+SELECT gr.id, gr.mode, gr.clicks, gr.time_seconds, gr.score, gr.knowledge_score, gr.won, gr.played_at,
+       g.code, g.start_article, g.target_article
+FROM game_results gr
+JOIN games g ON g.id = gr.game_id
+WHERE gr.user_id = ?
+ORDER BY gr.played_at DESC
+LIMIT ${limitNum}
+`;
+        try {
+            console.log('[GameResult] Querying history for user:', userId);
+            const results = await query(sql, [userId]);
+            console.log('[GameResult] Got', results.length, 'results');
+            return results;
+        } catch (error) {
+            console.error('[GameResult] getByUser error for user', userId, ':', error.message);
+            console.error('[GameResult] SQL:', sql);
+            console.error('[GameResult] Params:', [userId]);
+            throw error;
+        }
+    },
+
+    async getLeaderboard(mode = 'all', limit = 20) {
+        await this.ensureTable();
+        const limitNum = Math.max(1, Math.min(parseInt(limit) || 20, 1000));
+
+        if (mode === 'chrono') {
+            const sql = `
+SELECT u.username,
+       ROUND(AVG(gr.score), 2) AS avg_score,
+       1600 AS elo
+FROM game_results gr
+JOIN users u ON u.id = gr.user_id
+WHERE gr.won = 1 AND gr.mode = 'chrono'
+GROUP BY gr.user_id, u.username
+ORDER BY avg_score DESC
+LIMIT ${limitNum}
+`;
+            return query(sql, []);
+        }
+
+        if (mode === 'knowledge') {
+            const sql = `
+SELECT u.username,
+       ROUND(AVG(gr.knowledge_score * 100 + 500 - (gr.clicks * 50) - (gr.time_seconds / 4)), 2) AS avg_score,
+       1600 AS elo
+FROM game_results gr
+JOIN users u ON u.id = gr.user_id
+WHERE gr.won = 1 AND gr.mode = 'knowledge'
+GROUP BY gr.user_id, u.username
+ORDER BY avg_score DESC
+LIMIT ${limitNum}
+`;
+            return query(sql, []);
+        }
+
+        if (mode === 'normal') {
+            const sql = `
+SELECT u.username,
+       ROUND(AVG(1000 - (gr.clicks * 100) - (gr.time_seconds / 2)), 2) AS avg_score,
+       1600 AS elo
+FROM game_results gr
+JOIN users u ON u.id = gr.user_id
+WHERE gr.won = 1 AND gr.mode = 'normal'
+GROUP BY gr.user_id, u.username
+ORDER BY avg_score DESC
+LIMIT ${limitNum}
+`;
+            return query(sql, []);
+        }
+
+        // Fallback for unknown modes
+        return [];
+    }
+};
+
 export default Game;

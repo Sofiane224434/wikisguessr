@@ -27,6 +27,7 @@ const isLikelyPlayableWikiTitle = (value) => {
 };
 
 const TIMER_STORAGE_PREFIX = 'wikisguessr:game:start:';
+const STATE_STORAGE_PREFIX = 'wikisguessr:game:state:';
 const CHRONO_START_SECONDS = 5 * 60;
 const CHRONO_SCORE_DECAY_INTERVAL_SECONDS = 2;
 
@@ -38,6 +39,7 @@ const MODE_LABELS = {
 };
 
 const toTimerStorageKey = (code) => `${TIMER_STORAGE_PREFIX}${String(code || '').trim().toUpperCase()}`;
+const toStateStorageKey = (code) => `${STATE_STORAGE_PREFIX}${String(code || '').trim().toUpperCase()}`;
 
 const readPersistedStartAt = (code) => {
     try {
@@ -63,6 +65,41 @@ const persistStartAt = (code, timestamp) => {
         localStorage.setItem(toTimerStorageKey(code), String(timestamp));
     } catch {
         // Ignore storage errors (private mode, quota exceeded, etc.).
+    }
+};
+
+const readPersistedGameState = (code) => {
+    try {
+        const raw = localStorage.getItem(toStateStorageKey(code));
+        if (!raw) {
+            return null;
+        }
+
+        const parsed = JSON.parse(raw);
+        return parsed && typeof parsed === 'object' ? parsed : null;
+    } catch {
+        return null;
+    }
+};
+
+const persistGameState = (code, state) => {
+    try {
+        if (!code || !state) {
+            return;
+        }
+
+        localStorage.setItem(toStateStorageKey(code), JSON.stringify(state));
+    } catch {
+        // Ignore storage errors (private mode, quota exceeded, etc.).
+    }
+};
+
+const clearPersistedGameState = (code) => {
+    try {
+        localStorage.removeItem(toStateStorageKey(code));
+        localStorage.removeItem(toTimerStorageKey(code));
+    } catch {
+        // Ignore storage errors.
     }
 };
 
@@ -302,6 +339,37 @@ const extractSnippetFromHtml = (rawHtml) => {
     }
 };
 
+const buildPersistedGameState = ({
+    gameCode,
+    currentArticle,
+    articleHistory,
+    clicks,
+    startedAt,
+    elapsedSeconds,
+    chronoRemainingSeconds,
+    chronoScore,
+    won,
+    knowledgeQuiz,
+    knowledgeQuizAnswers,
+    knowledgeQuizSubmitted,
+    visitedArticleDetails
+}) => ({
+    version: 1,
+    gameCode,
+    currentArticle,
+    articleHistory,
+    clicks,
+    startedAt,
+    elapsedSeconds,
+    chronoRemainingSeconds,
+    chronoScore,
+    won,
+    knowledgeQuiz,
+    knowledgeQuizAnswers,
+    knowledgeQuizSubmitted,
+    visitedArticleDetails
+});
+
 function Game() {
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
@@ -313,6 +381,9 @@ function Game() {
     const chronoScoreTickRef = useRef(0);
     const visitedArticleDetailsRef = useRef(new Map());
     const knowledgeQuizRequestedRef = useRef(false);
+    const gameStateSnapshotRef = useRef(null);
+    const gameReadyRef = useRef(false);
+    const resultSubmittedRef = useRef(false);
 
     const [game, setGame] = useState(null);
     const [loadingGame, setLoadingGame] = useState(Boolean(searchParams.get('code') || searchParams.get('previewTitle')));
@@ -341,6 +412,31 @@ function Game() {
     const isKnowledgeMode = gameMode === 'knowledge';
     const chronoDefeat = isChronoMode && !won && (chronoRemainingSeconds <= 0 || chronoScore <= 0);
     const canInteractWithArticle = !won && !chronoDefeat;
+
+    const saveCurrentGameState = useCallback((snapshot) => {
+        if (!gameCode) {
+            return;
+        }
+
+        const nextSnapshot = buildPersistedGameState({
+            gameCode,
+            currentArticle: String(snapshot?.currentArticle || '').trim(),
+            articleHistory: Array.isArray(snapshot?.articleHistory) ? snapshot.articleHistory : [],
+            clicks: Number(snapshot?.clicks || 0),
+            startedAt: Number(snapshot?.startedAt || 0),
+            elapsedSeconds: Number(snapshot?.elapsedSeconds || 0),
+            chronoRemainingSeconds: Number(snapshot?.chronoRemainingSeconds || CHRONO_START_SECONDS),
+            chronoScore: Number(snapshot?.chronoScore || CHRONO_START_SECONDS),
+            won: Boolean(snapshot?.won),
+            knowledgeQuiz: Array.isArray(snapshot?.knowledgeQuiz) ? snapshot.knowledgeQuiz : [],
+            knowledgeQuizAnswers: snapshot?.knowledgeQuizAnswers && typeof snapshot.knowledgeQuizAnswers === 'object' ? snapshot.knowledgeQuizAnswers : {},
+            knowledgeQuizSubmitted: Boolean(snapshot?.knowledgeQuizSubmitted),
+            visitedArticleDetails: Array.isArray(snapshot?.visitedArticleDetails) ? snapshot.visitedArticleDetails : []
+        });
+
+        gameStateSnapshotRef.current = nextSnapshot;
+        persistGameState(gameCode, nextSnapshot);
+    }, [gameCode]);
 
     const fetchArticlePayload = useCallback(async (title) => {
         const normalizedTitle = String(title || '').trim();
@@ -371,7 +467,7 @@ function Game() {
     }, []);
 
     const loadArticle = useCallback(async (title, targetArticle, isInitial = false, options = {}) => {
-        const { fromHistory = false, mode = '' } = options;
+        const { fromHistory = false, mode = '', restoreSnapshot = null } = options;
         const isChronoGame = String(mode || gameMode).trim().toLowerCase() === 'chrono';
         const requestId = ++requestIdRef.current;
         setLoadingArticle(true);
@@ -395,33 +491,71 @@ function Game() {
             }
 
             if (isInitial) {
-                setClicks(0);
-                setWon(false);
-                setArticleHistory([resolvedArticle]);
-                setChronoRemainingSeconds(CHRONO_START_SECONDS);
-                setChronoScore(CHRONO_START_SECONDS);
-                chronoScoreTickRef.current = 0;
-                setKnowledgeQuiz([]);
-                setKnowledgeQuizError('');
-                setKnowledgeQuizAnswers({});
-                setKnowledgeQuizSubmitted(false);
-                knowledgeQuizRequestedRef.current = false;
-                visitedArticleDetailsRef.current = new Map();
+                const restoredState = restoreSnapshot && typeof restoreSnapshot === 'object' ? restoreSnapshot : null;
 
-                if (snippet) {
-                    visitedArticleDetailsRef.current.set(normalizeArticle(resolvedArticle), {
-                        title: resolvedArticle,
-                        snippet
-                    });
+                if (restoredState) {
+                    const restoredHistory = Array.isArray(restoredState.articleHistory) && restoredState.articleHistory.length > 0
+                        ? restoredState.articleHistory
+                        : [resolvedArticle];
+
+                    setClicks(Number.isFinite(Number(restoredState.clicks)) ? Number(restoredState.clicks) : 0);
+                    setWon(Boolean(restoredState.won));
+                    setArticleHistory(restoredHistory);
+                    setChronoRemainingSeconds(Number.isFinite(Number(restoredState.chronoRemainingSeconds)) ? Number(restoredState.chronoRemainingSeconds) : CHRONO_START_SECONDS);
+                    setChronoScore(Number.isFinite(Number(restoredState.chronoScore)) ? Number(restoredState.chronoScore) : CHRONO_START_SECONDS);
+                    chronoScoreTickRef.current = 0;
+                    setKnowledgeQuiz(Array.isArray(restoredState.knowledgeQuiz) ? restoredState.knowledgeQuiz : []);
+                    setKnowledgeQuizError('');
+                    setKnowledgeQuizAnswers(restoredState.knowledgeQuizAnswers && typeof restoredState.knowledgeQuizAnswers === 'object' ? restoredState.knowledgeQuizAnswers : {});
+                    setKnowledgeQuizSubmitted(Boolean(restoredState.knowledgeQuizSubmitted));
+                    knowledgeQuizRequestedRef.current = Array.isArray(restoredState.knowledgeQuiz) && restoredState.knowledgeQuiz.length > 0;
+                    visitedArticleDetailsRef.current = new Map(Array.isArray(restoredState.visitedArticleDetails) ? restoredState.visitedArticleDetails : []);
+
+                    if (visitedArticleDetailsRef.current.size === 0 && snippet) {
+                        visitedArticleDetailsRef.current.set(normalizeArticle(resolvedArticle), {
+                            title: resolvedArticle,
+                            snippet
+                        });
+                    }
+
+                    const restoredStartedAt = Number.isFinite(Number(restoredState.startedAt)) && Number(restoredState.startedAt) > 0
+                        ? Number(restoredState.startedAt)
+                        : Date.now();
+
+                    startedAtRef.current = restoredStartedAt;
+                    setStartedAt(restoredStartedAt);
+                    setElapsedSeconds(Number.isFinite(Number(restoredState.elapsedSeconds))
+                        ? Number(restoredState.elapsedSeconds)
+                        : Math.max(0, Math.floor((Date.now() - restoredStartedAt) / 1000)));
+                } else {
+                    setClicks(0);
+                    setWon(false);
+                    setArticleHistory([resolvedArticle]);
+                    setChronoRemainingSeconds(CHRONO_START_SECONDS);
+                    setChronoScore(CHRONO_START_SECONDS);
+                    chronoScoreTickRef.current = 0;
+                    setKnowledgeQuiz([]);
+                    setKnowledgeQuizError('');
+                    setKnowledgeQuizAnswers({});
+                    setKnowledgeQuizSubmitted(false);
+                    knowledgeQuizRequestedRef.current = false;
+                    visitedArticleDetailsRef.current = new Map();
+
+                    if (snippet) {
+                        visitedArticleDetailsRef.current.set(normalizeArticle(resolvedArticle), {
+                            title: resolvedArticle,
+                            snippet
+                        });
+                    }
+
+                    const persistedStart = readPersistedStartAt(gameCode);
+                    const startTime = persistedStart || Date.now();
+                    startedAtRef.current = startTime;
+                    setStartedAt(startTime);
+
+                    setElapsedSeconds(Math.max(0, Math.floor((Date.now() - startTime) / 1000)));
+                    persistStartAt(gameCode, startTime);
                 }
-
-                const persistedStart = readPersistedStartAt(gameCode);
-                const startTime = persistedStart || Date.now();
-                startedAtRef.current = startTime;
-                setStartedAt(startTime);
-
-                setElapsedSeconds(Math.max(0, Math.floor((Date.now() - startTime) / 1000)));
-                persistStartAt(gameCode, startTime);
             } else {
                 if (lastArticleRef.current && normalizeArticle(lastArticleRef.current) !== normalizeArticle(resolvedArticle)) {
                     if (!fromHistory) {
@@ -464,6 +598,73 @@ function Game() {
                 }
             }
 
+            const didCountAsMove = !restoreSnapshot
+                && !fromHistory
+                && Boolean(lastArticleRef.current)
+                && normalizeArticle(lastArticleRef.current) !== normalizeArticle(resolvedArticle);
+
+            const nextArticleHistory = restoreSnapshot
+                ? (Array.isArray(restoreSnapshot.articleHistory) && restoreSnapshot.articleHistory.length > 0 ? restoreSnapshot.articleHistory : [resolvedArticle])
+                : (isInitial
+                    ? [resolvedArticle]
+                    : (() => {
+                        if (fromHistory) {
+                            return articleHistory;
+                        }
+
+                        const last = articleHistory[articleHistory.length - 1];
+                        if (!last || normalizeArticle(last) === normalizeArticle(resolvedArticle)) {
+                            return articleHistory.length > 0 ? articleHistory : [resolvedArticle];
+                        }
+
+                        return [...articleHistory, resolvedArticle];
+                    })());
+
+            const nextClicks = restoreSnapshot
+                ? (Number.isFinite(Number(restoreSnapshot.clicks)) ? Number(restoreSnapshot.clicks) : 0)
+                : clicks + (didCountAsMove ? 1 : 0);
+
+            const nextStartedAt = restoreSnapshot
+                ? (Number.isFinite(Number(restoreSnapshot.startedAt)) && Number(restoreSnapshot.startedAt) > 0
+                    ? Number(restoreSnapshot.startedAt)
+                    : (startedAtRef.current || Date.now()))
+                : (startedAtRef.current || Date.now());
+
+            const nextElapsedSeconds = restoreSnapshot
+                ? (Number.isFinite(Number(restoreSnapshot.elapsedSeconds)) ? Number(restoreSnapshot.elapsedSeconds) : 0)
+                : elapsedSeconds;
+
+            const nextChronoRemainingSeconds = restoreSnapshot
+                ? (Number.isFinite(Number(restoreSnapshot.chronoRemainingSeconds)) ? Number(restoreSnapshot.chronoRemainingSeconds) : CHRONO_START_SECONDS)
+                : chronoRemainingSeconds + (didCountAsMove && isChronoGame ? 5 : 0);
+
+            const nextChronoScore = restoreSnapshot
+                ? (Number.isFinite(Number(restoreSnapshot.chronoScore)) ? Number(restoreSnapshot.chronoScore) : CHRONO_START_SECONDS)
+                : Math.max(0, chronoScore - (didCountAsMove && isChronoGame ? 10 : 0));
+
+            const nextWon = restoreSnapshot ? Boolean(restoreSnapshot.won) : won;
+            const nextKnowledgeQuiz = restoreSnapshot && Array.isArray(restoreSnapshot.knowledgeQuiz) ? restoreSnapshot.knowledgeQuiz : knowledgeQuiz;
+            const nextKnowledgeQuizAnswers = restoreSnapshot && restoreSnapshot.knowledgeQuizAnswers && typeof restoreSnapshot.knowledgeQuizAnswers === 'object'
+                ? restoreSnapshot.knowledgeQuizAnswers
+                : knowledgeQuizAnswers;
+            const nextKnowledgeQuizSubmitted = restoreSnapshot ? Boolean(restoreSnapshot.knowledgeQuizSubmitted) : knowledgeQuizSubmitted;
+            const nextVisitedArticleDetails = new Map(visitedArticleDetailsRef.current);
+
+            saveCurrentGameState({
+                currentArticle: resolvedArticle,
+                articleHistory: nextArticleHistory,
+                clicks: nextClicks,
+                startedAt: nextStartedAt,
+                elapsedSeconds: nextElapsedSeconds,
+                chronoRemainingSeconds: nextChronoRemainingSeconds,
+                chronoScore: nextChronoScore,
+                won: nextWon || Boolean(targetArticle && normalizeArticle(resolvedArticle) === normalizeArticle(targetArticle)),
+                knowledgeQuiz: nextKnowledgeQuiz,
+                knowledgeQuizAnswers: nextKnowledgeQuizAnswers,
+                knowledgeQuizSubmitted: nextKnowledgeQuizSubmitted,
+                visitedArticleDetails: Array.from(nextVisitedArticleDetails.entries())
+            });
+
             lastArticleRef.current = resolvedArticle;
 
             if (targetArticle && normalizeArticle(resolvedArticle) === normalizeArticle(targetArticle)) {
@@ -478,7 +679,7 @@ function Game() {
                 setLoadingArticle(false);
             }
         }
-    }, [fetchArticlePayload, gameCode, gameMode]);
+    }, [articleHistory, chronoRemainingSeconds, chronoScore, clicks, elapsedSeconds, fetchArticlePayload, gameCode, gameMode, knowledgeQuiz, knowledgeQuizAnswers, knowledgeQuizSubmitted, saveCurrentGameState, won]);
 
     useEffect(() => {
         if (!won || !isKnowledgeMode || !gameCode || isPreviewMode) {
@@ -490,6 +691,17 @@ function Game() {
         }
 
         knowledgeQuizRequestedRef.current = true;
+
+        if (!resultSubmittedRef.current) {
+            resultSubmittedRef.current = true;
+            gameService.submitResult(gameCode, {
+                clicks,
+                time_seconds: elapsedSeconds,
+                score: 0,
+                won: true
+            }).catch(() => { });
+        }
+
         setKnowledgeQuizLoading(true);
         setKnowledgeQuizError('');
 
@@ -530,6 +742,8 @@ function Game() {
             });
     }, [
         articleHistory,
+        clicks,
+        elapsedSeconds,
         gameCode,
         isKnowledgeMode,
         isPreviewMode,
@@ -544,8 +758,21 @@ function Game() {
         gameService
             .getByCode(gameCode)
             .then(async (data) => {
+                gameReadyRef.current = false;
                 setGame(data.game);
+                const persistedState = readPersistedGameState(gameCode);
+
+                if (persistedState?.currentArticle && Array.isArray(persistedState.articleHistory) && persistedState.articleHistory.length > 0) {
+                    await loadArticle(persistedState.currentArticle, data.game.target_article, true, {
+                        mode: data.game.mode,
+                        restoreSnapshot: persistedState
+                    });
+                    gameReadyRef.current = true;
+                    return;
+                }
+
                 await loadArticle(data.game.start_article, data.game.target_article, true, { mode: data.game.mode });
+                gameReadyRef.current = true;
             })
             .catch((err) => {
                 setError(err.message || 'Impossible de charger la partie');
@@ -574,14 +801,49 @@ function Game() {
         };
 
         setGame(previewGame);
+        gameReadyRef.current = false;
         loadArticle(initialTitle, initialTitle, true, { mode: previewGame.mode })
             .catch((err) => {
                 setError(err.message || 'Impossible de charger la previsualisation');
             })
             .finally(() => {
+                gameReadyRef.current = true;
                 setLoadingGame(false);
             });
     }, [gameCode, previewTitle, loadArticle]);
+
+    // Soumission du résultat pour les modes non-knowledge (normal + chrono win/defeat)
+    useEffect(() => {
+        if (!game || !gameCode || isPreviewMode || isKnowledgeMode) {
+            return;
+        }
+
+        const isTerminal = won || chronoDefeat;
+        if (!isTerminal || resultSubmittedRef.current) {
+            return;
+        }
+
+        resultSubmittedRef.current = true;
+        gameService.submitResult(gameCode, {
+            clicks,
+            time_seconds: elapsedSeconds,
+            score: isChronoMode ? chronoScore : 0,
+            won: Boolean(won)
+        }).catch(() => { });
+    }, [won, chronoDefeat, game, gameCode, isPreviewMode, isKnowledgeMode, isChronoMode, clicks, elapsedSeconds, chronoScore]);
+
+    // Mise à jour du score knowledge quand le quiz est soumis
+    useEffect(() => {
+        if (!knowledgeQuizSubmitted || !gameCode || isPreviewMode || !isKnowledgeMode) {
+            return;
+        }
+
+        const score = knowledgeQuiz.reduce((total, item, index) => {
+            return total + (knowledgeQuizAnswers[index] === item.answerIndex ? 1 : 0);
+        }, 0);
+
+        gameService.updateKnowledgeScore(gameCode, score).catch(() => { });
+    }, [knowledgeQuizSubmitted, gameCode, isPreviewMode, isKnowledgeMode, knowledgeQuiz, knowledgeQuizAnswers]);
 
     useEffect(() => {
         if (!startedAt || won || chronoDefeat) {
@@ -604,6 +866,65 @@ function Game() {
 
         return () => clearInterval(intervalId);
     }, [startedAt, won, isChronoMode, chronoDefeat]);
+
+    useEffect(() => {
+        if (!gameCode || !game) {
+            return;
+        }
+
+        if (!gameReadyRef.current) {
+            return;
+        }
+
+        const snapshot = buildPersistedGameState({
+            gameCode,
+            currentArticle,
+            articleHistory,
+            clicks,
+            startedAt,
+            elapsedSeconds,
+            chronoRemainingSeconds,
+            chronoScore,
+            won,
+            knowledgeQuiz,
+            knowledgeQuizAnswers,
+            knowledgeQuizSubmitted,
+            visitedArticleDetails: Array.from(visitedArticleDetailsRef.current.entries())
+        });
+
+        gameStateSnapshotRef.current = snapshot;
+        persistGameState(gameCode, snapshot);
+    }, [
+        articleHistory,
+        clicks,
+        currentArticle,
+        elapsedSeconds,
+        game,
+        gameCode,
+        knowledgeQuiz,
+        knowledgeQuizAnswers,
+        knowledgeQuizSubmitted,
+        won,
+        chronoRemainingSeconds,
+        chronoScore,
+        startedAt
+    ]);
+
+    useEffect(() => {
+        const handleKeyDown = (event) => {
+            const isFindShortcut = (event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey && String(event.key || '').toLowerCase() === 'f';
+
+            if (!isFindShortcut) {
+                return;
+            }
+
+            event.preventDefault();
+            event.stopPropagation();
+        };
+
+        window.addEventListener('keydown', handleKeyDown, true);
+        return () => window.removeEventListener('keydown', handleKeyDown, true);
+    }, []);
 
     const handleContentClick = (event) => {
         if (!canInteractWithArticle) {
@@ -665,6 +986,10 @@ function Game() {
     };
 
     const handleQuitGame = () => {
+        if (gameCode && !isPreviewMode) {
+            clearPersistedGameState(gameCode);
+        }
+
         navigate(isPreviewMode ? '/admin/articles' : '/lobby');
     };
 

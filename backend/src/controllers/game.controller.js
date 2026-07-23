@@ -1,4 +1,4 @@
-import Game from '../models/game.model.js';
+import Game, { GameResult } from '../models/game.model.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -322,5 +322,102 @@ export const generateKnowledgeQuizForGame = async (req, res) => {
         }
 
         return res.status(status).json({ error: message });
+    }
+};
+
+export const submitGameResult = async (req, res) => {
+    try {
+        const code = parseText(req.params.code).toUpperCase();
+        if (!code) {
+            return res.status(400).json({ error: 'Code de partie requis' });
+        }
+
+        const game = await Game.findByCode(code);
+        if (!game) {
+            return res.status(404).json({ error: 'Partie introuvable' });
+        }
+
+        if (game.created_by !== req.user.id) {
+            return res.status(403).json({ error: 'Acces interdit' });
+        }
+
+        const clicks = Math.max(0, Number(req.body.clicks) || 0);
+        const timeSeconds = Math.max(0, Number(req.body.time_seconds) || 0);
+        const score = Math.max(0, Number(req.body.score) || 0);
+        const won = Boolean(req.body.won);
+
+        await GameResult.submit({
+            gameId: game.id,
+            userId: req.user.id,
+            mode: game.mode,
+            clicks,
+            timeSeconds,
+            score,
+            won
+        });
+
+        return res.json({ ok: true });
+    } catch (error) {
+        console.error('submitGameResult error:', error);
+        return res.status(500).json({ error: 'Impossible de sauvegarder le resultat' });
+    }
+};
+
+export const updateKnowledgeScore = async (req, res) => {
+    try {
+        const code = parseText(req.params.code).toUpperCase();
+        if (!code) {
+            return res.status(400).json({ error: 'Code de partie requis' });
+        }
+
+        const game = await Game.findByCode(code);
+        if (!game) {
+            return res.status(404).json({ error: 'Partie introuvable' });
+        }
+
+        if (game.created_by !== req.user.id) {
+            return res.status(403).json({ error: 'Acces interdit' });
+        }
+
+        const knowledgeScore = Math.max(0, Number(req.body.knowledge_score) || 0);
+
+        await GameResult.updateKnowledgeScore({
+            gameId: game.id,
+            userId: req.user.id,
+            knowledgeScore
+        });
+
+        return res.json({ ok: true });
+    } catch (error) {
+        console.error('updateKnowledgeScore error:', error);
+        return res.status(500).json({ error: 'Impossible de mettre a jour le score' });
+    }
+};
+
+export const getMyHistory = async (req, res) => {
+    try {
+        console.log('[getMyHistory] Called for user:', req.user?.id);
+        console.log('[getMyHistory] req.user exists?', !!req.user);
+        const results = await GameResult.getByUser(req.user.id, 30);
+        console.log('[getMyHistory] Success, got', results.length, 'results');
+        return res.json({ results });
+    } catch (error) {
+        console.error('[getMyHistory] ERROR:', error.message);
+        console.error('[getMyHistory] Stack:', error.stack);
+        return res.status(500).json({ error: 'Impossible de recuperer l\'historique', details: error.message });
+    }
+};
+
+export const getLeaderboard = async (req, res) => {
+    try {
+        const allowedModes = ['all', 'normal', 'knowledge', 'chrono'];
+        const mode = allowedModes.includes(String(req.query.mode || 'all').trim().toLowerCase())
+            ? String(req.query.mode || 'all').trim().toLowerCase()
+            : 'all';
+        const rows = await GameResult.getLeaderboard(mode, 20);
+        return res.json({ leaderboard: rows, mode });
+    } catch (error) {
+        console.error('getLeaderboard error:', error);
+        return res.status(500).json({ error: 'Impossible de recuperer le classement' });
     }
 };
