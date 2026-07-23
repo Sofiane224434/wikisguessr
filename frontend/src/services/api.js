@@ -64,7 +64,17 @@ export const gameService = {
     generateKnowledgeQuiz: (code, payload) => fetchAPI(`/games/${encodeURIComponent(code)}/knowledge-quiz`, {
         method: 'POST',
         body: JSON.stringify(payload)
-    })
+    }),
+    submitResult: (code, payload) => fetchAPI(`/games/${encodeURIComponent(code)}/result`, {
+        method: 'POST',
+        body: JSON.stringify(payload)
+    }),
+    updateKnowledgeScore: (code, knowledgeScore) => fetchAPI(`/games/${encodeURIComponent(code)}/result/knowledge-score`, {
+        method: 'PATCH',
+        body: JSON.stringify({ knowledge_score: knowledgeScore })
+    }),
+    getHistory: () => fetchAPI('/games/history'),
+    getLeaderboard: (mode = 'all') => fetchAPI(`/games/leaderboard?mode=${encodeURIComponent(mode)}`)
 }
 
 export const wikiService = {

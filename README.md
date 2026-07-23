@@ -56,6 +56,15 @@ Aleatoire MVP : les articles de depart/cible sont tires aleatoirement depuis `ba
 Boucle de jeu MVP : la page `/game` recupere le contenu Wikipedia en `mobile-html` via le backend (`/api/wiki/mobile-html`) puis le rend dans l'interface sans iframe, en gardant la navigation interne dans la boucle, les images et le chronometre.
 Mode chrono : depart a 5 minutes et 300 points. Les points descendent plus lentement: `1 point toutes les 2 secondes` (soit `10 points en 20 s`). Chaque changement d'article via un lien ajoute `+5 s` au chrono mais retire `-10 points`. La partie est perdue si le temps ou les points atteignent 0.
 
+Resultats et classement :
+- A la fin de chaque partie (victoire ou defaite chrono), le front appelle `POST /api/games/:code/result`.
+- Pour le mode connaissance, le score du quiz (0-5) est envoye en `PATCH /api/games/:code/result/knowledge-score` quand le joueur valide ses reponses.
+- `GET /api/games/history` retourne l'historique personnel des 30 dernieres parties (authentifie).
+- `GET /api/games/leaderboard?mode=all|normal|chrono|knowledge` retourne le classement global ou par mode (authentifie).
+- La page `/leaderboard` affiche le classement avec onglets par mode.
+- La page `/profile` affiche les statistiques personnelles (parties, victoires, taux) et l'historique complet.
+- La table `game_results` est creee automatiquement au premier appel (`CREATE TABLE IF NOT EXISTS`).
+
 Variables backend (`backend/.env`) :
 
 ```env
