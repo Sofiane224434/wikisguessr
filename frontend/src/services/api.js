@@ -127,3 +127,16 @@ export const siteService = {
         body: JSON.stringify({ offline: Boolean(offline) })
     })
 }
+
+export const gameRoomService = {
+    getMyRoom: () => fetchAPI('/game-rooms/my'),
+    getRoomInfo: (code) => fetchAPI(`/game-rooms/info?code=${encodeURIComponent(code)}`),
+    joinRoom: (code) => fetchAPI('/game-rooms/join', {
+        method: 'POST',
+        body: JSON.stringify({ code })
+    }),
+    leaveRoom: (roomId) => fetchAPI('/game-rooms/leave', {
+        method: 'POST',
+        body: JSON.stringify({ roomId })
+    })
+}

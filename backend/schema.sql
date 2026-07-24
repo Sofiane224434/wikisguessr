@@ -33,3 +33,28 @@ CREATE TABLE IF NOT EXISTS `games` (
 	KEY `idx_games_created_by` (`created_by`),
 	CONSTRAINT `fk_games_created_by` FOREIGN KEY (`created_by`) REFERENCES `users`(`id`) ON DELETE CASCADE
 );
+
+CREATE TABLE IF NOT EXISTS `game_rooms` (
+	`id` INT NOT NULL AUTO_INCREMENT,
+	`code` VARCHAR(12) NOT NULL,
+	`owner_id` INT NOT NULL,
+	`created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+	PRIMARY KEY (`id`),
+	UNIQUE KEY `uniq_game_rooms_owner` (`owner_id`),
+	UNIQUE KEY `uniq_game_rooms_code` (`code`),
+	KEY `idx_game_rooms_owner` (`owner_id`),
+	CONSTRAINT `fk_game_rooms_owner` FOREIGN KEY (`owner_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS `game_room_members` (
+	`id` INT NOT NULL AUTO_INCREMENT,
+	`room_id` INT NOT NULL,
+	`user_id` INT NOT NULL,
+	`joined_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+	PRIMARY KEY (`id`),
+	UNIQUE KEY `uniq_game_room_members` (`room_id`, `user_id`),
+	KEY `idx_game_room_members_room` (`room_id`),
+	KEY `idx_game_room_members_user` (`user_id`),
+	CONSTRAINT `fk_game_room_members_room` FOREIGN KEY (`room_id`) REFERENCES `game_rooms`(`id`) ON DELETE CASCADE,
+	CONSTRAINT `fk_game_room_members_user` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
+);
