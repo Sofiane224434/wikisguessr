@@ -140,3 +140,24 @@ export const gameRoomService = {
         body: JSON.stringify({ roomId })
     })
 }
+
+export const friendService = {
+    addFriend: (identifier) => fetchAPI('/friends/add', {
+        method: 'POST',
+        body: JSON.stringify({ identifier })
+    }),
+    getFriends: () => fetchAPI('/friends/list'),
+    removeFriend: (friendId) => fetchAPI('/friends/remove', {
+        method: 'POST',
+        body: JSON.stringify({ friendId })
+    })
+}
+
+export const roomMessageService = {
+    sendMessage: (roomId, message) => fetchAPI('/room-messages/send', {
+        method: 'POST',
+        body: JSON.stringify({ roomId, message })
+    }),
+    getMessages: (roomId, limit = 50) => fetchAPI(`/room-messages/list?roomId=${roomId}&limit=${limit}`),
+    getNewMessages: (roomId, since) => fetchAPI(`/room-messages/new?roomId=${roomId}&since=${encodeURIComponent(since)}`)
+}

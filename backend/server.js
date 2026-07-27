@@ -7,6 +7,8 @@ import authRoutes from './src/routes/auth.routes.js';
 import emailRoutes from './src/routes/email.routes.js';
 import gameRoutes from './src/routes/game.routes.js';
 import gameRoomRoutes from './src/routes/game-room.routes.js';
+import friendRoutes from './src/routes/friend.routes.js';
+import roomMessageRoutes from './src/routes/room-message.routes.js';
 import wikiRoutes from './src/routes/wiki.routes.js';
 import siteStateRoutes from './src/routes/site-state.routes.js';
 
@@ -36,6 +38,8 @@ app.use('/api/auth', authRoutes);
 app.use('/api/email', emailRoutes);
 app.use('/api/games', gameRoutes);
 app.use('/api/game-rooms', gameRoomRoutes);
+app.use('/api/friends', friendRoutes);
+app.use('/api/room-messages', roomMessageRoutes);
 app.use('/api/wiki', wikiRoutes);
 // 404
 app.use((req, res) => res.status(404).json({ error: 'Route non trouvée' }));

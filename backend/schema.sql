@@ -58,3 +58,31 @@ CREATE TABLE IF NOT EXISTS `game_room_members` (
 	CONSTRAINT `fk_game_room_members_room` FOREIGN KEY (`room_id`) REFERENCES `game_rooms`(`id`) ON DELETE CASCADE,
 	CONSTRAINT `fk_game_room_members_user` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
 );
+
+CREATE TABLE IF NOT EXISTS `friendships` (
+	`id` INT NOT NULL AUTO_INCREMENT,
+	`user_id` INT NOT NULL,
+	`friend_id` INT NOT NULL,
+	`created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+	PRIMARY KEY (`id`),
+	UNIQUE KEY `uniq_friendships` (`user_id`, `friend_id`),
+	KEY `idx_friendships_user` (`user_id`),
+	KEY `idx_friendships_friend` (`friend_id`),
+	CONSTRAINT `fk_friendships_user` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE,
+	CONSTRAINT `fk_friendships_friend` FOREIGN KEY (`friend_id`) REFERENCES `users`(`id`) ON DELETE CASCADE,
+	CONSTRAINT `chk_friendships_different` CHECK (`user_id` != `friend_id`)
+);
+
+CREATE TABLE IF NOT EXISTS `room_messages` (
+	`id` INT NOT NULL AUTO_INCREMENT,
+	`room_id` INT NOT NULL,
+	`user_id` INT NOT NULL,
+	`message` VARCHAR(500) NOT NULL,
+	`created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+	PRIMARY KEY (`id`),
+	KEY `idx_room_messages_room` (`room_id`),
+	KEY `idx_room_messages_user` (`user_id`),
+	KEY `idx_room_messages_created` (`created_at`),
+	CONSTRAINT `fk_room_messages_room` FOREIGN KEY (`room_id`) REFERENCES `game_rooms`(`id`) ON DELETE CASCADE,
+	CONSTRAINT `fk_room_messages_user` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
+);
