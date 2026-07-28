@@ -92,6 +92,36 @@ ORDER BY f.created_at DESC
             console.error('[Friend] areFriends error:', error);
             return false;
         }
+    },
+
+    // Récupérer amis avec leur statut de connexion (5 minutes = online)
+    async getFriendsWithStatus(userId) {
+        await this.ensureTable();
+        try {
+            const sql = `
+SELECT u.id, u.username, u.last_seen,
+       IF(u.last_seen IS NOT NULL AND u.last_seen > DATE_SUB(NOW(), INTERVAL 5 MINUTE), 1, 0) as is_online
+FROM friendships f
+JOIN users u ON u.id = f.friend_id
+WHERE f.user_id = ?
+ORDER BY is_online DESC, f.created_at DESC
+`;
+            return await query(sql, [userId]);
+        } catch (error) {
+            console.error('[Friend] getFriendsWithStatus error:', error);
+            throw error;
+        }
+    },
+
+    // Mettre à jour last_seen pour un utilisateur
+    async updateLastSeen(userId) {
+        try {
+            const sql = 'UPDATE users SET last_seen = NOW() WHERE id = ?';
+            await query(sql, [userId]);
+        } catch (error) {
+            console.error('[Friend] updateLastSeen error:', error);
+            throw error;
+        }
     }
 };
 

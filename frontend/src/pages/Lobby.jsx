@@ -39,7 +39,8 @@ function Lobby() {
 
     useEffect(() => {
         loadMyRoom();
-        loadFriends();
+        loadFriendsWithStatus();
+        friendService.updatePresence().catch(err => console.error('Erreur presence:', err));
     }, []);
 
     useEffect(() => {
@@ -65,9 +66,9 @@ function Lobby() {
         }
     };
 
-    const loadFriends = async () => {
+    const loadFriendsWithStatus = async () => {
         try {
-            const data = await friendService.getFriends();
+            const data = await friendService.getFriendsWithStatus();
             setFriends(data.friends || []);
         } catch (err) {
             console.error('Erreur lors du chargement des amis:', err);
@@ -205,6 +206,15 @@ function Lobby() {
         }
     };
 
+    const handleInviteFriend = (friendUsername) => {
+        if (myRoom?.code) {
+            const text = `Viens jouer au WikisGuessr! Code du salon: ${myRoom.code}`;
+            navigator.clipboard.writeText(text);
+            setSuccess(`Invitation copiée pour ${friendUsername}`);
+            setTimeout(() => setSuccess(null), 2000);
+        }
+    };
+
     if (roomLoading) {
         return (
             <div className="mx-auto w-full max-w-6xl px-3 py-4">
@@ -331,14 +341,27 @@ function Lobby() {
                                 key={friend.id}
                                 className="flex items-center justify-between gap-1 rounded bg-slate-100 px-1.5 py-0.5 text-xs"
                             >
-                                <span className="text-slate-900">{friend.username}</span>
-                                <button
-                                    type="button"
-                                    onClick={() => handleRemoveFriend(friend.id)}
-                                    className="text-slate-500 hover:text-slate-900"
-                                >
-                                    ✕
-                                </button>
+                                <div className="flex items-center gap-1 flex-1">
+                                    <span className={friend.is_online ? '🟢' : '⚪'}></span>
+                                    <span className="text-slate-900">{friend.username}</span>
+                                </div>
+                                <div className="flex gap-0.5">
+                                    <button
+                                        type="button"
+                                        onClick={() => handleInviteFriend(friend.username)}
+                                        className="text-slate-600 hover:text-slate-900 text-xs"
+                                        title="Inviter"
+                                    >
+                                        📩
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => handleRemoveFriend(friend.id)}
+                                        className="text-slate-500 hover:text-slate-900"
+                                    >
+                                        ✕
+                                    </button>
+                                </div>
                             </div>
                         ))}
                     </div>

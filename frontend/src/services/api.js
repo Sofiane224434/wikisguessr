@@ -150,6 +150,10 @@ export const friendService = {
     removeFriend: (friendId) => fetchAPI('/friends/remove', {
         method: 'POST',
         body: JSON.stringify({ friendId })
+    }),
+    getFriendsWithStatus: () => fetchAPI('/friends/list-with-status'),
+    updatePresence: () => fetchAPI('/friends/update-presence', {
+        method: 'POST'
     })
 }
 

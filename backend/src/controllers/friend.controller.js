@@ -52,3 +52,23 @@ export const removeFriend = async (req, res) => {
         return res.status(500).json({ error: 'Impossible de supprimer l\'ami' });
     }
 };
+
+export const getFriendsWithStatus = async (req, res) => {
+    try {
+        const friends = await Friend.getFriendsWithStatus(req.user.id);
+        return res.json({ friends: friends || [] });
+    } catch (error) {
+        console.error('getFriendsWithStatus error:', error);
+        return res.status(500).json({ error: 'Impossible de récupérer les amis' });
+    }
+};
+
+export const updatePresence = async (req, res) => {
+    try {
+        await Friend.updateLastSeen(req.user.id);
+        return res.json({ ok: true });
+    } catch (error) {
+        console.error('updatePresence error:', error);
+        return res.status(500).json({ error: 'Impossible de mettre à jour la présence' });
+    }
+};

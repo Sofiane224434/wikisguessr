@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS `users` (
 	`role` ENUM('user','moderator','admin') NOT NULL DEFAULT 'user',
 	`password` VARCHAR(255) NOT NULL,
 	`created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+	`last_seen` TIMESTAMP NULL DEFAULT NULL,
 	PRIMARY KEY (`id`),
 	UNIQUE KEY `uniq_users_username` (`username`),
 	UNIQUE KEY `uniq_users_email` (`email`)
