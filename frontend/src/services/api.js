@@ -165,3 +165,16 @@ export const roomMessageService = {
     getMessages: (roomId, limit = 50) => fetchAPI(`/room-messages/list?roomId=${roomId}&limit=${limit}`),
     getNewMessages: (roomId, since) => fetchAPI(`/room-messages/new?roomId=${roomId}&since=${encodeURIComponent(since)}`)
 }
+
+export const reportService = {
+    send: (reportedUserId, message, imageData = null) => fetchAPI('/reports/send', {
+        method: 'POST',
+        body: JSON.stringify({ reportedUserId, message, imageData })
+    }),
+    getAll: (status = null) => fetchAPI(`/reports${status ? `?status=${status}` : ''}`),
+    getById: (id) => fetchAPI(`/reports/${id}`),
+    updateStatus: (id, status, adminNote = '') => fetchAPI(`/reports/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status, adminNote })
+    })
+}

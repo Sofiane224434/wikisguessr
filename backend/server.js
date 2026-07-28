@@ -14,6 +14,7 @@ import friendRoutes from './src/routes/friend.routes.js';
 import roomMessageRoutes from './src/routes/room-message.routes.js';
 import wikiRoutes from './src/routes/wiki.routes.js';
 import siteStateRoutes from './src/routes/site-state.routes.js';
+import reportRoutes from './src/routes/report.routes.js';
 
 const app = express();
 const httpServer = createServer(app);
@@ -28,9 +29,9 @@ const PORT = process.env.PORT || 5000;
 // Connexion BDD
 testConnection();
 // Middlewares
-app.use(cors({ 
-    origin: ['http://localhost:5173', 'http://localhost:3009'], 
-    credentials: true 
+app.use(cors({
+    origin: ['http://localhost:5173', 'http://localhost:3009'],
+    credentials: true
 }));
 app.use(express.json());
 // Logger (dev)
@@ -52,6 +53,7 @@ app.use('/api/game-rooms', gameRoomRoutes);
 app.use('/api/friends', friendRoutes);
 app.use('/api/room-messages', roomMessageRoutes);
 app.use('/api/wiki', wikiRoutes);
+app.use('/api/reports', reportRoutes);
 // 404
 app.use((req, res) => res.status(404).json({ error: 'Route non trouvée' }));
 // Démarrage

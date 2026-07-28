@@ -87,3 +87,22 @@ CREATE TABLE IF NOT EXISTS `room_messages` (
 	CONSTRAINT `fk_room_messages_room` FOREIGN KEY (`room_id`) REFERENCES `game_rooms`(`id`) ON DELETE CASCADE,
 	CONSTRAINT `fk_room_messages_user` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
 );
+
+CREATE TABLE IF NOT EXISTS `reports` (
+	`id` INT NOT NULL AUTO_INCREMENT,
+	`reporter_id` INT NOT NULL,
+	`reported_user_id` INT NOT NULL,
+	`message` VARCHAR(1000) NOT NULL,
+	`image_data` MEDIUMTEXT NULL,
+	`status` ENUM('pending','reviewed','dismissed') NOT NULL DEFAULT 'pending',
+	`admin_note` VARCHAR(500) NULL,
+	`created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+	`reviewed_at` TIMESTAMP NULL,
+	PRIMARY KEY (`id`),
+	KEY `idx_reports_reporter` (`reporter_id`),
+	KEY `idx_reports_reported` (`reported_user_id`),
+	KEY `idx_reports_status` (`status`),
+	CONSTRAINT `fk_reports_reporter` FOREIGN KEY (`reporter_id`) REFERENCES `users`(`id`) ON DELETE CASCADE,
+	CONSTRAINT `fk_reports_reported` FOREIGN KEY (`reported_user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE,
+	CONSTRAINT `chk_reports_different` CHECK (`reporter_id` != `reported_user_id`)
+);

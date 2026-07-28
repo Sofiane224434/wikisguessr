@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import { gameService, gameRoomService, friendService, roomMessageService } from '../services/api.js';
+import ReportModal from '../components/ui/ReportModal.jsx';
 
 const MODE_LABELS = {
     normal: 'Normal',
@@ -38,6 +39,9 @@ function Lobby() {
     const [sendingMessage, setSendingMessage] = useState(false);
     const socketRef = useRef(null);
     const chatEndRef = useRef(null);
+
+    // Signalement
+    const [reportTarget, setReportTarget] = useState(null);
 
     // Connexion socket au montage
     useEffect(() => {
@@ -256,17 +260,22 @@ function Lobby() {
                             {/* Membres du salon */}
                             <div>
                                 <h3 className="mb-1 text-xs font-semibold text-slate-900">Joueurs ({members.length + 1})</h3>
-                                <div className="flex flex-wrap gap-0.5">
+                                <div className="flex flex-col gap-0.5">
                                     <span className="rounded bg-slate-900 px-1.5 py-0.5 text-xs text-white font-semibold">
                                         Vous
                                     </span>
                                     {members.map((member) => (
-                                        <span
-                                            key={member.id}
-                                            className="rounded bg-slate-200 px-1.5 py-0.5 text-xs text-slate-900"
-                                        >
-                                            {member.username}
-                                        </span>
+                                        <div key={member.id} className="flex items-center justify-between gap-1 rounded bg-slate-100 px-1.5 py-0.5">
+                                            <span className="text-xs text-slate-900">{member.username}</span>
+                                            <button
+                                                type="button"
+                                                onClick={() => setReportTarget(member)}
+                                                className="text-xs text-slate-400 hover:text-red-500"
+                                                title="Signaler ce joueur"
+                                            >
+                                                🚩
+                                            </button>
+                                        </div>
                                     ))}
                                 </div>
                             </div>
@@ -407,6 +416,13 @@ function Lobby() {
                         </button>
                     </div>
                 </div>
+            )}
+
+            {reportTarget && (
+                <ReportModal
+                    reportedUser={reportTarget}
+                    onClose={() => setReportTarget(null)}
+                />
             )}
         </div>
     );
