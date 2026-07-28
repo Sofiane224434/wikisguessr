@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { io } from 'socket.io-client';
 import { gameService, gameRoomService, friendService, roomMessageService } from '../services/api.js';
 
 const MODE_LABELS = {
@@ -35,21 +36,49 @@ function Lobby() {
     const [messages, setMessages] = useState([]);
     const [chatMessage, setChatMessage] = useState('');
     const [sendingMessage, setSendingMessage] = useState(false);
-    const [lastMessageTime, setLastMessageTime] = useState(null);
+    const socketRef = useRef(null);
+    const chatEndRef = useRef(null);
+
+    // Connexion socket au montage
+    useEffect(() => {
+        const token = localStorage.getItem('token');
+        const socket = io(window.location.origin, {
+            auth: { token },
+            transports: ['websocket', 'polling']
+        });
+        socketRef.current = socket;
+
+        socket.on('chat:message', (msg) => {
+            setMessages(prev => [...prev, msg]);
+        });
+
+        socket.on('connect_error', (err) => {
+            console.error('[Socket] Connexion échouée:', err.message);
+        });
+
+        return () => {
+            socket.disconnect();
+        };
+    }, []);
 
     useEffect(() => {
         loadMyRoom();
         loadFriendsWithStatus();
-        friendService.updatePresence().catch(err => console.error('Erreur presence:', err));
     }, []);
 
     useEffect(() => {
-        if (myRoom?.id) {
-            loadMessages();
-            const interval = setInterval(() => {
-                pollNewMessages();
-            }, 2000);
-            return () => clearInterval(interval);
+        if (myRoom?.id && socketRef.current) {
+            // Charger l'historique via REST
+            roomMessageService.getMessages(myRoom.id, 30)
+                .then(data => setMessages(data.messages || []))
+                .catch(err => console.error('Erreur chargement messages:', err));
+
+            // Rejoindre la room socket pour les messages temps réel
+            socketRef.current.emit('room:join', myRoom.id);
+
+            return () => {
+                socketRef.current?.emit('room:leave', myRoom.id);
+            };
         }
     }, [myRoom?.id]);
 
@@ -75,30 +104,10 @@ function Lobby() {
         }
     };
 
-    const loadMessages = async () => {
-        try {
-            const data = await roomMessageService.getMessages(myRoom.id, 30);
-            setMessages(data.messages || []);
-            if (data.messages && data.messages.length > 0) {
-                setLastMessageTime(data.messages[data.messages.length - 1].created_at);
-            }
-        } catch (err) {
-            console.error('Erreur lors du chargement des messages:', err);
-        }
-    };
-
-    const pollNewMessages = async () => {
-        try {
-            if (!myRoom?.id || !lastMessageTime) return;
-            const data = await roomMessageService.getNewMessages(myRoom.id, lastMessageTime);
-            if (data.messages && data.messages.length > 0) {
-                setMessages(prev => [...prev, ...data.messages]);
-                setLastMessageTime(data.messages[data.messages.length - 1].created_at);
-            }
-        } catch (err) {
-            console.error('Erreur lors du polling des messages:', err);
-        }
-    };
+    // Auto-scroll vers le dernier message
+    useEffect(() => {
+        chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, [messages]);
 
     const toggleMode = () => {
         setMode((prev) => {
@@ -164,7 +173,7 @@ function Lobby() {
             const result = await friendService.addFriend(addFriendInput);
             setSuccess(`${result.friend.username} ajouté à vos amis!`);
             setAddFriendInput('');
-            loadFriends();
+            loadFriendsWithStatus();
         } catch (err) {
             setError(err.message || 'Impossible d\'ajouter l\'ami');
         } finally {
@@ -175,27 +184,21 @@ function Lobby() {
     const handleRemoveFriend = async (friendId) => {
         try {
             await friendService.removeFriend(friendId);
-            loadFriends();
+            loadFriendsWithStatus();
         } catch (err) {
             setError('Impossible de supprimer l\'ami');
         }
     };
 
-    const handleSendMessage = async () => {
-        if (!chatMessage.trim()) return;
-
-        setError(null);
+    const handleSendMessage = () => {
+        if (!chatMessage.trim() || !socketRef.current || !myRoom?.id) return;
         setSendingMessage(true);
-
-        try {
-            await roomMessageService.sendMessage(myRoom.id, chatMessage);
-            setChatMessage('');
-            loadMessages();
-        } catch (err) {
-            setError(err.message || 'Impossible d\'envoyer le message');
-        } finally {
-            setSendingMessage(false);
-        }
+        socketRef.current.emit('chat:send', {
+            roomId: myRoom.id,
+            message: chatMessage.trim()
+        });
+        setChatMessage('');
+        setSendingMessage(false);
     };
 
     const copyToClipboard = () => {
@@ -383,6 +386,7 @@ function Lobby() {
                                 </div>
                             ))
                         )}
+                        <div ref={chatEndRef} />
                     </div>
                     <div className="flex gap-1">
                         <input

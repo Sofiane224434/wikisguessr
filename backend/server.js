@@ -1,8 +1,11 @@
 // server.js
 import 'dotenv/config';
+import { createServer } from 'http';
 import express from 'express';
 import cors from 'cors';
+import { Server } from 'socket.io';
 import { testConnection } from './src/config/db.js';
+import { setupSocket } from './src/socket.js';
 import authRoutes from './src/routes/auth.routes.js';
 import emailRoutes from './src/routes/email.routes.js';
 import gameRoutes from './src/routes/game.routes.js';
@@ -13,6 +16,14 @@ import wikiRoutes from './src/routes/wiki.routes.js';
 import siteStateRoutes from './src/routes/site-state.routes.js';
 
 const app = express();
+const httpServer = createServer(app);
+const io = new Server(httpServer, {
+    cors: {
+        origin: ['http://localhost:5173', 'http://localhost:3009'],
+        credentials: true
+    }
+});
+setupSocket(io);
 const PORT = process.env.PORT || 5000;
 // Connexion BDD
 testConnection();
@@ -44,6 +55,6 @@ app.use('/api/wiki', wikiRoutes);
 // 404
 app.use((req, res) => res.status(404).json({ error: 'Route non trouvée' }));
 // Démarrage
-app.listen(PORT, () => {
+httpServer.listen(PORT, () => {
     console.log(`Serveur sur http://localhost:${PORT}`);
 });

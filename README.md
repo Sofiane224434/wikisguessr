@@ -56,36 +56,6 @@ Aleatoire MVP : les articles de depart/cible sont tires aleatoirement depuis `ba
 Boucle de jeu MVP : la page `/game` recupere le contenu Wikipedia en `mobile-html` via le backend (`/api/wiki/mobile-html`) puis le rend dans l'interface sans iframe, en gardant la navigation interne dans la boucle, les images et le chronometre.
 Mode chrono : depart a 5 minutes et 300 points. Les points descendent plus lentement: `1 point toutes les 2 secondes` (soit `10 points en 20 s`). Chaque changement d'article via un lien ajoute `+5 s` au chrono mais retire `-10 points`. La partie est perdue si le temps ou les points atteignent 0.
 
-## Fonctionnalites sociales (Lobby)
-
-### Gestion des amis
-- Ajouter un ami par username ou email depuis le `/lobby`
-- Liste des amis visible dans la colonne "Amis" avec compteur
-- Supprimer un ami avec le bouton ✕
-- Les amitie sont stockees dans la table `friendships` (relation bidirectionnelle)
-
-### Système de chat par salon
-- Discussion en direct depuis le `/lobby` visible uniquement dans le salon courant
-- Les messages sont stockes dans la table `room_messages` avec timestamps
-- Affichage des 30 derniers messages par defaut, scrollable si nombreux
-- Support Enter pour envoyer un message
-- Polling toutes les 2 secondes pour afficher les nouveaux messages en temps quasi-reel
-- Les messages sont limites a 500 caracteres
-
-### Layout compact du Lobby
-- Grille 4 colonnes sur grands ecrans: Mon salon | Rejoindre | Lancer | Amis
-- Chat du salon en pleine largeur en bas
-- Entierement visible sans scroll vertical (optimisation mobile-first)
-- Responsive avec empilement sur petits ecrans
-
-### APIs sociales (authentifiees)
-- `POST /api/friends/add` - ajouter un ami par identifier (username/email)
-- `GET /api/friends/list` - lister les amis de l'utilisateur
-- `POST /api/friends/remove` - supprimer un ami
-- `POST /api/room-messages/send` - envoyer un message dans un salon
-- `GET /api/room-messages/list` - charger l'historique des messages
-- `GET /api/room-messages/new` - polling: charger les messages depuis un timestamp
-
 Resultats et classement :
 - A la fin de chaque partie (victoire ou defaite chrono), le front appelle `POST /api/games/:code/result`.
 - Pour le mode connaissance, le score du quiz (0-5) est envoye en `PATCH /api/games/:code/result/knowledge-score` quand le joueur valide ses reponses.
