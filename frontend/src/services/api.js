@@ -42,6 +42,14 @@ export const authService = {
     resetPassword: (token, password) => fetchAPI('/auth/reset-password', {
         method: 'POST',
         body: JSON.stringify({ token, password })
+    }),
+    ban: (userId) => fetchAPI('/auth/ban', {
+        method: 'POST',
+        body: JSON.stringify({ userId })
+    }),
+    unban: (userId) => fetchAPI('/auth/unban', {
+        method: 'POST',
+        body: JSON.stringify({ userId })
     })
 }
 
@@ -177,4 +185,15 @@ export const reportService = {
         method: 'PATCH',
         body: JSON.stringify({ status, adminNote })
     })
+}
+
+export const matchmakingService = {
+    join: (mode) => fetchAPI('/matchmaking/join', {
+        method: 'POST',
+        body: JSON.stringify({ mode })
+    }),
+    cancel: () => fetchAPI('/matchmaking/cancel', {
+        method: 'POST'
+    }),
+    getQueueSize: (mode) => fetchAPI(`/matchmaking/queue/${mode}`)
 }

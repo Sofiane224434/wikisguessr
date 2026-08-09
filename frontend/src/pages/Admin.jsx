@@ -7,6 +7,7 @@ function Admin() {
     const [roll, setRoll] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [success, setSuccess] = useState(null);
     const [players, setPlayers] = useState([]);
     const [offline, setOffline] = useState(false);
     const [updatingOffline, setUpdatingOffline] = useState(false);
@@ -184,6 +185,28 @@ function Admin() {
         }
     };
 
+    const handleBan = async (userId, username) => {
+        if (!confirm(`Êtes-vous sûr de vouloir bannir ${username} ?`)) return;
+        try {
+            await authService.ban(userId);
+            setSuccess(`${username} a été banni`);
+            loadAdminData();
+        } catch (err) {
+            setError(err.message || 'Impossible de bannir');
+        }
+    };
+
+    const handleUnban = async (userId, username) => {
+        if (!confirm(`Êtes-vous sûr de vouloir débannir ${username} ?`)) return;
+        try {
+            await authService.unban(userId);
+            setSuccess(`${username} a été débanni`);
+            loadAdminData();
+        } catch (err) {
+            setError(err.message || 'Impossible de débannir');
+        }
+    };
+
     return (
         <div className="min-h-[calc(100vh-4rem)] bg-slate-950 px-4 py-8 text-white">
             <div className="mx-auto max-w-4xl space-y-6">
@@ -194,7 +217,8 @@ function Admin() {
                         Deux mots d’un même thème ne tombent pas ensemble. Le bouton régénère une paire start / cible.
                     </p>
                 </div>
-
+                {error && <p className="text-sm text-red-400 bg-red-950/40 border border-red-800 rounded-lg px-3 py-2">{error}</p>}
+                {success && <p className="text-sm text-emerald-400 bg-emerald-950/40 border border-emerald-800 rounded-lg px-3 py-2">{success}</p>}
                 <div className="flex flex-wrap items-center gap-3">
                     <button
                         type="button"
@@ -264,6 +288,8 @@ function Admin() {
                                         <th className="px-3 py-2 font-semibold">Pseudo</th>
                                         <th className="px-3 py-2 font-semibold">Email</th>
                                         <th className="px-3 py-2 font-semibold">Role</th>
+                                        <th className="px-3 py-2 font-semibold">Statut</th>
+                                        <th className="px-3 py-2 font-semibold">Action</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -275,6 +301,30 @@ function Admin() {
                                                 <span className="rounded-full border border-slate-700 bg-slate-950 px-2 py-0.5 text-xs uppercase tracking-[0.08em] text-cyan-300">
                                                     {player.role}
                                                 </span>
+                                            </td>
+                                            <td className="px-3 py-2">
+                                                <span className={`rounded-full border px-2 py-0.5 text-xs font-semibold ${player.banned_at ? 'border-red-700 bg-red-950/50 text-red-300' : 'border-emerald-700 bg-emerald-950/50 text-emerald-300'}`}>
+                                                    {player.banned_at ? '🚫 Banni' : '✅ Actif'}
+                                                </span>
+                                            </td>
+                                            <td className="px-3 py-2 flex gap-1">
+                                                {player.banned_at ? (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleUnban(player.id, player.username)}
+                                                        className="rounded-full border border-emerald-700 px-2 py-0.5 text-xs text-emerald-300 hover:bg-emerald-950/30"
+                                                    >
+                                                        Débannir
+                                                    </button>
+                                                ) : (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleBan(player.id, player.username)}
+                                                        className="rounded-full border border-red-700 px-2 py-0.5 text-xs text-red-300 hover:bg-red-950/30"
+                                                    >
+                                                        Bannir
+                                                    </button>
+                                                )}
                                             </td>
                                         </tr>
                                     ))}
@@ -424,13 +474,12 @@ function Admin() {
                                             {r.has_image ? '🖼️' : '—'}
                                         </td>
                                         <td className="px-3 py-2">
-                                            <span className={`rounded-full border px-2 py-0.5 text-xs ${
-                                                r.status === 'pending'
+                                            <span className={`rounded-full border px-2 py-0.5 text-xs ${r.status === 'pending'
                                                     ? 'border-amber-700 bg-amber-950/50 text-amber-300'
                                                     : r.status === 'reviewed'
-                                                    ? 'border-emerald-700 bg-emerald-950/50 text-emerald-300'
-                                                    : 'border-slate-700 bg-slate-950/50 text-slate-400'
-                                            }`}>
+                                                        ? 'border-emerald-700 bg-emerald-950/50 text-emerald-300'
+                                                        : 'border-slate-700 bg-slate-950/50 text-slate-400'
+                                                }`}>
                                                 {r.status === 'pending' ? 'En attente' : r.status === 'reviewed' ? 'Traité' : 'Rejeté'}
                                             </span>
                                         </td>

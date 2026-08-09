@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { io } from 'socket.io-client';
-import { gameService, gameRoomService, friendService, roomMessageService } from '../services/api.js';
+import { gameService, gameRoomService, friendService, roomMessageService, matchmakingService } from '../services/api.js';
 import ReportModal from '../components/ui/ReportModal.jsx';
+import GameModeModal from '../components/ui/GameModeModal.jsx';
+import MatchmakingUI from '../components/ui/MatchmakingUI.jsx';
 
 const MODE_LABELS = {
     normal: 'Normal',
@@ -43,6 +45,15 @@ function Lobby() {
     // Signalement
     const [reportTarget, setReportTarget] = useState(null);
 
+    // Modale de mode
+    const [showModeModal, setShowModeModal] = useState(false);
+
+    // Matchmaking
+    const [isSearching, setIsSearching] = useState(false);
+    const [queueSize, setQueueSize] = useState(0);
+    const [searchTimeRemaining, setSearchTimeRemaining] = useState(30);
+    const searchTimerRef = useRef(null);
+
     // Connexion socket au montage
     useEffect(() => {
         const token = localStorage.getItem('token');
@@ -54,6 +65,42 @@ function Lobby() {
 
         socket.on('chat:message', (msg) => {
             setMessages(prev => [...prev, msg]);
+        });
+
+        socket.on('matchmaking:joined', ({ mode, queueSize }) => {
+            console.log(`[Matchmaking] Joined ${mode} queue, size: ${queueSize}`);
+            setQueueSize(queueSize);
+        });
+
+        socket.on('matchmaking:found', async (notifyData) => {
+            clearInterval(searchTimerRef.current);
+            setIsSearching(false);
+            console.log('[Matchmaking] Match found!', notifyData);
+            
+            // Create game with players
+            try {
+                const data = await gameService.create({
+                    mode,
+                    realPlayers: notifyData.players,
+                    botCount: notifyData.botCount
+                });
+                
+                setSuccess(`Partie créée! ${notifyData.totalPlayers} joueurs.`);
+                navigate(`/game?code=${encodeURIComponent(data.game.code)}`);
+            } catch (err) {
+                setError('Erreur création partie après match');
+            }
+        });
+
+        socket.on('matchmaking:solo-fallback', (data) => {
+            clearInterval(searchTimerRef.current);
+            setIsSearching(false);
+            setSuccess(data.message);
+            
+            // Create solo game
+            gameService.create({ mode, solo: true })
+                .then(res => navigate(`/game?code=${encodeURIComponent(res.game.code)}`))
+                .catch(err => setError('Erreur création partie solo'));
         });
 
         socket.on('connect_error', (err) => {
@@ -121,23 +168,43 @@ function Lobby() {
         });
     };
 
-    const handleCreateGame = async () => {
+    const handleShowModeModal = () => {
+        setShowModeModal(true);
+    };
+
+    const handleConfirmCreateGame = async () => {
         setError(null);
         setSuccess(null);
         setLoading(true);
+        setShowModeModal(false);
 
         try {
-            const data = await gameService.create({
-                mode
-            });
+            // Start matchmaking via Socket.io
+            socketRef.current.emit('matchmaking:start', { mode });
+            setIsSearching(true);
+            setQueueSize(0);
+            setSearchTimeRemaining(30);
 
-            setSuccess(`Partie creee avec succes. Code: ${data.game.code}`);
-            navigate(`/game?code=${encodeURIComponent(data.game.code)}`);
+            // Start countdown timer
+            searchTimerRef.current = setInterval(() => {
+                setSearchTimeRemaining(prev => {
+                    if (prev <= 1) {
+                        clearInterval(searchTimerRef.current);
+                        return 0;
+                    }
+                    return prev - 1;
+                });
+            }, 1000);
         } catch (err) {
-            setError(err.message || 'Impossible de creer la partie');
-        } finally {
+            setError(err.message || 'Impossible de lancer la recherche');
             setLoading(false);
         }
+    };
+
+    const handleCancelSearch = () => {
+        clearInterval(searchTimerRef.current);
+        setIsSearching(false);
+        socketRef.current?.emit('matchmaking:cancel');
     };
 
     const handleJoinRoom = async () => {
@@ -318,7 +385,7 @@ function Lobby() {
                         </button>
                         <button
                             type="button"
-                            onClick={handleCreateGame}
+                            onClick={handleShowModeModal}
                             disabled={loading}
                             className="rounded bg-slate-900 px-2 py-1 text-xs text-white disabled:opacity-60"
                         >
@@ -422,6 +489,23 @@ function Lobby() {
                 <ReportModal
                     reportedUser={reportTarget}
                     onClose={() => setReportTarget(null)}
+                />
+            )}
+
+            {showModeModal && (
+                <GameModeModal
+                    mode={mode}
+                    onClose={() => setShowModeModal(false)}
+                    onConfirm={handleConfirmCreateGame}
+                />
+            )}
+
+            {isSearching && (
+                <MatchmakingUI
+                    mode={mode}
+                    queueSize={queueSize}
+                    timeRemaining={searchTimeRemaining}
+                    onCancel={handleCancelSearch}
                 />
             )}
         </div>

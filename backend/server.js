@@ -15,6 +15,7 @@ import roomMessageRoutes from './src/routes/room-message.routes.js';
 import wikiRoutes from './src/routes/wiki.routes.js';
 import siteStateRoutes from './src/routes/site-state.routes.js';
 import reportRoutes from './src/routes/report.routes.js';
+import matchmakingRoutes from './src/routes/matchmaking.routes.js';
 
 const app = express();
 const httpServer = createServer(app);
@@ -25,6 +26,8 @@ const io = new Server(httpServer, {
     }
 });
 setupSocket(io);
+// Store io instance for routes
+app.locals.io = io;
 const PORT = process.env.PORT || 5000;
 // Connexion BDD
 testConnection();
@@ -54,6 +57,7 @@ app.use('/api/friends', friendRoutes);
 app.use('/api/room-messages', roomMessageRoutes);
 app.use('/api/wiki', wikiRoutes);
 app.use('/api/reports', reportRoutes);
+app.use('/api/matchmaking', matchmakingRoutes);
 // 404
 app.use((req, res) => res.status(404).json({ error: 'Route non trouvée' }));
 // Démarrage

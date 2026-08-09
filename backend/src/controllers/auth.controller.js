@@ -2,6 +2,7 @@
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import User from '../models/user.model.js';
+import { query } from '../config/db.js';
 import { sendCustomEmail } from '../services/email.service.js';
 // Génère un token JWT
 const generateToken = (user) => {
@@ -167,6 +168,10 @@ export const login = async (req, res) => {
             return res.status(403).json({ error: 'Adresse mail non vérifiée. Vérifie ton email pour continuer.' });
         }
 
+        if (user.banned_at) {
+            return res.status(403).json({ error: 'Votre compte a été banni' });
+        }
+
         const token = generateToken(user);
         res.json({
             user: { id: user.id, username: user.username, email: user.email, role: user.role, email_verified: user.email_verified },
@@ -313,5 +318,45 @@ export const getUsers = async (req, res) => {
     } catch (error) {
         console.error('getUsers error:', error);
         return res.status(500).json({ error: 'Impossible de recuperer les joueurs' });
+    }
+};
+
+// POST /api/auth/ban (admin)
+export const banUser = async (req, res) => {
+    try {
+        const { userId } = req.body;
+        if (!userId) {
+            return res.status(400).json({ error: 'ID utilisateur requis' });
+        }
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ error: 'Utilisateur non trouvé' });
+        }
+        const sql = 'UPDATE users SET banned_at = NOW() WHERE id = ?';
+        await query(sql, [userId]);
+        return res.json({ ok: true, message: `${user.username} a été banni` });
+    } catch (error) {
+        console.error('banUser error:', error);
+        return res.status(500).json({ error: 'Impossible de bannir l\'utilisateur' });
+    }
+};
+
+// POST /api/auth/unban (admin)
+export const unbanUser = async (req, res) => {
+    try {
+        const { userId } = req.body;
+        if (!userId) {
+            return res.status(400).json({ error: 'ID utilisateur requis' });
+        }
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ error: 'Utilisateur non trouvé' });
+        }
+        const sql = 'UPDATE users SET banned_at = NULL WHERE id = ?';
+        await query(sql, [userId]);
+        return res.json({ ok: true, message: `${user.username} a été débanni` });
+    } catch (error) {
+        console.error('unbanUser error:', error);
+        return res.status(500).json({ error: 'Impossible de débannir l\'utilisateur' });
     }
 };

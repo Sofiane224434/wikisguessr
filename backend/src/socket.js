@@ -2,6 +2,7 @@ import jwt from 'jsonwebtoken';
 import { query } from './config/db.js';
 import RoomMessage from './models/room-message.model.js';
 import Friend from './models/friend.model.js';
+import matchmakingService from './services/matchmaking.service.js';
 
 export function setupSocket(io) {
     // Middleware d'authentification JWT
@@ -21,6 +22,52 @@ export function setupSocket(io) {
             next(new Error('Token invalide'));
         }
     });
+
+    // Matchmaking timer: process queues every 30 seconds
+    const MATCHMAKING_INTERVAL = 30000;
+    setInterval(() => {
+        const modes = ['normal', 'chrono', 'knowledge'];
+        
+        modes.forEach(mode => {
+            const queueSize = matchmakingService.getQueueSize(mode);
+            if (queueSize > 0) {
+                console.log(`[Matchmaking] Processing ${mode} queue with ${queueSize} players`);
+                
+                matchmakingService.startMatchmakingTimeout(mode, MATCHMAKING_INTERVAL, (result) => {
+                    const { match, queuePlayers } = result;
+
+                    if (!match) {
+                        // No one in queue, send solo notification
+                        queuePlayers.forEach(player => {
+                            const socket = io.sockets.sockets.get(player.socketId);
+                            if (socket) {
+                                socket.emit('matchmaking:solo-fallback', {
+                                    message: 'Aucun adversaire trouvé. Vous avez été déplacé en mode solo.'
+                                });
+                            }
+                        });
+                    } else {
+                        // Found players, notify them
+                        const { realPlayers, botCount } = match;
+                        const notifyData = {
+                            players: realPlayers.map(p => ({ userId: p.userId, username: p.username })),
+                            botCount,
+                            totalPlayers: realPlayers.length + botCount
+                        };
+
+                        realPlayers.forEach(player => {
+                            const socket = io.sockets.sockets.get(player.socketId);
+                            if (socket) {
+                                socket.emit('matchmaking:found', notifyData);
+                            }
+                        });
+
+                        console.log(`[Matchmaking] ${mode}: matched ${realPlayers.length} players + ${botCount} bots`);
+                    }
+                });
+            }
+        });
+    }, MATCHMAKING_INTERVAL);
 
     io.on('connection', (socket) => {
         const { id: userId, username } = socket.user;
@@ -63,6 +110,25 @@ export function setupSocket(io) {
         // Déconnexion: mettre à jour last_seen
         socket.on('disconnect', () => {
             Friend.updateLastSeen(userId).catch(console.error);
+            // Cancel any active matchmaking search
+            matchmakingService.cancelSearch(userId);
+        });
+
+        // Matchmaking: player joins queue
+        socket.on('matchmaking:start', ({ mode }) => {
+            try {
+                matchmakingService.joinQueue(userId, username, socket.id, mode);
+                const queueSize = matchmakingService.getQueueSize(mode);
+                socket.emit('matchmaking:joined', { mode, queueSize });
+            } catch (err) {
+                socket.emit('matchmaking:error', { error: err.message });
+            }
+        });
+
+        // Matchmaking: player cancels search
+        socket.on('matchmaking:cancel', () => {
+            const canceled = matchmakingService.cancelSearch(userId);
+            socket.emit('matchmaking:canceled', { canceled });
         });
     });
 }

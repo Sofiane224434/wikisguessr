@@ -14,6 +14,8 @@ CREATE TABLE IF NOT EXISTS `users` (
 	`password` VARCHAR(255) NOT NULL,
 	`created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 	`last_seen` TIMESTAMP NULL DEFAULT NULL,
+	`banned_at` TIMESTAMP NULL DEFAULT NULL,
+	`elo` INT NOT NULL DEFAULT 1500,
 	PRIMARY KEY (`id`),
 	UNIQUE KEY `uniq_users_username` (`username`),
 	UNIQUE KEY `uniq_users_email` (`email`)
