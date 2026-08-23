@@ -25,6 +25,8 @@ VALUES (?, ?, ?, ?)
 
     // Récupérer tous les signalements (admin)
     async getAll({ status = null, limit = 50, offset = 0 } = {}) {
+        const safeLimit = Math.min(100, Math.max(1, Number.parseInt(limit, 10) || 50));
+        const safeOffset = Math.max(0, Number.parseInt(offset, 10) || 0);
         let sql = `
 SELECT r.id, r.message, r.status, r.admin_note, r.created_at, r.reviewed_at,
        r.image_data IS NOT NULL as has_image,
@@ -39,8 +41,7 @@ JOIN users rep2 ON rep2.id = r.reported_user_id
             sql += ' WHERE r.status = ?';
             params.push(status);
         }
-        sql += ' ORDER BY r.created_at DESC LIMIT ? OFFSET ?';
-        params.push(Number(limit), Number(offset));
+        sql += ` ORDER BY r.created_at DESC LIMIT ${safeLimit} OFFSET ${safeOffset}`;
         return await query(sql, params);
     },
 

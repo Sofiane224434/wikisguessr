@@ -10,7 +10,6 @@ import AdminArticles from './pages/AdminArticles.jsx';
 import Login from './pages/Login.jsx';
 import Profile from './pages/Profile.jsx';
 import Leaderboard from './pages/Leaderboard.jsx';
-import Help from './pages/Help.jsx';
 import Shop from './pages/Shop.jsx';
 import ErrorPage from './pages/Error.jsx';
 import VerifyEmail from './pages/VerifyEmail.jsx';
@@ -23,7 +22,7 @@ function GuestOnlyRoute({ children }) {
   }
 
   if (user) {
-    return <Navigate to="/lobby" replace />;
+    return <Navigate to="/" replace />;
   }
 
   return children;
@@ -68,11 +67,7 @@ function App() {
       <Route element={<MainLayout />}>
         <Route
           path="/"
-          element={(
-            <GuestOnlyRoute>
-              <Home />
-            </GuestOnlyRoute>
-          )}
+          element={<Home />}
         />
         <Route
           path="/lobby"
@@ -131,14 +126,6 @@ function App() {
           element={(
             <ProtectedRoute>
               <Leaderboard />
-            </ProtectedRoute>
-          )}
-        />
-        <Route
-          path="/help"
-          element={(
-            <ProtectedRoute>
-              <Help />
             </ProtectedRoute>
           )}
         />

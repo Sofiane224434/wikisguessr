@@ -113,7 +113,7 @@ function Login() {
     };
 
     return (
-        <div className="login-container">
+        <div className="login-container paper border border-2 shadow-large">
             <h1>
                 {isResetPasswordMode
                     ? 'Nouveau mot de passe'

@@ -21,7 +21,7 @@ i18n
     lng: 'fr',
     load: 'languageOnly',
     fallbackLng: 'fr',
-    supportedLngs: ['fr', 'en'],
+    supportedLngs: ['fr', 'en', 'es', 'ar', 'pt', 'zh', 'de', 'hi', 'ru', 'ja'],
     detection: {
       order: ['localStorage', 'cookie'],
       caches: ['localStorage', 'cookie'],

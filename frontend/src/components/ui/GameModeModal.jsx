@@ -42,10 +42,10 @@ function GameModeModal({ mode, onClose, onConfirm }) {
 
     return (
         <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+            className="antique-modal-backdrop fixed inset-0 z-50 flex items-center justify-center p-4"
             onClick={(e) => e.target === e.currentTarget && onClose()}
         >
-            <div className="w-full max-w-md rounded-2xl border border-slate-700 bg-slate-900 p-6 shadow-2xl">
+            <div className="antique-modal paper border border-2 shadow-large w-full max-w-md p-6">
                 <div className="text-center mb-6">
                     <span className="text-5xl">{modeInfo.icon}</span>
                     <h2 className="mt-3 text-2xl font-bold text-white">{modeInfo.title}</h2>

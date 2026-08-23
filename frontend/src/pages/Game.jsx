@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useEffectEvent, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Compass } from 'lucide-react';
 import { gameService } from '../services/api.js';
 
 const normalizeArticle = (value) =>
@@ -30,6 +31,13 @@ const TIMER_STORAGE_PREFIX = 'wikisguessr:game:start:';
 const STATE_STORAGE_PREFIX = 'wikisguessr:game:state:';
 const CHRONO_START_SECONDS = 5 * 60;
 const CHRONO_SCORE_DECAY_INTERVAL_SECONDS = 2;
+
+const formatClock = (totalSeconds) => {
+    const safeSeconds = Math.max(0, Number(totalSeconds) || 0);
+    const minutes = String(Math.floor(safeSeconds / 60)).padStart(2, '0');
+    const seconds = String(safeSeconds % 60).padStart(2, '0');
+    return `${minutes}:${seconds}`;
+};
 
 const MODE_LABELS = {
     normal: 'Normal',
@@ -105,7 +113,7 @@ const clearPersistedGameState = (code) => {
 
 const extractTitleFromHref = (href) => {
     try {
-        const url = new URL(href, window.location.origin);
+        const url = new URL(href, 'https://fr.wikipedia.org/wiki/');
         const isLocalHost = url.hostname === window.location.hostname;
         const isFrWiki = url.hostname === 'fr.wikipedia.org';
 
@@ -276,7 +284,7 @@ const extractRenderableHtml = (rawHtml) => {
                 img.setAttribute('srcset', srcset.replace(/(https?:)?\/\//g, 'https://'));
             }
 
-            img.setAttribute('loading', img.getAttribute('loading') || 'eager');
+            img.setAttribute('loading', 'lazy');
             img.setAttribute('decoding', img.getAttribute('decoding') || 'async');
             img.setAttribute('referrerpolicy', 'no-referrer');
         });
@@ -377,6 +385,8 @@ function Game() {
     const requestIdRef = useRef(0);
     const articleCacheRef = useRef(new Map());
     const startedAtRef = useRef(null);
+    const elapsedSecondsRef = useRef(0);
+    const timerDisplayRef = useRef(null);
     const lastArticleRef = useRef('');
     const chronoScoreTickRef = useRef(0);
     const visitedArticleDetailsRef = useRef(new Map());
@@ -384,6 +394,7 @@ function Game() {
     const gameStateSnapshotRef = useRef(null);
     const gameReadyRef = useRef(false);
     const resultSubmittedRef = useRef(false);
+    const initialLoadKeyRef = useRef('');
 
     const [game, setGame] = useState(null);
     const [loadingGame, setLoadingGame] = useState(Boolean(searchParams.get('code') || searchParams.get('previewTitle')));
@@ -470,6 +481,9 @@ function Game() {
         const { fromHistory = false, mode = '', restoreSnapshot = null } = options;
         const isChronoGame = String(mode || gameMode).trim().toLowerCase() === 'chrono';
         const requestId = ++requestIdRef.current;
+        if (!isChronoGame) {
+            setElapsedSeconds(elapsedSecondsRef.current);
+        }
         setLoadingArticle(true);
         setError(null);
 
@@ -524,9 +538,14 @@ function Game() {
 
                     startedAtRef.current = restoredStartedAt;
                     setStartedAt(restoredStartedAt);
-                    setElapsedSeconds(Number.isFinite(Number(restoredState.elapsedSeconds))
+                    const savedElapsedSeconds = Number.isFinite(Number(restoredState.elapsedSeconds))
                         ? Number(restoredState.elapsedSeconds)
-                        : Math.max(0, Math.floor((Date.now() - restoredStartedAt) / 1000)));
+                        : 0;
+                    const restoredElapsedSeconds = restoredState.won
+                        ? savedElapsedSeconds
+                        : Math.max(savedElapsedSeconds, Math.floor((Date.now() - restoredStartedAt) / 1000));
+                    elapsedSecondsRef.current = restoredElapsedSeconds;
+                    setElapsedSeconds(restoredElapsedSeconds);
                 } else {
                     setClicks(0);
                     setWon(false);
@@ -553,7 +572,9 @@ function Game() {
                     startedAtRef.current = startTime;
                     setStartedAt(startTime);
 
-                    setElapsedSeconds(Math.max(0, Math.floor((Date.now() - startTime) / 1000)));
+                    const initialElapsedSeconds = Math.max(0, Math.floor((Date.now() - startTime) / 1000));
+                    elapsedSecondsRef.current = initialElapsedSeconds;
+                    setElapsedSeconds(initialElapsedSeconds);
                     persistStartAt(gameCode, startTime);
                 }
             } else {
@@ -632,7 +653,7 @@ function Game() {
 
             const nextElapsedSeconds = restoreSnapshot
                 ? (Number.isFinite(Number(restoreSnapshot.elapsedSeconds)) ? Number(restoreSnapshot.elapsedSeconds) : 0)
-                : elapsedSeconds;
+                : elapsedSecondsRef.current;
 
             const nextChronoRemainingSeconds = restoreSnapshot
                 ? (Number.isFinite(Number(restoreSnapshot.chronoRemainingSeconds)) ? Number(restoreSnapshot.chronoRemainingSeconds) : CHRONO_START_SECONDS)
@@ -668,6 +689,11 @@ function Game() {
             lastArticleRef.current = resolvedArticle;
 
             if (targetArticle && normalizeArticle(resolvedArticle) === normalizeArticle(targetArticle)) {
+                const finalElapsedSeconds = startedAtRef.current
+                    ? Math.max(elapsedSecondsRef.current, Math.floor((Date.now() - startedAtRef.current) / 1000))
+                    : elapsedSecondsRef.current;
+                elapsedSecondsRef.current = finalElapsedSeconds;
+                setElapsedSeconds(finalElapsedSeconds);
                 setWon(true);
             }
         } catch (err) {
@@ -679,7 +705,9 @@ function Game() {
                 setLoadingArticle(false);
             }
         }
-    }, [articleHistory, chronoRemainingSeconds, chronoScore, clicks, elapsedSeconds, fetchArticlePayload, gameCode, gameMode, knowledgeQuiz, knowledgeQuizAnswers, knowledgeQuizSubmitted, saveCurrentGameState, won]);
+    }, [articleHistory, chronoRemainingSeconds, chronoScore, clicks, fetchArticlePayload, gameCode, gameMode, knowledgeQuiz, knowledgeQuizAnswers, knowledgeQuizSubmitted, saveCurrentGameState, won]);
+
+    const loadInitialArticle = useEffectEvent((...args) => loadArticle(...args));
 
     useEffect(() => {
         if (!won || !isKnowledgeMode || !gameCode || isPreviewMode) {
@@ -696,7 +724,7 @@ function Game() {
             resultSubmittedRef.current = true;
             gameService.submitResult(gameCode, {
                 clicks,
-                time_seconds: elapsedSeconds,
+                time_seconds: elapsedSecondsRef.current,
                 score: 0,
                 won: true
             }).catch(() => { });
@@ -743,7 +771,6 @@ function Game() {
     }, [
         articleHistory,
         clicks,
-        elapsedSeconds,
         gameCode,
         isKnowledgeMode,
         isPreviewMode,
@@ -755,6 +782,12 @@ function Game() {
             return;
         }
 
+        const loadKey = `game:${gameCode}`;
+        if (initialLoadKeyRef.current === loadKey) {
+            return;
+        }
+        initialLoadKeyRef.current = loadKey;
+
         gameService
             .getByCode(gameCode)
             .then(async (data) => {
@@ -763,7 +796,7 @@ function Game() {
                 const persistedState = readPersistedGameState(gameCode);
 
                 if (persistedState?.currentArticle && Array.isArray(persistedState.articleHistory) && persistedState.articleHistory.length > 0) {
-                    await loadArticle(persistedState.currentArticle, data.game.target_article, true, {
+                    await loadInitialArticle(persistedState.currentArticle, data.game.target_article, true, {
                         mode: data.game.mode,
                         restoreSnapshot: persistedState
                     });
@@ -771,7 +804,7 @@ function Game() {
                     return;
                 }
 
-                await loadArticle(data.game.start_article, data.game.target_article, true, { mode: data.game.mode });
+                await loadInitialArticle(data.game.start_article, data.game.target_article, true, { mode: data.game.mode });
                 gameReadyRef.current = true;
             })
             .catch((err) => {
@@ -780,12 +813,18 @@ function Game() {
             .finally(() => {
                 setLoadingGame(false);
             });
-    }, [gameCode, loadArticle]);
+    }, [gameCode]);
 
     useEffect(() => {
         if (gameCode || !previewTitle) {
             return;
         }
+
+        const loadKey = `preview:${previewTitle}`;
+        if (initialLoadKeyRef.current === loadKey) {
+            return;
+        }
+        initialLoadKeyRef.current = loadKey;
 
         const initialTitle = decodeURIComponent(String(previewTitle || '')).replace(/_/g, ' ').trim();
         if (!isLikelyPlayableWikiTitle(initialTitle)) {
@@ -802,7 +841,7 @@ function Game() {
 
         setGame(previewGame);
         gameReadyRef.current = false;
-        loadArticle(initialTitle, initialTitle, true, { mode: previewGame.mode })
+        loadInitialArticle(initialTitle, initialTitle, true, { mode: previewGame.mode })
             .catch((err) => {
                 setError(err.message || 'Impossible de charger la previsualisation');
             })
@@ -810,7 +849,7 @@ function Game() {
                 gameReadyRef.current = true;
                 setLoadingGame(false);
             });
-    }, [gameCode, previewTitle, loadArticle]);
+    }, [gameCode, previewTitle]);
 
     // Soumission du résultat pour les modes non-knowledge (normal + chrono win/defeat)
     useEffect(() => {
@@ -826,11 +865,11 @@ function Game() {
         resultSubmittedRef.current = true;
         gameService.submitResult(gameCode, {
             clicks,
-            time_seconds: elapsedSeconds,
+            time_seconds: elapsedSecondsRef.current,
             score: isChronoMode ? chronoScore : 0,
             won: Boolean(won)
         }).catch(() => { });
-    }, [won, chronoDefeat, game, gameCode, isPreviewMode, isKnowledgeMode, isChronoMode, clicks, elapsedSeconds, chronoScore]);
+    }, [won, chronoDefeat, game, gameCode, isPreviewMode, isKnowledgeMode, isChronoMode, clicks, chronoScore]);
 
     // Mise à jour du score knowledge quand le quiz est soumis
     useEffect(() => {
@@ -851,9 +890,11 @@ function Game() {
         }
 
         const intervalId = setInterval(() => {
-            setElapsedSeconds(Math.floor((Date.now() - startedAt) / 1000));
+            const nextElapsedSeconds = Math.floor((Date.now() - startedAt) / 1000);
+            elapsedSecondsRef.current = nextElapsedSeconds;
 
             if (isChronoMode) {
+                setElapsedSeconds(nextElapsedSeconds);
                 setChronoRemainingSeconds((previous) => Math.max(0, previous - 1));
 
                 chronoScoreTickRef.current += 1;
@@ -861,6 +902,8 @@ function Game() {
                     chronoScoreTickRef.current = 0;
                     setChronoScore((previous) => Math.max(0, previous - 1));
                 }
+            } else if (timerDisplayRef.current) {
+                timerDisplayRef.current.textContent = formatClock(nextElapsedSeconds);
             }
         }, 1000);
 
@@ -882,7 +925,7 @@ function Game() {
             articleHistory,
             clicks,
             startedAt,
-            elapsedSeconds,
+            elapsedSeconds: elapsedSecondsRef.current,
             chronoRemainingSeconds,
             chronoScore,
             won,
@@ -898,7 +941,6 @@ function Game() {
         articleHistory,
         clicks,
         currentArticle,
-        elapsedSeconds,
         game,
         gameCode,
         knowledgeQuiz,
@@ -936,53 +978,19 @@ function Game() {
             return;
         }
 
+        const href = anchor.getAttribute('href') || anchor.href || '';
+        if (href.startsWith('#')) {
+            return;
+        }
+
+        const article = extractTitleFromHref(href);
+        if (!article) {
+            return;
+        }
+
         event.preventDefault();
         event.stopPropagation();
-
-        const href = anchor.getAttribute('href') || anchor.href || '';
-        const article = extractTitleFromHref(href);
-        if (!article) {
-            return;
-        }
-
         loadArticle(article, game?.target_article || '', false, { mode: game?.mode });
-    };
-
-    useEffect(() => {
-        const node = contentRef.current;
-        if (!node) {
-            return undefined;
-        }
-
-        const preventDefaultNavigation = (event) => {
-            const anchor = event.target.closest?.('a');
-            if (!anchor) {
-                return;
-            }
-
-            event.preventDefault();
-            event.stopPropagation();
-        };
-
-        node.addEventListener('click', preventDefaultNavigation, true);
-        return () => {
-            node.removeEventListener('click', preventDefaultNavigation, true);
-        };
-    }, [html]);
-
-    const handleContentMouseOver = (event) => {
-        const anchor = event.target.closest('a');
-        if (!anchor) {
-            return;
-        }
-
-        const href = anchor.getAttribute('href') || anchor.href || '';
-        const article = extractTitleFromHref(href);
-        if (!article) {
-            return;
-        }
-
-        fetchArticlePayload(article).catch(() => { });
     };
 
     const handleQuitGame = () => {
@@ -1020,7 +1028,7 @@ function Game() {
     };
 
     if (loadingGame) {
-        return <div className="p-6 text-slate-700">Chargement de la partie...</div>;
+        return <div className="game-loading"><Compass className="game-loading-icon" size={44} /><strong>Préparation de l’expédition</strong><span>Ouverture des archives Wikipédia...</span></div>;
     }
 
     if (!gameCode && !isPreviewMode) {
@@ -1054,8 +1062,7 @@ function Game() {
     }
 
     const displayedSeconds = isChronoMode ? chronoRemainingSeconds : elapsedSeconds;
-    const minutes = String(Math.floor(displayedSeconds / 60)).padStart(2, '0');
-    const seconds = String(displayedSeconds % 60).padStart(2, '0');
+    const displayedTime = formatClock(displayedSeconds);
     const isOnStartArticle = normalizeArticle(currentArticle) === normalizeArticle(game.start_article);
     const currentArticleLabel = isOnStartArticle ? 'Depart' : (currentArticle || '...');
     const modeLabel = MODE_LABELS[gameMode] || game.mode;
@@ -1067,8 +1074,8 @@ function Game() {
     }, 0);
 
     return (
-        <div className="flex h-screen flex-col bg-slate-50 text-slate-900">
-            <div className="border-b border-slate-200/80 bg-white/85 px-3 py-2 backdrop-blur">
+        <div className="game-shell flex h-screen flex-col text-slate-900">
+            <div className="game-toolbar px-3 py-2">
                 <div className="mx-auto grid max-w-6xl grid-cols-1 gap-2 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
                     <div className="flex min-w-0 items-center gap-2 overflow-hidden text-[11px] uppercase tracking-[0.22em] text-slate-500">
                         <span className="rounded-full bg-slate-900 px-2.5 py-1 font-semibold text-white">{modeLabel}</span>
@@ -1091,7 +1098,7 @@ function Game() {
                             Clics: <strong className="font-semibold text-amber-950">{clicks}</strong>
                         </span>
                         <span className="rounded-full border border-violet-200 bg-violet-50 px-2.5 py-1 text-violet-800">
-                            {isChronoMode ? 'Temps restant' : 'Temps'}: <strong className="font-semibold text-violet-950">{minutes}:{seconds}</strong>
+                            {isChronoMode ? 'Temps restant' : 'Temps'}: <strong ref={timerDisplayRef} className="font-semibold text-violet-950">{displayedTime}</strong>
                         </span>
                         {isChronoMode && (
                             <span className="rounded-full border border-rose-200 bg-rose-50 px-2.5 py-1 text-rose-800">
@@ -1130,7 +1137,7 @@ function Game() {
 
                 {won && (
                     <div className="mx-auto mt-2 max-w-6xl rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-800">
-                        Objectif atteint ! Tu as trouvé l’article cible {isChronoMode ? `avec ${chronoScore} points restants.` : `en ${minutes}:${seconds}.`}
+                        Objectif atteint ! Tu as trouvé l’article cible {isChronoMode ? `avec ${chronoScore} points restants.` : `en ${displayedTime}.`}
                     </div>
                 )}
 
@@ -1225,7 +1232,7 @@ function Game() {
                 )}
             </div>
 
-            <div className="flex-1 overflow-hidden bg-[linear-gradient(180deg,rgba(248,250,252,1)_0%,rgba(241,245,249,1)_100%)]">
+            <div className="game-reading-room min-h-0 flex-1 overflow-hidden">
                 {error ? (
                     <div className="flex h-full items-center justify-center px-4">
                         <div className="rounded-xl border border-rose-200 bg-rose-50 px-6 py-5 text-center text-rose-800">
@@ -1238,12 +1245,11 @@ function Game() {
                 ) : (
                     <div
                         ref={contentRef}
-                        className="h-full overflow-y-auto px-3 py-4 md:px-6 md:py-6"
-                        onMouseOverCapture={handleContentMouseOver}
-                        onClickCapture={handleContentClick}
+                        className="game-article-scroll h-full min-h-0 overflow-x-hidden overflow-y-auto overscroll-contain px-3 py-4 touch-pan-y md:px-6 md:py-6"
+                        onClick={handleContentClick}
                     >
                         <div
-                            className="wiki-mobile-html prose mx-auto w-full max-w-5xl prose-slate"
+                            className="game-article-sheet wiki-mobile-html prose mx-auto w-full max-w-5xl prose-slate"
                             dangerouslySetInnerHTML={{ __html: html || '<p>Aucun contenu disponible.</p>' }}
                         />
                     </div>

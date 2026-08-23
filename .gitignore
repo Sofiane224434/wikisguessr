@@ -8,6 +8,8 @@
 /dist
 /frontend/dist
 /backend/dist
+/backend/uploads/avatars/*
+!/backend/uploads/avatars/.gitkeep
 /agent
 /conception/aides
 /.env

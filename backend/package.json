@@ -7,7 +7,13 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node server.js",
-    "dev": "node --watch server.js"
+    "dev": "node server.js",
+    "migrate:subscriptions": "node scripts/run-migration.mjs 20260823_add_subscriptions.sql",
+    "migrate:payments": "node scripts/run-migration.mjs 20260823_add_stripe_payments.sql",
+    "migrate:avatars": "node scripts/run-migration.mjs 20260823_add_user_avatars.sql",
+    "test:subscriptions": "node scripts/test-subscriptions.mjs",
+    "test:payments": "node scripts/test-payments.mjs",
+    "test:avatars": "node scripts/test-avatars.mjs"
   },
   "keywords": [],
   "author": "",
@@ -19,8 +25,11 @@
     "dotenv": "^17.2.4",
     "express": "^5.2.1",
     "jsonwebtoken": "^9.0.3",
+    "multer": "^2.2.0",
     "mysql2": "^3.16.3",
+    "sharp": "^0.35.3",
     "socket.io": "^4.8.3",
+    "stripe": "^22.5.0",
     "zod": "^4.3.6"
   }
 }

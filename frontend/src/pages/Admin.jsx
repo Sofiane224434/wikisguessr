@@ -208,7 +208,7 @@ function Admin() {
     };
 
     return (
-        <div className="min-h-[calc(100vh-4rem)] bg-slate-950 px-4 py-8 text-white">
+        <div className="site-page admin-page paper border border-4 shadow-large min-h-[calc(100vh-4rem)] px-4 py-8 text-white">
             <div className="mx-auto max-w-4xl space-y-6">
                 <div>
                     <p className="text-sm uppercase tracking-[0.3em] text-cyan-300">Admin</p>
@@ -503,10 +503,10 @@ function Admin() {
             {/* Modal détail signalement */}
             {selectedReport && (
                 <div
-                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+                    className="antique-modal-backdrop fixed inset-0 z-50 flex items-center justify-center p-4"
                     onClick={(e) => e.target === e.currentTarget && setSelectedReport(null)}
                 >
-                    <div className="w-full max-w-lg rounded-2xl border border-slate-700 bg-slate-900 p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
+                    <div className="antique-modal paper border border-4 shadow-large w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto">
                         <div className="mb-4 flex items-start justify-between">
                             <div>
                                 <p className="text-xs uppercase tracking-widest text-red-400">Signalement #{selectedReport.id}</p>

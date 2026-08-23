@@ -48,7 +48,13 @@ LIMIT 1
 
     // Trouver par ID (sans le password)
     async findById(id) {
-        const sql = 'SELECT id, username, email, role, email_verified, created_at FROM users WHERE id = ?';
+        const sql = 'SELECT id, username, username_changed_at, email, role, subscription_tier, subscription_expires_at, avatar_url, email_verified, created_at FROM users WHERE id = ?';
+        const results = await query(sql, [id]);
+        return results[0] || null;
+    },
+
+    async findPrivateById(id) {
+        const sql = 'SELECT * FROM users WHERE id = ?';
         const results = await query(sql, [id]);
         return results[0] || null;
     },
@@ -123,6 +129,33 @@ SET password = ?,
 WHERE id = ?
 `;
         await query(sql, [hashedPassword, id]);
+    },
+
+    async updateProfile(id, { username, email, plainPassword }) {
+        const assignments = [];
+        const values = [];
+
+        if (username !== undefined) {
+            assignments.push('username = ?', 'username_changed_at = NOW()');
+            values.push(username);
+        }
+        if (email !== undefined) {
+            assignments.push('email = ?');
+            values.push(email);
+        }
+        if (plainPassword !== undefined) {
+            assignments.push('password = ?');
+            values.push(await bcrypt.hash(plainPassword, 10));
+        }
+
+        values.push(id);
+        await query(`UPDATE users SET ${assignments.join(', ')} WHERE id = ?`, values);
+        return this.findById(id);
+    },
+
+    async updateAvatar(id, avatarUrl) {
+        await query('UPDATE users SET avatar_url = ? WHERE id = ?', [avatarUrl, id]);
+        return this.findById(id);
     },
 
     // Vérifier le mot de passe

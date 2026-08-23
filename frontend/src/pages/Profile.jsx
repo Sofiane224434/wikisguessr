@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { Camera, Trash2, UserRound } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '../context/Authcontext.jsx';
-import { gameService } from '../services/api.js';
+import { authService, gameService, resolveMediaUrl } from '../services/api.js';
 
 const MODE_LABELS = {
     normal: 'Normal',
@@ -34,10 +35,26 @@ const formatDate = (raw) => {
 };
 
 function Profile() {
-    const { user } = useAuth();
+    const { user, updateUser } = useAuth();
+    const avatarInputRef = useRef(null);
     const [results, setResults] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [username, setUsername] = useState(user?.username || '');
+    const [email, setEmail] = useState(user?.email || '');
+    const [currentPassword, setCurrentPassword] = useState('');
+    const [newPassword, setNewPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
+    const [profileSaving, setProfileSaving] = useState(false);
+    const [profileError, setProfileError] = useState(null);
+    const [profileSuccess, setProfileSuccess] = useState(null);
+    const [avatarSaving, setAvatarSaving] = useState(false);
+    const [avatarError, setAvatarError] = useState(null);
+
+    useEffect(() => {
+        setUsername(user?.username || '');
+        setEmail(user?.email || '');
+    }, [user?.username, user?.email]);
 
     useEffect(() => {
         gameService.getHistory()
@@ -53,16 +70,207 @@ function Profile() {
     const totalGames = results.length;
     const wins = results.filter((r) => r.won).length;
     const winRate = totalGames > 0 ? Math.round((wins / totalGames) * 100) : 0;
+    const usernameAvailableAt = user?.username_change_available_at
+        ? new Date(user.username_change_available_at)
+        : null;
+    const usernameLocked = usernameAvailableAt && usernameAvailableAt > new Date();
+
+    const handleProfileUpdate = async (event) => {
+        event.preventDefault();
+        setProfileError(null);
+        setProfileSuccess(null);
+
+        if (newPassword && newPassword !== confirmPassword) {
+            setProfileError('La confirmation du nouveau mot de passe ne correspond pas.');
+            return;
+        }
+
+        setProfileSaving(true);
+        try {
+            const data = await authService.updateProfile({
+                username,
+                email,
+                currentPassword,
+                ...(newPassword && { newPassword })
+            });
+            updateUser(data.user);
+            setCurrentPassword('');
+            setNewPassword('');
+            setConfirmPassword('');
+            setProfileSuccess(data.message || 'Profil mis à jour.');
+        } catch (profileUpdateError) {
+            setProfileError(profileUpdateError.message || 'Impossible de mettre à jour le profil.');
+        } finally {
+            setProfileSaving(false);
+        }
+    };
+
+    const handleAvatarChange = async (event) => {
+        const file = event.target.files?.[0];
+        event.target.value = '';
+        if (!file) return;
+
+        if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+            setAvatarError('Utilisez une image JPEG, PNG ou WebP.');
+            return;
+        }
+        if (file.size > 5 * 1024 * 1024) {
+            setAvatarError('La photo ne doit pas dépasser 5 Mo.');
+            return;
+        }
+
+        setAvatarSaving(true);
+        setAvatarError(null);
+        try {
+            const data = await authService.updateAvatar(file);
+            updateUser(data.user);
+            setProfileSuccess(data.message || 'Photo de profil mise à jour.');
+        } catch (avatarUploadError) {
+            setAvatarError(avatarUploadError.message || 'Impossible de modifier la photo.');
+        } finally {
+            setAvatarSaving(false);
+        }
+    };
+
+    const handleAvatarDelete = async () => {
+        setAvatarSaving(true);
+        setAvatarError(null);
+        try {
+            const data = await authService.deleteAvatar();
+            updateUser(data.user);
+            setProfileSuccess(data.message || 'Photo de profil supprimée.');
+        } catch (avatarDeleteError) {
+            setAvatarError(avatarDeleteError.message || 'Impossible de supprimer la photo.');
+        } finally {
+            setAvatarSaving(false);
+        }
+    };
 
     return (
-        <div className="mx-auto w-full max-w-4xl px-4 py-10">
-            <h1 className="mb-2 text-3xl font-bold text-slate-900">Profil</h1>
-            {user && (
-                <p className="mb-6 text-slate-500 text-sm">
-                    Connecté en tant que <strong className="text-slate-700">{user.username}</strong>
-                    {user.email && ` · ${user.email}`}
-                </p>
-            )}
+        <div className="site-page paper border border-2 shadow-large mx-auto w-full max-w-4xl px-4 py-10">
+            <div className="profile-identity">
+                <div className="profile-avatar-block">
+                    <div className="profile-avatar-preview">
+                        {user?.avatar_url ? (
+                            <img src={resolveMediaUrl(user.avatar_url)} alt={`Photo de profil de ${user.username}`} />
+                        ) : (
+                            <UserRound size={46} aria-hidden="true" />
+                        )}
+                        {avatarSaving && <span>Traitement...</span>}
+                    </div>
+                    <div className="profile-avatar-actions">
+                        <input
+                            ref={avatarInputRef}
+                            type="file"
+                            accept="image/jpeg,image/png,image/webp"
+                            onChange={handleAvatarChange}
+                            hidden
+                        />
+                        <button type="button" onClick={() => avatarInputRef.current?.click()} disabled={avatarSaving}>
+                            <Camera size={17} aria-hidden="true" /> {user?.avatar_url ? 'Changer' : 'Ajouter une photo'}
+                        </button>
+                        {user?.avatar_url && (
+                            <button type="button" className="is-danger" onClick={handleAvatarDelete} disabled={avatarSaving} title="Supprimer la photo">
+                                <Trash2 size={17} aria-hidden="true" /> Supprimer
+                            </button>
+                        )}
+                    </div>
+                    <small>JPEG, PNG ou WebP · 5 Mo maximum</small>
+                    {avatarError && <p className="profile-avatar-error" role="alert">{avatarError}</p>}
+                </div>
+                <div>
+                    <h1 className="mb-2 text-3xl font-bold text-slate-900">Profil</h1>
+                    {user && (
+                        <p className="text-slate-500 text-sm">
+                            Connecté en tant que <strong className="text-slate-700">{user.username}</strong>
+                            {user.email && ` · ${user.email}`}
+                        </p>
+                    )}
+                </div>
+            </div>
+
+            <section className="mb-8 border-y border-slate-200 bg-white px-1 py-6">
+                <div className="mb-5">
+                    <h2 className="text-xl font-semibold text-slate-900">Paramètres du compte</h2>
+                    {usernameLocked && (
+                        <p className="mt-1 text-sm text-amber-700">
+                            Prochain changement de username : {usernameAvailableAt.toLocaleDateString('fr-FR')}
+                        </p>
+                    )}
+                </div>
+
+                <form onSubmit={handleProfileUpdate} className="grid gap-5 md:grid-cols-2">
+                    <label className="grid gap-1.5 text-sm font-medium text-slate-700">
+                        Username
+                        <input
+                            className="form-input bg-white disabled:bg-slate-100 disabled:text-slate-500"
+                            type="text"
+                            value={username}
+                            onChange={(event) => setUsername(event.target.value)}
+                            minLength={3}
+                            maxLength={30}
+                            disabled={Boolean(usernameLocked)}
+                            required
+                        />
+                    </label>
+
+                    <label className="grid gap-1.5 text-sm font-medium text-slate-700">
+                        Adresse e-mail
+                        <input
+                            className="form-input bg-white"
+                            type="email"
+                            value={email}
+                            onChange={(event) => setEmail(event.target.value)}
+                            autoComplete="email"
+                            required
+                        />
+                    </label>
+
+                    <label className="grid gap-1.5 text-sm font-medium text-slate-700">
+                        Nouveau mot de passe
+                        <input
+                            className="form-input bg-white"
+                            type="password"
+                            value={newPassword}
+                            onChange={(event) => setNewPassword(event.target.value)}
+                            minLength={8}
+                            autoComplete="new-password"
+                        />
+                    </label>
+
+                    <label className="grid gap-1.5 text-sm font-medium text-slate-700">
+                        Confirmer le nouveau mot de passe
+                        <input
+                            className="form-input bg-white"
+                            type="password"
+                            value={confirmPassword}
+                            onChange={(event) => setConfirmPassword(event.target.value)}
+                            minLength={8}
+                            autoComplete="new-password"
+                        />
+                    </label>
+
+                    <label className="grid gap-1.5 text-sm font-medium text-slate-700 md:col-span-2">
+                        Mot de passe actuel
+                        <input
+                            className="form-input bg-white"
+                            type="password"
+                            value={currentPassword}
+                            onChange={(event) => setCurrentPassword(event.target.value)}
+                            autoComplete="current-password"
+                            required
+                        />
+                    </label>
+
+                    <div className="flex items-center gap-4 md:col-span-2">
+                        <button className="btn btn-primary" type="submit" disabled={profileSaving}>
+                            {profileSaving ? 'Enregistrement...' : 'Enregistrer'}
+                        </button>
+                        {profileError && <p className="text-sm text-red-600">{profileError}</p>}
+                        {profileSuccess && <p className="text-sm text-emerald-700">{profileSuccess}</p>}
+                    </div>
+                </form>
+            </section>
 
             <div className="mb-8 grid grid-cols-3 gap-4">
                 <div className="rounded-xl border border-slate-200 bg-white p-4 text-center shadow-sm">

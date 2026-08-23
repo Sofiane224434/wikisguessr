@@ -1,9 +1,18 @@
 // services/api.js
-const API_URL = 'http://localhost:5000/api';
+const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5000/api' : '/api');
+export const resolveMediaUrl = (value) => {
+    const source = String(value || '').trim();
+    if (!source || /^(https?:|data:|blob:)/i.test(source)) {
+        return source;
+    }
+    const apiOrigin = API_URL.replace(/\/api\/?$/, '');
+    return `${apiOrigin}${source.startsWith('/') ? '' : '/'}${source}`;
+};
 async function fetchAPI(endpoint, options = {}) {
     const token = localStorage.getItem('token');
+    const hasFormData = options.body instanceof FormData;
     const headers = {
-        'Content-Type': 'application/json',
+        ...(!hasFormData && { 'Content-Type': 'application/json' }),
         ...(token && { Authorization: `Bearer ${token}` })
     };
     try {
@@ -13,7 +22,7 @@ async function fetchAPI(endpoint, options = {}) {
         });
         const data = await response.json();
         if (!response.ok) {
-            throw { status: response.status, message: data.error || 'Erreur' };
+            throw { status: response.status, message: data.error || 'Erreur', code: data.code, subscription: data.subscription };
         }
         return data;
     } catch (error) {
@@ -33,6 +42,16 @@ export const authService = {
         body: JSON.stringify({ identifier, password })
     }),
     getProfile: () => fetchAPI('/auth/me'),
+    updateProfile: (profileData) => fetchAPI('/auth/profile', {
+        method: 'PATCH',
+        body: JSON.stringify(profileData)
+    }),
+    updateAvatar: (file) => {
+        const body = new FormData();
+        body.append('avatar', file);
+        return fetchAPI('/auth/profile/avatar', { method: 'POST', body });
+    },
+    deleteAvatar: () => fetchAPI('/auth/profile/avatar', { method: 'DELETE' }),
     getUsers: () => fetchAPI('/auth/users'),
     verifyEmail: (token) => fetchAPI(`/auth/verify-email?token=${encodeURIComponent(token)}`),
     forgotPassword: (email) => fetchAPI('/auth/forgot-password', {
@@ -83,6 +102,16 @@ export const gameService = {
     }),
     getHistory: () => fetchAPI('/games/history'),
     getLeaderboard: (mode = 'all') => fetchAPI(`/games/leaderboard?mode=${encodeURIComponent(mode)}`)
+}
+
+export const subscriptionService = {
+    getPlans: () => fetchAPI('/subscriptions/plans'),
+    getMine: () => fetchAPI('/subscriptions/me'),
+    checkout: (tier) => fetchAPI('/subscriptions/checkout', {
+        method: 'POST',
+        body: JSON.stringify({ tier })
+    }),
+    openPortal: () => fetchAPI('/subscriptions/portal', { method: 'POST' })
 }
 
 export const wikiService = {

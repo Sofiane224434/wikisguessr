@@ -1,10 +1,11 @@
-import { useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useEffectEvent, useRef, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { io } from 'socket.io-client';
-import { gameService, gameRoomService, friendService, roomMessageService, matchmakingService } from '../services/api.js';
+import { gameService, gameRoomService, friendService, roomMessageService } from '../services/api.js';
 import ReportModal from '../components/ui/ReportModal.jsx';
 import GameModeModal from '../components/ui/GameModeModal.jsx';
 import MatchmakingUI from '../components/ui/MatchmakingUI.jsx';
+import { Copy, Flag, KeyRound, Play, Send, Trash2, UserPlus, Users } from 'lucide-react';
 
 const MODE_LABELS = {
     normal: 'Normal',
@@ -16,7 +17,9 @@ const MODE_SEQUENCE = ['normal', 'knowledge', 'chrono'];
 
 function Lobby() {
     const navigate = useNavigate();
-    const [mode, setMode] = useState('normal');
+    const [searchParams] = useSearchParams();
+    const requestedMode = searchParams.get('mode');
+    const [mode, setMode] = useState(MODE_SEQUENCE.includes(requestedMode) ? requestedMode : 'normal');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [success, setSuccess] = useState(null);
@@ -54,12 +57,45 @@ function Lobby() {
     const [searchTimeRemaining, setSearchTimeRemaining] = useState(30);
     const searchTimerRef = useRef(null);
 
+    const handleMatchFound = useEffectEvent(async (notifyData) => {
+        clearInterval(searchTimerRef.current);
+        setIsSearching(false);
+
+        try {
+            const data = await gameService.create({
+                mode,
+                realPlayers: notifyData.players,
+                botCount: notifyData.botCount
+            });
+
+            setSuccess(`Partie créée ! ${notifyData.totalPlayers} joueurs.`);
+            navigate(`/game?code=${encodeURIComponent(data.game.code)}`);
+        } catch (creationError) {
+            setError(creationError.message || 'Erreur création partie après match');
+            setLoading(false);
+        }
+    });
+
+    const handleSoloFallback = useEffectEvent((data) => {
+        clearInterval(searchTimerRef.current);
+        setIsSearching(false);
+        setSuccess(data.message);
+
+        gameService.create({ mode, solo: true })
+            .then((response) => navigate(`/game?code=${encodeURIComponent(response.game.code)}`))
+            .catch((creationError) => {
+                setError(creationError.message || 'Erreur création partie solo');
+                setLoading(false);
+            });
+    });
+
     // Connexion socket au montage
     useEffect(() => {
         const token = localStorage.getItem('token');
-        const socket = io(window.location.origin, {
+        const socketUrl = import.meta.env.DEV ? 'http://localhost:5000' : window.location.origin;
+        const socket = io(socketUrl, {
             auth: { token },
-            transports: ['websocket', 'polling']
+            transports: import.meta.env.DEV ? ['polling'] : ['websocket', 'polling']
         });
         socketRef.current = socket;
 
@@ -72,36 +108,9 @@ function Lobby() {
             setQueueSize(queueSize);
         });
 
-        socket.on('matchmaking:found', async (notifyData) => {
-            clearInterval(searchTimerRef.current);
-            setIsSearching(false);
-            console.log('[Matchmaking] Match found!', notifyData);
-            
-            // Create game with players
-            try {
-                const data = await gameService.create({
-                    mode,
-                    realPlayers: notifyData.players,
-                    botCount: notifyData.botCount
-                });
-                
-                setSuccess(`Partie créée! ${notifyData.totalPlayers} joueurs.`);
-                navigate(`/game?code=${encodeURIComponent(data.game.code)}`);
-            } catch (err) {
-                setError('Erreur création partie après match');
-            }
-        });
+        socket.on('matchmaking:found', handleMatchFound);
 
-        socket.on('matchmaking:solo-fallback', (data) => {
-            clearInterval(searchTimerRef.current);
-            setIsSearching(false);
-            setSuccess(data.message);
-            
-            // Create solo game
-            gameService.create({ mode, solo: true })
-                .then(res => navigate(`/game?code=${encodeURIComponent(res.game.code)}`))
-                .catch(err => setError('Erreur création partie solo'));
-        });
+        socket.on('matchmaking:solo-fallback', handleSoloFallback);
 
         socket.on('connect_error', (err) => {
             console.error('[Socket] Connexion échouée:', err.message);
@@ -160,14 +169,6 @@ function Lobby() {
         chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages]);
 
-    const toggleMode = () => {
-        setMode((prev) => {
-            const index = MODE_SEQUENCE.indexOf(prev);
-            const nextIndex = index >= 0 ? (index + 1) % MODE_SEQUENCE.length : 0;
-            return MODE_SEQUENCE[nextIndex];
-        });
-    };
-
     const handleShowModeModal = () => {
         setShowModeModal(true);
     };
@@ -204,6 +205,7 @@ function Lobby() {
     const handleCancelSearch = () => {
         clearInterval(searchTimerRef.current);
         setIsSearching(false);
+        setLoading(false);
         socketRef.current?.emit('matchmaking:cancel');
     };
 
@@ -256,7 +258,7 @@ function Lobby() {
         try {
             await friendService.removeFriend(friendId);
             loadFriendsWithStatus();
-        } catch (err) {
+        } catch {
             setError('Impossible de supprimer l\'ami');
         }
     };
@@ -291,199 +293,228 @@ function Lobby() {
 
     if (roomLoading) {
         return (
-            <div className="mx-auto w-full max-w-6xl px-3 py-4">
-                <p className="text-slate-500">Chargement du salon...</p>
+            <div className="lobby-scene lobby-loading">
+                <p>Ouverture de la bibliothèque...</p>
             </div>
         );
     }
 
     return (
-        <div className="mx-auto w-full max-w-6xl px-3 py-4">
-            <h1 className="mb-3 text-2xl font-bold text-slate-900">Lobby</h1>
+        <div className="lobby-scene">
+            <div className="lobby-shade" aria-hidden="true" />
+            <div className="lobby-column is-left" aria-hidden="true">
+                <img src="/assets/img/hautecolonne.svg" alt="" />
+                <div />
+                <img src="/assets/img/hautecolonne.svg" alt="" />
+            </div>
+            <div className="lobby-column is-right" aria-hidden="true">
+                <img src="/assets/img/hautecolonne.svg" alt="" />
+                <div />
+                <img src="/assets/img/hautecolonne.svg" alt="" />
+            </div>
+            <div className="lobby-content">
+                <h1 className="lobby-title">Lobby</h1>
 
-            {error && <p className="mb-2 text-xs text-red-600">{error}</p>}
-            {success && <p className="mb-2 text-xs text-emerald-700">{success}</p>}
+                {(error || success) && (
+                    <div className={`lobby-notice ${error ? 'is-error' : 'is-success'}`} role="status">
+                        {error || success}
+                    </div>
+                )}
 
-            <div className="grid gap-3 lg:grid-cols-4">
-                {/* Mon salon */}
-                {myRoom && (
-                    <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
-                        <h2 className="mb-2 text-sm font-semibold text-slate-900">Mon salon</h2>
-                        <div className="mb-2 flex flex-col gap-1.5">
-                            <div className="flex items-center gap-1">
-                                <span className="text-xs text-slate-600">Code: </span>
-                                <code className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs font-bold text-slate-900">
-                                    {myRoom.code}
-                                </code>
+                <div className="lobby-grid">
+                    <section className="paper border border-2 shadow-large lobby-panel lobby-community" aria-labelledby="community-title">
+                        <h2 id="community-title">Amis &amp;<br />communauté</h2>
+                        <div className="lobby-search-row">
+                            <input
+                                type="text"
+                                value={addFriendInput}
+                                onChange={(event) => setAddFriendInput(event.target.value)}
+                                onKeyDown={(event) => event.key === 'Enter' && handleAddFriend()}
+                                placeholder="Ajouter un érudit"
+                                aria-label="Ajouter un ami"
+                            />
+                            <button
+                                type="button"
+                                className="lobby-icon-button"
+                                onClick={handleAddFriend}
+                                disabled={addingFriend || !addFriendInput.trim()}
+                                title="Ajouter cet ami"
+                            >
+                                <UserPlus size={19} aria-hidden="true" />
+                            </button>
+                        </div>
+
+                        <div className="lobby-friends-heading">
+                            <strong>Amis en ligne</strong>
+                            <span>Amis ({friends.length})</span>
+                        </div>
+                        <div className="lobby-friends-list">
+                            {friends.length === 0 ? (
+                                <p className="lobby-empty">Votre cercle d’érudits est vide.</p>
+                            ) : friends.map((friend) => (
+                                <div className="lobby-friend" key={friend.id}>
+                                    <span className="lobby-avatar" aria-hidden="true">
+                                        {String(friend.username || '?').slice(0, 1).toUpperCase()}
+                                        <i className={friend.is_online ? 'is-online' : ''} />
+                                    </span>
+                                    <span className="lobby-friend-name">{friend.username}</span>
+                                    <button
+                                        type="button"
+                                        className="lobby-icon-button"
+                                        onClick={() => handleInviteFriend(friend.username)}
+                                        title={`Inviter ${friend.username}`}
+                                    >
+                                        <Send size={16} aria-hidden="true" />
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="lobby-icon-button is-danger"
+                                        onClick={() => handleRemoveFriend(friend.id)}
+                                        title={`Retirer ${friend.username}`}
+                                    >
+                                        <Trash2 size={16} aria-hidden="true" />
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    </section>
+
+                    <section className="paper border border-1 shadow-large lobby-panel lobby-games lobby-play-hub" aria-labelledby="games-title">
+                        <div className="lobby-hub-heading">
+                            <span>Nouvelle expédition</span>
+                            <h2 id="games-title">Explorez Wikipédia</h2>
+                        </div>
+
+                        <div className="lobby-planet-stage">
+                            <div className="lobby-orbit-ring" aria-hidden="true" />
+                            <div className="lobby-mode-orbit" role="radiogroup" aria-label="Mode de jeu">
+                                {MODE_SEQUENCE.map((modeValue) => (
+                                    <button
+                                        key={modeValue}
+                                        type="button"
+                                        role="radio"
+                                        aria-checked={mode === modeValue}
+                                        className={`lobby-mode-star is-${modeValue}${mode === modeValue ? ' is-active' : ''}`}
+                                        onClick={() => setMode(modeValue)}
+                                    >
+                                        <i aria-hidden="true" />
+                                        <span>{MODE_LABELS[modeValue]}</span>
+                                    </button>
+                                ))}
+                            </div>
+                            <div className="lobby-wiki-planet" aria-hidden="true">
+                                <div className="lobby-planet-grid" />
+                                <strong>W</strong>
+                                <span>WIKIPÉDIA</span>
+                            </div>
+                        </div>
+
+                        <button
+                            type="button"
+                            className="paper-btn lobby-primary-button lobby-launch-button"
+                            onClick={handleShowModeModal}
+                            disabled={loading}
+                        >
+                            <Play size={18} fill="currentColor" aria-hidden="true" />
+                            {loading ? 'Préparation...' : `Lancer · ${MODE_LABELS[mode]}`}
+                        </button>
+
+                        <div className="lobby-join-dock">
+                            <label htmlFor="room-code"><KeyRound size={17} aria-hidden="true" /> Rejoindre un salon</label>
+                            <div>
+                                <input
+                                    id="room-code"
+                                    type="text"
+                                    value={joinCode}
+                                    onChange={(event) => setJoinCode(event.target.value.toUpperCase())}
+                                    onKeyDown={(event) => event.key === 'Enter' && handleJoinRoom()}
+                                    maxLength={12}
+                                    placeholder="CODE"
+                                    aria-label="Code de salon"
+                                />
                                 <button
                                     type="button"
-                                    onClick={copyToClipboard}
-                                    className="text-xs text-slate-600 hover:bg-slate-100 rounded px-1"
+                                    className="paper-btn lobby-secondary-button"
+                                    onClick={handleJoinRoom}
+                                    disabled={joiningRoom || !joinCode.trim()}
                                 >
-                                    📋
+                                    {joiningRoom ? 'Entrée...' : 'Rejoindre'}
                                 </button>
                             </div>
+                        </div>
+                    </section>
 
-                            {/* Membres du salon */}
-                            <div>
-                                <h3 className="mb-1 text-xs font-semibold text-slate-900">Joueurs ({members.length + 1})</h3>
-                                <div className="flex flex-col gap-0.5">
-                                    <span className="rounded bg-slate-900 px-1.5 py-0.5 text-xs text-white font-semibold">
-                                        Vous
-                                    </span>
+                    <section className="paper border border-5 shadow-large lobby-panel lobby-room" aria-labelledby="room-title">
+                        <div>
+                            <h2 id="room-title">Mon salon</h2>
+                            <p className="lobby-room-subtitle">Étude privée</p>
+                        </div>
+
+                        {myRoom ? (
+                            <>
+                                <button type="button" className="paper-btn lobby-room-code" onClick={copyToClipboard} title="Copier le code du salon">
+                                    <span>{myRoom.code}</span>
+                                    <Copy size={17} aria-hidden="true" />
+                                </button>
+
+                                <div className="lobby-explorers">
+                                    <h3><Users size={19} aria-hidden="true" /> Explorateurs ({members.length + 1})</h3>
+                                    <div className="lobby-member is-self">
+                                        <span className="lobby-avatar">V</span>
+                                        <strong>Vous</strong>
+                                    </div>
                                     {members.map((member) => (
-                                        <div key={member.id} className="flex items-center justify-between gap-1 rounded bg-slate-100 px-1.5 py-0.5">
-                                            <span className="text-xs text-slate-900">{member.username}</span>
+                                        <div className="lobby-member" key={member.id}>
+                                            <span className="lobby-avatar">{String(member.username || '?').slice(0, 1).toUpperCase()}</span>
+                                            <span>{member.username}</span>
                                             <button
                                                 type="button"
+                                                className="lobby-icon-button is-danger"
                                                 onClick={() => setReportTarget(member)}
-                                                className="text-xs text-slate-400 hover:text-red-500"
-                                                title="Signaler ce joueur"
+                                                title={`Signaler ${member.username}`}
                                             >
-                                                🚩
+                                                <Flag size={15} aria-hidden="true" />
                                             </button>
                                         </div>
                                     ))}
                                 </div>
-                            </div>
-                        </div>
-                    </div>
-                )}
 
-                {/* Rejoindre un salon */}
-                <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
-                    <h2 className="mb-2 text-sm font-semibold text-slate-900">Rejoindre</h2>
-                    <div className="flex flex-col gap-1.5">
-                        <input
-                            type="text"
-                            value={joinCode}
-                            onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-                            placeholder="Code"
-                            className="rounded border border-slate-300 px-2 py-1 text-xs text-slate-900 placeholder-slate-400"
-                        />
-                        <button
-                            type="button"
-                            onClick={handleJoinRoom}
-                            disabled={joiningRoom || !joinCode.trim()}
-                            className="rounded bg-slate-900 px-2 py-1 text-xs text-white disabled:opacity-60"
-                        >
-                            {joiningRoom ? '...' : 'Rejoindre'}
-                        </button>
-                    </div>
-                </div>
-
-                {/* Créer une partie */}
-                <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
-                    <h2 className="mb-2 text-sm font-semibold text-slate-900">Lancer</h2>
-                    <div className="flex flex-col gap-1.5">
-                        <button
-                            type="button"
-                            onClick={toggleMode}
-                            className="rounded border border-slate-300 px-2 py-1 text-xs text-slate-900"
-                        >
-                            Mode: {MODE_LABELS[mode]}
-                        </button>
-                        <button
-                            type="button"
-                            onClick={handleShowModeModal}
-                            disabled={loading}
-                            className="rounded bg-slate-900 px-2 py-1 text-xs text-white disabled:opacity-60"
-                        >
-                            {loading ? '...' : 'Lancer'}
-                        </button>
-                    </div>
-                </div>
-
-                {/* Amis */}
-                <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
-                    <h2 className="mb-2 text-sm font-semibold text-slate-900">Amis ({friends.length})</h2>
-                    <div className="mb-2 flex flex-col gap-1">
-                        <input
-                            type="text"
-                            value={addFriendInput}
-                            onChange={(e) => setAddFriendInput(e.target.value)}
-                            placeholder="Username/email"
-                            className="rounded border border-slate-300 px-2 py-1 text-xs text-slate-900 placeholder-slate-400"
-                        />
-                        <button
-                            type="button"
-                            onClick={handleAddFriend}
-                            disabled={addingFriend || !addFriendInput.trim()}
-                            className="rounded bg-slate-900 px-2 py-1 text-xs text-white disabled:opacity-60"
-                        >
-                            {addingFriend ? '...' : 'Ajouter'}
-                        </button>
-                    </div>
-                    <div className="max-h-20 overflow-y-auto space-y-0.5">
-                        {friends.map((friend) => (
-                            <div
-                                key={friend.id}
-                                className="flex items-center justify-between gap-1 rounded bg-slate-100 px-1.5 py-0.5 text-xs"
-                            >
-                                <div className="flex items-center gap-1 flex-1">
-                                    <span className={friend.is_online ? '🟢' : '⚪'}></span>
-                                    <span className="text-slate-900">{friend.username}</span>
+                                <div className="lobby-chat-log" aria-live="polite">
+                                    {messages.length === 0 ? (
+                                        <p className="lobby-empty">Le salon est silencieux.</p>
+                                    ) : messages.map((message, messageIndex) => (
+                                        <p key={message.id || `${message.username}-${message.created_at || messageIndex}`}>
+                                            <strong>{message.username}</strong> {message.message}
+                                        </p>
+                                    ))}
+                                    <div ref={chatEndRef} />
                                 </div>
-                                <div className="flex gap-0.5">
+
+                                <div className="lobby-chat-input">
+                                    <input
+                                        type="text"
+                                        value={chatMessage}
+                                        onChange={(event) => setChatMessage(event.target.value)}
+                                        onKeyDown={(event) => event.key === 'Enter' && handleSendMessage()}
+                                        placeholder="Chat..."
+                                        aria-label="Message du salon"
+                                    />
                                     <button
                                         type="button"
-                                        onClick={() => handleInviteFriend(friend.username)}
-                                        className="text-slate-600 hover:text-slate-900 text-xs"
-                                        title="Inviter"
+                                        onClick={handleSendMessage}
+                                        disabled={sendingMessage || !chatMessage.trim()}
+                                        title="Envoyer"
                                     >
-                                        📩
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => handleRemoveFriend(friend.id)}
-                                        className="text-slate-500 hover:text-slate-900"
-                                    >
-                                        ✕
+                                        <Send size={20} aria-hidden="true" />
                                     </button>
                                 </div>
-                            </div>
-                        ))}
-                    </div>
+                            </>
+                        ) : (
+                            <p className="lobby-empty">Aucun salon actif.</p>
+                        )}
+                    </section>
                 </div>
             </div>
-
-            {/* Chat */}
-            {myRoom && (
-                <div className="mt-3 rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
-                    <h2 className="mb-2 text-sm font-semibold text-slate-900">Chat du salon</h2>
-                    <div className="mb-2 max-h-32 overflow-y-auto rounded bg-slate-50 p-2 space-y-1">
-                        {messages.length === 0 ? (
-                            <p className="text-xs text-slate-500">Pas de messages</p>
-                        ) : (
-                            messages.map((msg) => (
-                                <div key={msg.id} className="text-xs">
-                                    <span className="font-semibold text-slate-900">{msg.username}:</span>
-                                    <span className="ml-1 text-slate-700">{msg.message}</span>
-                                </div>
-                            ))
-                        )}
-                        <div ref={chatEndRef} />
-                    </div>
-                    <div className="flex gap-1">
-                        <input
-                            type="text"
-                            value={chatMessage}
-                            onChange={(e) => setChatMessage(e.target.value)}
-                            onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-                            placeholder="Message..."
-                            className="flex-1 rounded border border-slate-300 px-2 py-1 text-xs text-slate-900 placeholder-slate-400"
-                        />
-                        <button
-                            type="button"
-                            onClick={handleSendMessage}
-                            disabled={sendingMessage || !chatMessage.trim()}
-                            className="rounded bg-slate-900 px-2 py-1 text-xs text-white disabled:opacity-60"
-                        >
-                            {sendingMessage ? '...' : 'Envoyer'}
-                        </button>
-                    </div>
-                </div>
-            )}
 
             {reportTarget && (
                 <ReportModal

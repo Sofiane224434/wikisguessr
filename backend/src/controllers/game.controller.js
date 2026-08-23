@@ -8,6 +8,7 @@ import {
     KnowledgeQuizError,
     generateKnowledgeQuiz
 } from '../services/knowledge-quiz.service.js';
+import { releaseGameQuota, reserveGameQuota } from '../services/subscription.service.js';
 
 const parseText = (value) => String(value || '').trim();
 
@@ -201,6 +202,7 @@ export const getRandomRoll = async (_req, res) => {
 };
 
 export const createGame = async (req, res) => {
+    let quotaReservation = null;
     try {
         const mode = parseText(req.body.mode).toLowerCase() || 'normal';
         const fallbackMatchup = pickRandomMatchup(mode);
@@ -212,6 +214,8 @@ export const createGame = async (req, res) => {
             return res.status(400).json({ error: 'Les articles de depart et cible doivent etre differents' });
         }
 
+        quotaReservation = await reserveGameQuota(req.user.id, mode);
+
         const game = await Game.create({
             title,
             startArticle,
@@ -222,8 +226,15 @@ export const createGame = async (req, res) => {
 
         return res.status(201).json({ game });
     } catch (error) {
+        if (quotaReservation?.reserved) {
+            await releaseGameQuota(req.user.id, quotaReservation.knowledgeRequested).catch(() => {});
+        }
         console.error('createGame error:', error);
-        return res.status(500).json({ error: 'Impossible de creer la partie' });
+        return res.status(error.status || 500).json({
+            error: error.status === 429 ? error.message : 'Impossible de creer la partie',
+            code: error.code,
+            subscription: error.subscription
+        });
     }
 };
 

@@ -33,7 +33,7 @@ function VerifyEmail() {
     }, [login, navigate, searchParams]);
 
     return (
-        <div className="login-container">
+        <div className="login-container paper border border-2 shadow-large">
             <h1>Verification email</h1>
             {status && <p>{status}</p>}
             {error && <p className="error">{error}</p>}

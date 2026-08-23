@@ -8,10 +8,14 @@ import {
 	verifyEmail,
 	forgotPassword,
 	resetPassword,
+	updateProfile,
+	updateAvatar,
+	deleteAvatar,
 	banUser,
 	unbanUser
 } from '../controllers/auth.controller.js';
 import authMiddleware from '../middlewares/auth.middleware.js';
+import { avatarUpload } from '../middlewares/avatar.middleware.js';
 const router = Router();
 
 const adminOnly = (req, res, next) => {
@@ -28,6 +32,9 @@ router.post('/forgot-password', forgotPassword);
 router.post('/reset-password', resetPassword);
 // Routes protégées
 router.get('/me', authMiddleware, getProfile);
+router.patch('/profile', authMiddleware, updateProfile);
+router.post('/profile/avatar', authMiddleware, avatarUpload, updateAvatar);
+router.delete('/profile/avatar', authMiddleware, deleteAvatar);
 router.get('/users', authMiddleware, getUsers);
 
 // Routes admin

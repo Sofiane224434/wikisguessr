@@ -461,7 +461,7 @@ function AdminArticles() {
     }, [articles, search]);
 
     return (
-        <div className="min-h-[calc(100vh-4rem)] bg-slate-950 px-4 py-8 text-white">
+        <div className="site-page admin-page paper border border-5 shadow-large min-h-[calc(100vh-4rem)] px-4 py-8 text-white">
             <div className="mx-auto flex max-w-6xl flex-col gap-6">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
@@ -742,7 +742,7 @@ function AdminArticles() {
                                     <tr className="text-left text-slate-300">
                                         <th className="px-4 py-3 font-semibold">Nom</th>
                                         <th className="px-4 py-3 font-semibold">Lien utilisé</th>
-                                        <th className="w-36 px-4 py-3 font-semibold">Actions</th>
+                                        <th className="admin-table-actions-cell px-4 py-3 font-semibold">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -799,52 +799,51 @@ function AdminArticles() {
                                                     <button
                                                         type="button"
                                                         onClick={() => goToGamePreview(item.name)}
-                                                        className="block max-w-xl break-all text-left text-xs text-cyan-300 underline underline-offset-2"
+                                                        className="admin-article-preview block max-w-xl break-all text-left text-xs"
                                                         title="Tester cet article dans la vue jeu"
                                                     >
                                                         {item.link}
                                                     </button>
                                                 )}
                                             </td>
-                                            <td className="w-36 px-4 py-3">
+                                            <td className="admin-table-actions-cell px-4 py-3">
                                                 {editingId === item.id ? (
-                                                    <div className="flex w-28 justify-end gap-1">
+                                                    <div className="admin-table-actions">
                                                         <button
                                                             type="button"
                                                             disabled={saving}
                                                             onClick={() => handleSaveEdit(item.id)}
-                                                            className="h-6 w-12 rounded-md bg-emerald-500 px-0 py-0 text-[10px] font-semibold text-slate-950 transition hover:bg-emerald-400 disabled:opacity-60"
+                                                            className="admin-table-button is-confirm"
                                                         >
-                                                            {saving ? '...' : 'OK'}
+                                                            {saving ? '...' : 'Valider'}
                                                         </button>
                                                         <button
                                                             type="button"
                                                             onClick={cancelEdit}
-                                                            className="h-6 w-12 rounded-md border border-slate-700 bg-slate-900 px-0 py-0 text-[10px] font-semibold text-white transition hover:bg-slate-800"
+                                                            className="admin-table-button"
                                                         >
-                                                            X
+                                                            Annuler
                                                         </button>
                                                     </div>
                                                 ) : (
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => startEdit(item)}
-                                                        className="h-6 w-12 rounded-md border border-cyan-500/50 bg-cyan-500/10 px-0 py-0 text-[10px] font-semibold text-cyan-300 transition hover:bg-cyan-500/20"
-                                                    >
-                                                        Edit
-                                                    </button>
+                                                    <div className="admin-table-actions">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => startEdit(item)}
+                                                            className="admin-table-button is-primary"
+                                                        >
+                                                            Modifier
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleDeleteArticle(item)}
+                                                            disabled={deletingId === item.id}
+                                                            className="admin-table-button is-danger"
+                                                        >
+                                                            {deletingId === item.id ? '...' : 'Supprimer'}
+                                                        </button>
+                                                    </div>
                                                 )}
-                                                {editingId !== item.id && (
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => handleDeleteArticle(item)}
-                                                        disabled={deletingId === item.id}
-                                                        className="ml-1 h-6 w-12 rounded-md border border-rose-500/50 bg-rose-500/10 px-0 py-0 text-[10px] font-semibold text-rose-300 transition hover:bg-rose-500/20 disabled:opacity-60"
-                                                    >
-                                                        {deletingId === item.id ? '...' : 'Suppr'}
-                                                    </button>
-                                                )
-                                                }
                                             </td>
                                         </tr>
                                     ))}

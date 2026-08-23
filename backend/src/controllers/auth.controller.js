@@ -1,6 +1,9 @@
 // controllers/auth.controller.js
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import sharp from 'sharp';
 import User from '../models/user.model.js';
 import { query } from '../config/db.js';
 import { sendCustomEmail } from '../services/email.service.js';
@@ -16,6 +19,18 @@ const generateToken = (user) => {
 const APP_URL = process.env.APP_URL || 'http://localhost:5173';
 const VERIFICATION_TOKEN_TTL_MS = 1000 * 60 * 60 * 24;
 const RESET_PASSWORD_TOKEN_TTL_MS = 1000 * 60 * 30;
+const USERNAME_CHANGE_COOLDOWN_DAYS = 30;
+const USERNAME_CHANGE_COOLDOWN_MS = USERNAME_CHANGE_COOLDOWN_DAYS * 24 * 60 * 60 * 1000;
+const USERNAME_PATTERN = /^[\p{L}\p{N}_.-]{3,30}$/u;
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+const addUsernameCooldown = (user) => ({
+    ...user,
+    username_change_available_at: user.username_changed_at
+        ? new Date(new Date(user.username_changed_at).getTime() + USERNAME_CHANGE_COOLDOWN_MS).toISOString()
+        : null,
+    username_change_cooldown_days: USERNAME_CHANGE_COOLDOWN_DAYS
+});
 
 const getFirstForwardedValue = (value) => {
     if (!value) {
@@ -174,7 +189,15 @@ export const login = async (req, res) => {
 
         const token = generateToken(user);
         res.json({
-            user: { id: user.id, username: user.username, email: user.email, role: user.role, email_verified: user.email_verified },
+            user: addUsernameCooldown({
+                id: user.id,
+                username: user.username,
+                username_changed_at: user.username_changed_at,
+                email: user.email,
+                role: user.role,
+                avatar_url: user.avatar_url,
+                email_verified: user.email_verified
+            }),
             token
         });
     } catch (error) {
@@ -300,7 +323,151 @@ export const resetPassword = async (req, res) => {
 
 // GET /api/auth/me
 export const getProfile = async (req, res) => {
-    res.json({ user: req.user });
+    res.json({ user: addUsernameCooldown(req.user) });
+};
+
+// PATCH /api/auth/profile
+export const updateProfile = async (req, res) => {
+    try {
+        const { username, email, currentPassword, newPassword } = req.body;
+        const currentUser = await User.findPrivateById(req.user.id);
+
+        if (!currentUser) {
+            return res.status(404).json({ error: 'Utilisateur non trouve' });
+        }
+        if (!currentPassword || !(await User.verifyPassword(currentPassword, currentUser.password))) {
+            return res.status(401).json({ error: 'Mot de passe actuel incorrect' });
+        }
+
+        const nextUsername = username === undefined ? undefined : String(username).trim();
+        const nextEmail = email === undefined ? undefined : String(email).trim().toLowerCase();
+        const usernameChanged = nextUsername !== undefined && nextUsername !== currentUser.username;
+        const emailChanged = nextEmail !== undefined && nextEmail !== currentUser.email;
+        const passwordChanged = newPassword !== undefined && String(newPassword).length > 0;
+
+        if (!usernameChanged && !emailChanged && !passwordChanged) {
+            return res.status(400).json({ error: 'Aucune modification a enregistrer' });
+        }
+
+        if (usernameChanged) {
+            if (!USERNAME_PATTERN.test(nextUsername)) {
+                return res.status(400).json({
+                    error: 'Le username doit contenir entre 3 et 30 caracteres (lettres, chiffres, point, tiret ou underscore)'
+                });
+            }
+
+            if (currentUser.username_changed_at) {
+                const availableAt = new Date(currentUser.username_changed_at).getTime() + USERNAME_CHANGE_COOLDOWN_MS;
+                if (availableAt > Date.now()) {
+                    return res.status(429).json({
+                        error: `Le username ne peut etre change qu'une fois tous les ${USERNAME_CHANGE_COOLDOWN_DAYS} jours`,
+                        usernameChangeAvailableAt: new Date(availableAt).toISOString()
+                    });
+                }
+            }
+
+            const existingUsername = await User.findByUsername(nextUsername);
+            if (existingUsername && existingUsername.id !== currentUser.id) {
+                return res.status(409).json({ error: 'Username deja utilise' });
+            }
+        }
+
+        if (emailChanged) {
+            if (nextEmail.length > 255 || !EMAIL_PATTERN.test(nextEmail)) {
+                return res.status(400).json({ error: 'Adresse email invalide' });
+            }
+            const existingEmail = await User.findByEmail(nextEmail);
+            if (existingEmail && existingEmail.id !== currentUser.id) {
+                return res.status(409).json({ error: 'Email deja utilise' });
+            }
+        }
+
+        if (passwordChanged && String(newPassword).length < 8) {
+            return res.status(400).json({ error: 'Le nouveau mot de passe doit contenir au moins 8 caracteres' });
+        }
+
+        const updatedUser = await User.updateProfile(currentUser.id, {
+            username: usernameChanged ? nextUsername : undefined,
+            email: emailChanged ? nextEmail : undefined,
+            plainPassword: passwordChanged ? String(newPassword) : undefined
+        });
+
+        return res.json({
+            message: 'Profil mis a jour',
+            user: addUsernameCooldown(updatedUser)
+        });
+    } catch (error) {
+        if (error.code === 'ER_DUP_ENTRY') {
+            return res.status(409).json({ error: 'Username ou email deja utilise' });
+        }
+        console.error('updateProfile error:', error);
+        return res.status(500).json({ error: 'Impossible de mettre a jour le profil' });
+    }
+};
+
+const avatarsDirectory = path.resolve('uploads', 'avatars');
+
+const removeStoredAvatar = async (avatarUrl) => {
+    if (!String(avatarUrl || '').startsWith('/uploads/avatars/')) {
+        return;
+    }
+    await fs.unlink(path.join(avatarsDirectory, path.basename(avatarUrl))).catch(() => {});
+};
+
+export const updateAvatar = async (req, res) => {
+    let outputPath = null;
+    try {
+        if (!req.file) {
+            return res.status(400).json({ error: 'Sélectionnez une photo de profil' });
+        }
+
+        const currentUser = await User.findPrivateById(req.user.id);
+        if (!currentUser) {
+            return res.status(404).json({ error: 'Utilisateur non trouve' });
+        }
+
+        await fs.mkdir(avatarsDirectory, { recursive: true });
+        const filename = `user-${currentUser.id}-${crypto.randomUUID()}.webp`;
+        outputPath = path.join(avatarsDirectory, filename);
+        await sharp(req.file.buffer)
+            .rotate()
+            .resize(512, 512, { fit: 'cover', position: 'attention' })
+            .webp({ quality: 86 })
+            .toFile(outputPath);
+
+        const avatarUrl = `/uploads/avatars/${filename}`;
+        const updatedUser = await User.updateAvatar(currentUser.id, avatarUrl);
+        await removeStoredAvatar(currentUser.avatar_url);
+        return res.json({
+            message: 'Photo de profil mise a jour',
+            user: addUsernameCooldown(updatedUser)
+        });
+    } catch (error) {
+        if (outputPath) {
+            await fs.unlink(outputPath).catch(() => {});
+        }
+        console.error('updateAvatar error:', error);
+        return res.status(400).json({ error: 'Cette image ne peut pas être utilisée' });
+    }
+};
+
+export const deleteAvatar = async (req, res) => {
+    try {
+        const currentUser = await User.findPrivateById(req.user.id);
+        if (!currentUser) {
+            return res.status(404).json({ error: 'Utilisateur non trouve' });
+        }
+
+        const updatedUser = await User.updateAvatar(currentUser.id, null);
+        await removeStoredAvatar(currentUser.avatar_url);
+        return res.json({
+            message: 'Photo de profil supprimée',
+            user: addUsernameCooldown(updatedUser)
+        });
+    } catch (error) {
+        console.error('deleteAvatar error:', error);
+        return res.status(500).json({ error: 'Impossible de supprimer la photo de profil' });
+    }
 };
 
 // GET /api/auth/users (admin)

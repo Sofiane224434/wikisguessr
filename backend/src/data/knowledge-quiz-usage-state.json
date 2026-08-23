@@ -1,27 +1,16 @@
 {
-  "totalCalls": 1,
-  "successCalls": 1,
+  "totalCalls": 0,
+  "successCalls": 0,
   "failedCalls": 0,
-  "totalPromptTokens": 1036,
-  "totalCandidateTokens": 725,
-  "totalTokens": 1761,
-  "dayKey": "2026-07-20",
-  "dailyCalls": 1,
-  "dailyPromptTokens": 1036,
-  "dailyCandidateTokens": 725,
-  "dailyTotalTokens": 1761,
-  "lastCallAt": "2026-07-20T12:57:21.075Z",
+  "totalPromptTokens": 0,
+  "totalCandidateTokens": 0,
+  "totalTokens": 0,
+  "dayKey": "2026-08-23",
+  "dailyCalls": 0,
+  "dailyPromptTokens": 0,
+  "dailyCandidateTokens": 0,
+  "dailyTotalTokens": 0,
+  "lastCallAt": null,
   "lastError": "",
-  "recentCalls": [
-    {
-      "at": "2026-07-20T12:57:21.075Z",
-      "ok": true,
-      "model": "gemini-3.1-flash-lite",
-      "promptTokens": 1036,
-      "candidateTokens": 725,
-      "totalTokens": 1761,
-      "errorCode": "",
-      "errorMessage": ""
-    }
-  ]
+  "recentCalls": []
 }

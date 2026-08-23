@@ -56,10 +56,10 @@ function ReportModal({ reportedUser, onClose }) {
 
     return (
         <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+            className="antique-modal-backdrop fixed inset-0 z-50 flex items-center justify-center p-4"
             onClick={(e) => e.target === e.currentTarget && onClose()}
         >
-            <div className="w-full max-w-md rounded-2xl border border-slate-700 bg-slate-900 p-6 shadow-2xl">
+            <div className="antique-modal paper border border-5 shadow-large w-full max-w-md p-6">
                 {done ? (
                     <div className="text-center">
                         <p className="text-3xl">✅</p>

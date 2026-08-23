@@ -95,7 +95,7 @@ function Leaderboard() {
     }, [activeMode, data]);
 
     return (
-        <div className="mx-auto w-full max-w-4xl px-4 py-10">
+        <div className="site-page paper border border-3 shadow-large mx-auto w-full max-w-4xl px-4 py-10">
             <h1 className="mb-6 text-3xl font-bold text-slate-900">Classement</h1>
 
             <div className="mb-6 flex flex-wrap gap-2">

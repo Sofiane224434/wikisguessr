@@ -4,6 +4,7 @@ USE `wikisguessr`;
 CREATE TABLE IF NOT EXISTS `users` (
 	`id` INT NOT NULL AUTO_INCREMENT,
 	`username` VARCHAR(255) NOT NULL,
+	`username_changed_at` TIMESTAMP NULL DEFAULT NULL,
 	`email` VARCHAR(255) NOT NULL,
 	`email_verified` TINYINT(1) NOT NULL DEFAULT 0,
 	`email_verification_token` VARCHAR(255) DEFAULT NULL,
@@ -11,6 +12,12 @@ CREATE TABLE IF NOT EXISTS `users` (
 	`password_reset_token` VARCHAR(255) DEFAULT NULL,
 	`password_reset_expires_at` DATETIME DEFAULT NULL,
 	`role` ENUM('user','moderator','admin') NOT NULL DEFAULT 'user',
+	`subscription_tier` ENUM('free','silver','gold') NOT NULL DEFAULT 'free',
+	`subscription_expires_at` DATETIME DEFAULT NULL,
+	`stripe_customer_id` VARCHAR(255) DEFAULT NULL,
+	`stripe_subscription_id` VARCHAR(255) DEFAULT NULL,
+	`stripe_subscription_status` VARCHAR(50) DEFAULT NULL,
+	`avatar_url` VARCHAR(500) DEFAULT NULL,
 	`password` VARCHAR(255) NOT NULL,
 	`created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 	`last_seen` TIMESTAMP NULL DEFAULT NULL,
@@ -18,7 +25,9 @@ CREATE TABLE IF NOT EXISTS `users` (
 	`elo` INT NOT NULL DEFAULT 1500,
 	PRIMARY KEY (`id`),
 	UNIQUE KEY `uniq_users_username` (`username`),
-	UNIQUE KEY `uniq_users_email` (`email`)
+	UNIQUE KEY `uniq_users_email` (`email`),
+	UNIQUE KEY `uniq_users_stripe_customer` (`stripe_customer_id`),
+	UNIQUE KEY `uniq_users_stripe_subscription` (`stripe_subscription_id`)
 );
 
 CREATE TABLE IF NOT EXISTS `games` (
@@ -107,4 +116,13 @@ CREATE TABLE IF NOT EXISTS `reports` (
 	CONSTRAINT `fk_reports_reporter` FOREIGN KEY (`reporter_id`) REFERENCES `users`(`id`) ON DELETE CASCADE,
 	CONSTRAINT `fk_reports_reported` FOREIGN KEY (`reported_user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE,
 	CONSTRAINT `chk_reports_different` CHECK (`reporter_id` != `reported_user_id`)
+);
+
+CREATE TABLE IF NOT EXISTS `user_daily_game_usage` (
+	`user_id` INT NOT NULL,
+	`usage_date` DATE NOT NULL,
+	`total_games` INT NOT NULL DEFAULT 0,
+	`knowledge_games` INT NOT NULL DEFAULT 0,
+	PRIMARY KEY (`user_id`, `usage_date`),
+	CONSTRAINT `fk_daily_game_usage_user` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
 );
