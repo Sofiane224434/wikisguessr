@@ -65,23 +65,23 @@ jobs:
 
             phase="build des images"
             echo "==> build des images"
-            docker compose -p "\$PROJECT" pull db || true
-            docker compose -p "\$PROJECT" build
+            docker compose -f docker-compose.yml -p "\$PROJECT" pull db || true
+            docker compose -f docker-compose.yml -p "\$PROJECT" build
 
             phase="demarrage de MySQL"
             echo "==> demarrage de MySQL"
-            docker compose -p "\$PROJECT" up -d db
+            docker compose -f docker-compose.yml -p "\$PROJECT" up -d db
 
             phase="migration de la base"
             echo "==> migration de la base"
-            docker compose -p "\$PROJECT" run --rm api npm run migrate:production
+            docker compose -f docker-compose.yml -p "\$PROJECT" run --rm api npm run migrate:production
 
             phase="demarrage de la stack"
             echo "==> demarrage de la stack"
-            docker compose -p "\$PROJECT" up -d --build --remove-orphans
+            docker compose -f docker-compose.yml -p "\$PROJECT" up -d --build --remove-orphans
 
             echo "==> docker compose ps"
-            docker compose -p "\$PROJECT" ps
+            docker compose -f docker-compose.yml -p "\$PROJECT" ps
 
             echo "==> nettoyage images orphelines"
             docker image prune -f
