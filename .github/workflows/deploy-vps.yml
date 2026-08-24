@@ -45,7 +45,6 @@ jobs:
 
             APP_DIR="$VPS_APP_DIR"
             PROJECT="$VPS_COMPOSE_PROJECT"
-            printf 'sha=${{ github.sha }} host=%s machine=%s addresses=%s\n' "\$(hostname)" "\$(cat /etc/machine-id)" "\$(hostname -I)" > /tmp/wikisguessr-deploy-target
 
             if [ ! -d "\$APP_DIR/.git" ]; then
               echo "Cloning repository into \$APP_DIR"
@@ -82,13 +81,8 @@ jobs:
             phase="demarrage de la stack"
             echo "==> demarrage de la stack"
             docker rm -f wikisguessr-api wikisguessr-app 2>/dev/null || true
-            docker compose -f docker-compose.yml -p "\$PROJECT" up -d --build --no-deps api
-            app_image="\${PROJECT}-app"
-            docker run -d --name wikisguessr-app --restart unless-stopped \
-              --network "\${PROJECT}_wikisnet" --network-alias app \
-              -p 127.0.0.1:3010:80 "\$app_image"
-            printf 'deploy-context=%s deploy-daemon=%s\n' "\$(docker context show)" "\$(docker info --format '{{.ID}} {{.DockerRootDir}}')" >> /tmp/wikisguessr-deploy-target
-            docker inspect wikisguessr-app --format 'deploy-container={{.Id}} created={{.Created}} ports={{json .NetworkSettings.Ports}}' >> /tmp/wikisguessr-deploy-target
+            docker compose -f docker-compose.yml -p "\$PROJECT" up -d --build --no-deps api app
+            docker compose -f docker-compose.yml -p "\$PROJECT" up -d --remove-orphans
 
             phase="verification de l API"
             echo "==> verification de l API"
@@ -137,8 +131,6 @@ jobs:
 
           status=${PIPESTATUS[0]}
           set -e
-          trace="$(grep -E '==>|wikisguessr-|APP_|DEPLOY_|deploy-container|deploy-context' "$log_file" | tail -n 40 | tr '\n' ' ' | cut -c1-4000)"
-          echo "::notice title=Trace du deploiement::$trace"
           if [ "$status" -ne 0 ]; then
             diagnostic="$(tail -n 30 "$log_file" | tr '\n' ' ' | cut -c1-4000)"
             echo "::error title=Echec du deploiement::$diagnostic"
@@ -162,7 +154,7 @@ jobs:
           fi
 
           diagnostic="$(ssh -i ~/.ssh/id_ed25519 -p "$VPS_PORT" "$VPS_USER@$VPS_HOST" \
-            "echo TARGET; cat /tmp/wikisguessr-deploy-target 2>/dev/null || echo marker-missing; echo API_INSPECT; docker inspect wikisguessr-api --format 'state={{.State.Status}} exit={{.State.ExitCode}} restarts={{.RestartCount}} error={{.State.Error}}'; echo API_LOGS; docker logs --tail 30 wikisguessr-api 2>&1; echo APP_INSPECT; docker inspect wikisguessr-app --format 'verify-container={{.Id}} created={{.Created}} state={{.State.Status}} ports={{json .NetworkSettings.Ports}} bindings={{json .HostConfig.PortBindings}}'; echo SOCKETS; sudo -n ss -ltnp | grep -E ':443|:3010'" \
+            "echo LOCAL_APP; curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3010/api/site-state; echo; echo API; docker inspect wikisguessr-api --format 'state={{.State.Status}} exit={{.State.ExitCode}} restarts={{.RestartCount}}'; docker logs --tail 20 wikisguessr-api 2>&1; echo APP; docker inspect wikisguessr-app --format 'state={{.State.Status}} ports={{json .NetworkSettings.Ports}} bindings={{json .HostConfig.PortBindings}}'; docker logs --tail 20 wikisguessr-app 2>&1; echo SOCKETS; sudo -n ss -ltnp | grep -E ':443|:3010'" \
             | tr '\n' ' ' | cut -c1-4000)"
           echo "::error title=Diagnostic du proxy public::$diagnostic"
           exit 1

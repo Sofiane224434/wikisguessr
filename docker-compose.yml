@@ -27,7 +27,7 @@ services:
     environment:
       NODE_ENV: production
       PORT: 5000
-      APP_URL: ${APP_URL}
+      APP_URL: ${APP_URL:-https://wikisguessr.azim404.com}
       DB_HOST: db
       DB_USER: ${DB_USER}
       DB_PASSWORD: ${DB_PASSWORD}
