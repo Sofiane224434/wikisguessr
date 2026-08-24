@@ -419,6 +419,7 @@ function Game() {
     const gameReadyRef = useRef(false);
     const resultSubmittedRef = useRef(false);
     const initialLoadKeyRef = useRef('');
+    const allowPageNavigationRef = useRef(false);
 
     const [game, setGame] = useState(null);
     const [loadingGame, setLoadingGame] = useState(Boolean(searchParams.get('code') || searchParams.get('previewTitle')));
@@ -1046,6 +1047,28 @@ function Game() {
         return () => window.removeEventListener('keydown', handleKeyDown, true);
     }, []);
 
+    useEffect(() => {
+        if (!gameCode || isPreviewMode) {
+            return undefined;
+        }
+
+        window.history.pushState({ wikisguessrGameGuard: true }, '', window.location.href);
+        const handleBrowserBack = () => {
+            if (allowPageNavigationRef.current) {
+                return;
+            }
+            window.history.pushState({ wikisguessrGameGuard: true }, '', window.location.href);
+            if (resultReady) {
+                setShowResultModal(true);
+            } else {
+                setShowAbandonConfirm(true);
+            }
+        };
+
+        window.addEventListener('popstate', handleBrowserBack);
+        return () => window.removeEventListener('popstate', handleBrowserBack);
+    }, [gameCode, isPreviewMode, resultReady]);
+
     const handleContentClick = (event) => {
         const anchor = event.target.closest('a');
         if (!anchor) {
@@ -1100,6 +1123,7 @@ function Game() {
         if (!resultSaved) {
             return;
         }
+        allowPageNavigationRef.current = true;
         clearPersistedGameState(gameCode);
         navigate('/lobby');
     };
@@ -1112,6 +1136,7 @@ function Game() {
         setResultSaveError('');
         try {
             const response = await gameService.create({ mode: gameMode, solo: true });
+            allowPageNavigationRef.current = true;
             clearPersistedGameState(gameCode);
             navigate(`/game?code=${encodeURIComponent(response.game.code)}`);
         } catch (replayError) {

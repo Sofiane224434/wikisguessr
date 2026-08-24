@@ -8,6 +8,35 @@ const DEFAULT_QUESTION_COUNT = 5;
 const MAX_USAGE_HISTORY = 25;
 const DEFAULT_DAILY_REQUEST_LIMIT = 500;
 const GEMINI_REQUEST_TIMEOUT_MS = 15000;
+const GEMINI_MAX_ATTEMPTS = 2;
+
+const QUIZ_RESPONSE_SCHEMA = {
+    type: 'OBJECT',
+    required: ['questions'],
+    properties: {
+        questions: {
+            type: 'ARRAY',
+            minItems: DEFAULT_QUESTION_COUNT,
+            maxItems: DEFAULT_QUESTION_COUNT,
+            items: {
+                type: 'OBJECT',
+                required: ['question', 'choices', 'answerIndex', 'sourceTitle', 'sourceQuote'],
+                properties: {
+                    question: { type: 'STRING' },
+                    choices: {
+                        type: 'ARRAY',
+                        minItems: 4,
+                        maxItems: 4,
+                        items: { type: 'STRING' }
+                    },
+                    answerIndex: { type: 'INTEGER', minimum: 0, maximum: 3 },
+                    sourceTitle: { type: 'STRING' },
+                    sourceQuote: { type: 'STRING' }
+                }
+            }
+        }
+    }
+};
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -452,75 +481,83 @@ export const generateKnowledgeQuiz = async ({
         visitedArticles: cleanedVisitedArticles
     });
 
-    let response;
-    try {
-        response = await fetch(
-            `${GEMINI_API_BASE_URL}/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`,
-            {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                signal: AbortSignal.timeout(GEMINI_REQUEST_TIMEOUT_MS),
-                body: JSON.stringify({
-                    contents: [
-                        {
-                            role: 'user',
-                            parts: [{ text: prompt }]
+    let lastError = null;
+    for (let attempt = 1; attempt <= GEMINI_MAX_ATTEMPTS; attempt += 1) {
+        try {
+            const response = await fetch(
+                `${GEMINI_API_BASE_URL}/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`,
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    signal: AbortSignal.timeout(GEMINI_REQUEST_TIMEOUT_MS),
+                    body: JSON.stringify({
+                        contents: [
+                            {
+                                role: 'user',
+                                parts: [{ text: prompt }]
+                            }
+                        ],
+                        generationConfig: {
+                            temperature: 0.35,
+                            topP: 0.9,
+                            maxOutputTokens: 1800,
+                            responseMimeType: 'application/json',
+                            responseSchema: QUIZ_RESPONSE_SCHEMA
                         }
-                    ],
-                    generationConfig: {
-                        temperature: 0.55,
-                        topP: 0.95,
-                        maxOutputTokens: 1200,
-                        responseMimeType: 'application/json'
-                    }
-                })
+                    })
+                }
+            );
+            const payload = await parseGeminiResponsePayload(response);
+
+            if (!response.ok) {
+                const apiMessage = toSafeString(payload?.error?.message) || 'Erreur API Gemini';
+                lastError = new KnowledgeQuizError(apiMessage, {
+                    code: 'GEMINI_API_ERROR',
+                    status: Number(response.status) || 502
+                });
+                if (attempt < GEMINI_MAX_ATTEMPTS && (response.status === 429 || response.status >= 500)) {
+                    continue;
+                }
+                throw lastError;
             }
-        );
-    } catch (error) {
-        const timedOut = error?.name === 'TimeoutError' || error?.name === 'AbortError';
-        const message = timedOut ? 'Gemini ne répond pas dans le délai prévu' : 'Gemini est temporairement inaccessible';
-        recordKnowledgeQuizUsage({
-            ok: false,
-            model,
-            errorCode: timedOut ? 'GEMINI_TIMEOUT' : 'GEMINI_NETWORK_ERROR',
-            errorMessage: message
-        });
-        throw new KnowledgeQuizError(message, {
-            code: timedOut ? 'GEMINI_TIMEOUT' : 'GEMINI_NETWORK_ERROR',
-            status: 503
-        });
+
+            const questions = parseQuizResponse(payload, safeQuestionCount);
+            const usage = readUsageMetadata(payload);
+            recordKnowledgeQuizUsage({
+                ok: true,
+                model,
+                promptTokens: usage.promptTokens,
+                candidateTokens: usage.candidateTokens,
+                totalTokens: usage.totalTokens
+            });
+            return { questions, source: 'gemini', usage };
+        } catch (error) {
+            const timedOut = error?.name === 'TimeoutError' || error?.name === 'AbortError';
+            lastError = error instanceof KnowledgeQuizError
+                ? error
+                : new KnowledgeQuizError(
+                    timedOut ? 'Gemini ne répond pas dans le délai prévu' : 'Gemini est temporairement inaccessible',
+                    {
+                        code: timedOut ? 'GEMINI_TIMEOUT' : 'GEMINI_NETWORK_ERROR',
+                        status: 503
+                    }
+                );
+
+            if (attempt < GEMINI_MAX_ATTEMPTS) {
+                continue;
+            }
+        }
     }
-
-    const payload = await parseGeminiResponsePayload(response);
-
-    if (!response.ok) {
-        const apiMessage = toSafeString(payload?.error?.message) || 'Erreur API Gemini';
-        recordKnowledgeQuizUsage({
-            ok: false,
-            model,
-            errorCode: 'GEMINI_API_ERROR',
-            errorMessage: apiMessage
-        });
-        throw new KnowledgeQuizError(apiMessage, {
-            code: 'GEMINI_API_ERROR',
-            status: Number(response.status) || 502
-        });
-    }
-
-    const questions = parseQuizResponse(payload, safeQuestionCount);
-    const usage = readUsageMetadata(payload);
 
     recordKnowledgeQuizUsage({
-        ok: true,
+        ok: false,
         model,
-        promptTokens: usage.promptTokens,
-        candidateTokens: usage.candidateTokens,
-        totalTokens: usage.totalTokens
+        errorCode: lastError?.code || 'KNOWLEDGE_QUIZ_ERROR',
+        errorMessage: lastError?.message || 'Impossible de generer le quiz'
     });
-
-    return { questions, source: 'gemini', usage };
+    throw lastError;
 };
 
 export { KnowledgeQuizError };
