@@ -43,6 +43,7 @@ jobs:
 
             APP_DIR="$VPS_APP_DIR"
             PROJECT="$VPS_COMPOSE_PROJECT"
+            printf 'host=%s machine=%s addresses=%s\n' "\$(hostname)" "\$(cat /etc/machine-id)" "\$(hostname -I)" > /tmp/wikisguessr-deploy-target
 
             if [ ! -d "\$APP_DIR/.git" ]; then
               echo "Cloning repository into \$APP_DIR"
@@ -156,7 +157,7 @@ jobs:
           fi
 
           diagnostic="$(ssh -i ~/.ssh/id_ed25519 -p "$VPS_PORT" "$VPS_USER@$VPS_HOST" \
-            "echo LOCAL_APP; curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3010/api/site-state; echo; echo APP_INSPECT; docker inspect wikisguessr-app --format 'created={{.Created}} state={{.State.Status}} ports={{json .NetworkSettings.Ports}} bindings={{json .HostConfig.PortBindings}} labels={{json .Config.Labels}}'; echo AUTOMATION; systemctl list-timers --all --no-pager 2>/dev/null | grep -iE 'wiki|docker|compose' || true; sudo -n grep -RilE 'wikisguessr|docker compose' /etc/systemd/system /etc/cron.d /etc/cron.hourly 2>/dev/null | head -20 || true; echo APP_LOGS; docker logs --tail 20 wikisguessr-app 2>&1; echo SOCKETS; sudo -n ss -ltnp | grep -E ':443|:3010'" \
+            "echo TARGET; cat /tmp/wikisguessr-deploy-target 2>/dev/null || echo marker-missing; printf 'verify-host=%s verify-machine=%s verify-addresses=%s dns=' \"\$(hostname)\" \"\$(cat /etc/machine-id)\" \"\$(hostname -I)\"; getent ahostsv4 wikisguessr.azim404.com | head -1; echo LOCAL_APP; curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3010/api/site-state; echo; echo APP_INSPECT; docker inspect wikisguessr-app --format 'created={{.Created}} state={{.State.Status}} ports={{json .NetworkSettings.Ports}} bindings={{json .HostConfig.PortBindings}} labels={{json .Config.Labels}}'; echo AUTOMATION; systemctl list-timers --all --no-pager 2>/dev/null | grep -iE 'wiki|docker|compose' || true; sudo -n grep -RilE 'wikisguessr|docker compose' /etc/systemd/system /etc/cron.d /etc/cron.hourly 2>/dev/null | head -20 || true; echo APP_LOGS; docker logs --tail 20 wikisguessr-app 2>&1; echo SOCKETS; sudo -n ss -ltnp | grep -E ':443|:3010'" \
             | tr '\n' ' ' | cut -c1-4000)"
           echo "::error title=Diagnostic du proxy public::$diagnostic"
           exit 1
