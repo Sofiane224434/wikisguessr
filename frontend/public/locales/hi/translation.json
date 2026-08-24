@@ -148,7 +148,15 @@
     "add_friend_title": "इस मित्र को जोड़ें",
     "invite": "{{username}} को आमंत्रित करें",
     "remove": "{{username}} हटाएँ",
-    "report": "रिपोर्ट {{username}}"
+    "report": "रिपोर्ट {{username}}",
+    "accept": "स्वीकार करें",
+    "decline": "अस्वीकार करें",
+    "host": "मेज़बान",
+    "start_with_room": "रूम के साथ शुरू करें",
+    "leave_room": "रूम छोड़ें",
+    "friend_request_sent": "{{username}} को मित्र अनुरोध भेजा गया।",
+    "room_invite_sent": "{{username}} को रूम आमंत्रण भेजा गया।",
+    "game_created": "गेम बन गया!"
   },
   "shop": {
     "eyebrow": "एक्सप्लोरर पास",

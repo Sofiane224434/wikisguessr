@@ -24,7 +24,12 @@ i18n
         supportedLngs: ['en', 'fr', 'es', 'ar', 'pt', 'zh', 'de', 'hi', 'ru', 'ja'],
         nonExplicitSupportedLngs: true,
         load: 'languageOnly',
-        debug: true,
+        debug: false,
+        returnNull: false,
+        backend: {
+            loadPath: '/locales/{{lng}}/translation.json?v=20260901',
+            requestOptions: { cache: 'no-store' }
+        },
 
         interpolation: {
             escapeValue: false, // not needed for react as it escapes by default

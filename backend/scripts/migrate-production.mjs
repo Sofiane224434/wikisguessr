@@ -34,6 +34,12 @@ const requiredIndexes = new Map([
     ['uniq_users_stripe_subscription', 'stripe_subscription_id']
 ]);
 
+const requiredGameColumns = new Map([
+    ['is_ranked', 'TINYINT(1) NOT NULL DEFAULT 1'],
+    ['player_count', 'INT NOT NULL DEFAULT 1'],
+    ['room_id', 'INT DEFAULT NULL']
+]);
+
 try {
     const schema = await fs.readFile(new URL('../schema.sql', import.meta.url), 'utf8');
     const tableStatements = schema.replace(
@@ -72,6 +78,18 @@ try {
         if (!existingIndexes.has(index)) {
             await connection.query(`CREATE UNIQUE INDEX \`${index}\` ON \`users\` (\`${column}\`)`);
             console.log(`Index ajoute: users.${index}`);
+        }
+    }
+
+    const [gameColumnRows] = await connection.execute(
+        'SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?',
+        [database, 'games']
+    );
+    const existingGameColumns = new Set(gameColumnRows.map(({ COLUMN_NAME }) => COLUMN_NAME));
+    for (const [column, definition] of requiredGameColumns) {
+        if (!existingGameColumns.has(column)) {
+            await connection.query(`ALTER TABLE \`games\` ADD COLUMN \`${column}\` ${definition}`);
+            console.log(`Colonne ajoutee: games.${column}`);
         }
     }
 

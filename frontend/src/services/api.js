@@ -175,6 +175,19 @@ export const gameRoomService = {
     leaveRoom: (roomId) => fetchAPI('/game-rooms/leave', {
         method: 'POST',
         body: JSON.stringify({ roomId })
+    }),
+    getInvitations: () => fetchAPI('/game-rooms/invitations'),
+    inviteFriend: (roomId, friendId) => fetchAPI('/game-rooms/invitations', {
+        method: 'POST',
+        body: JSON.stringify({ roomId, friendId })
+    }),
+    respondToInvitation: (invitationId, accept) => fetchAPI(`/game-rooms/invitations/${invitationId}/respond`, {
+        method: 'POST',
+        body: JSON.stringify({ accept })
+    }),
+    startGame: (roomId, mode) => fetchAPI(`/game-rooms/${roomId}/start`, {
+        method: 'POST',
+        body: JSON.stringify({ mode })
     })
 }
 
@@ -182,6 +195,11 @@ export const friendService = {
     addFriend: (identifier) => fetchAPI('/friends/add', {
         method: 'POST',
         body: JSON.stringify({ identifier })
+    }),
+    getRequests: () => fetchAPI('/friends/requests'),
+    respondToRequest: (requestId, accept) => fetchAPI(`/friends/requests/${requestId}/respond`, {
+        method: 'POST',
+        body: JSON.stringify({ accept })
     }),
     getFriends: () => fetchAPI('/friends/list'),
     removeFriend: (friendId) => fetchAPI('/friends/remove', {

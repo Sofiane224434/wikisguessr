@@ -148,7 +148,15 @@
     "add_friend_title": "Add this friend",
     "invite": "Invite {{username}}",
     "remove": "Remove {{username}}",
-    "report": "Report {{username}}"
+    "report": "Report {{username}}",
+    "accept": "Accept",
+    "decline": "Decline",
+    "host": "Host",
+    "start_with_room": "Start with the room",
+    "leave_room": "Leave the room",
+    "friend_request_sent": "Friend request sent to {{username}}.",
+    "room_invite_sent": "Room invitation sent to {{username}}.",
+    "game_created": "Game created!"
   },
   "shop": {
     "eyebrow": "Explorer Pass",

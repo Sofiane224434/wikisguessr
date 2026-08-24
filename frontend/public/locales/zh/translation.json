@@ -148,7 +148,15 @@
     "add_friend_title": "添加这位好友",
     "invite": "邀请 {{username}}",
     "remove": "移除 {{username}}",
-    "report": "报告 {{username}}"
+    "report": "报告 {{username}}",
+    "accept": "接受",
+    "decline": "拒绝",
+    "host": "房主",
+    "start_with_room": "与房间成员开始",
+    "leave_room": "离开房间",
+    "friend_request_sent": "已向 {{username}} 发送好友请求。",
+    "room_invite_sent": "已向 {{username}} 发送房间邀请。",
+    "game_created": "游戏已创建！"
   },
   "shop": {
     "eyebrow": "探索者通行证",

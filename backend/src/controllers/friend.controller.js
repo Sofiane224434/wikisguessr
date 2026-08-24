@@ -8,21 +8,52 @@ export const addFriend = async (req, res) => {
             return res.status(400).json({ error: 'Identifiant requis (username ou email)' });
         }
 
-        const friend = await Friend.addFriend(req.user.id, identifier.trim());
+        const request = await Friend.sendRequest(req.user.id, identifier.trim());
+        req.app.locals.io?.to(`user:${request.recipient_id}`).emit('friend:request', { requestId: request.id });
 
         return res.json({
             ok: true,
-            friend
+            request
         });
     } catch (error) {
         console.error('addFriend error:', error);
         if (error.status === 404) {
             return res.status(404).json({ error: 'Utilisateur non trouvé' });
         }
-        if (error.status === 400) {
-            return res.status(400).json({ error: error.message });
+        if ([400, 404, 409].includes(error.status)) {
+            return res.status(error.status).json({ error: error.message });
         }
-        return res.status(500).json({ error: 'Impossible d\'ajouter l\'ami' });
+        return res.status(500).json({ error: 'Impossible d\'envoyer la demande' });
+    }
+};
+
+export const getFriendRequests = async (req, res) => {
+    try {
+        const requests = await Friend.getIncomingRequests(req.user.id);
+        return res.json({ requests });
+    } catch (error) {
+        console.error('getFriendRequests error:', error);
+        return res.status(500).json({ error: 'Impossible de récupérer les demandes' });
+    }
+};
+
+export const respondToFriendRequest = async (req, res) => {
+    try {
+        const requestId = Number(req.params.requestId);
+        const accept = req.body?.accept === true;
+        if (!Number.isInteger(requestId) || requestId <= 0) {
+            return res.status(400).json({ error: 'Demande invalide' });
+        }
+
+        const result = await Friend.respondToRequest(req.user.id, requestId, accept);
+        if (result.accepted) {
+            req.app.locals.io?.to(`user:${result.friendId}`).emit('friend:updated');
+            req.app.locals.io?.to(`user:${req.user.id}`).emit('friend:updated');
+        }
+        return res.json({ ok: true, ...result });
+    } catch (error) {
+        console.error('respondToFriendRequest error:', error);
+        return res.status(error.status || 500).json({ error: error.message || 'Impossible de traiter la demande' });
     }
 };
 
