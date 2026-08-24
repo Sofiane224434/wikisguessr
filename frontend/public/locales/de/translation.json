@@ -148,7 +148,15 @@
     "add_friend_title": "Diesen Freund hinzufügen",
     "invite": "{{username}} einladen",
     "remove": "{{username}} entfernen",
-    "report": "{{username}} melden"
+    "report": "{{username}} melden",
+    "accept": "Annehmen",
+    "decline": "Ablehnen",
+    "host": "Gastgeber",
+    "start_with_room": "Mit dem Raum starten",
+    "leave_room": "Raum verlassen",
+    "friend_request_sent": "Freundschaftsanfrage an {{username}} gesendet.",
+    "room_invite_sent": "Raumeinladung an {{username}} gesendet.",
+    "game_created": "Spiel erstellt!"
   },
   "shop": {
     "eyebrow": "Entdecker-Pass",

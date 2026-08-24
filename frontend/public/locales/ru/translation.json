@@ -148,7 +148,15 @@
     "add_friend_title": "Добавить этого друга",
     "invite": "Пригласить {{username}}",
     "remove": "Удалить {{username}}",
-    "report": "Сообщить о {{username}}"
+    "report": "Сообщить о {{username}}",
+    "accept": "Принять",
+    "decline": "Отклонить",
+    "host": "Ведущий",
+    "start_with_room": "Начать с комнатой",
+    "leave_room": "Покинуть комнату",
+    "friend_request_sent": "Запрос в друзья отправлен пользователю {{username}}.",
+    "room_invite_sent": "Приглашение в комнату отправлено пользователю {{username}}.",
+    "game_created": "Игра создана!"
   },
   "shop": {
     "eyebrow": "Пропуск «Исследователь»",

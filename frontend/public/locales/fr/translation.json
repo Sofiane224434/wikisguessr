@@ -123,7 +123,15 @@
     "add_friend_title": "Ajouter cet ami",
     "invite": "Inviter {{username}}",
     "remove": "Retirer {{username}}",
-    "report": "Signaler {{username}}"
+    "report": "Signaler {{username}}",
+    "accept": "Accepter",
+    "decline": "Refuser",
+    "host": "Hôte",
+    "start_with_room": "Lancer avec le salon",
+    "leave_room": "Quitter le salon",
+    "friend_request_sent": "Demande envoyée à {{username}}.",
+    "room_invite_sent": "Invitation envoyée à {{username}}.",
+    "game_created": "Partie créée !"
   },
   "shop": {
     "eyebrow": "Pass explorateur",

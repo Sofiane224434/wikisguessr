@@ -148,7 +148,15 @@
     "add_friend_title": "إضافة هذا الصديق",
     "invite": "دعوة {{username}}",
     "remove": "إزالة {{username}}",
-    "report": "الإبلاغ عن {{username}}"
+    "report": "الإبلاغ عن {{username}}",
+    "accept": "قبول",
+    "decline": "رفض",
+    "host": "المضيف",
+    "start_with_room": "ابدأ مع الغرفة",
+    "leave_room": "مغادرة الغرفة",
+    "friend_request_sent": "تم إرسال طلب صداقة إلى {{username}}.",
+    "room_invite_sent": "تم إرسال دعوة الغرفة إلى {{username}}.",
+    "game_created": "تم إنشاء اللعبة!"
   },
   "shop": {
     "eyebrow": "بطاقة المستكشف",

@@ -6,7 +6,7 @@ import { gameService, gameRoomService, friendService, resolveMediaUrl, roomMessa
 import ReportModal from '../components/ui/ReportModal.jsx';
 import GameModeModal from '../components/ui/GameModeModal.jsx';
 import MatchmakingUI from '../components/ui/MatchmakingUI.jsx';
-import { Copy, Flag, KeyRound, Play, Send, Trash2, UserPlus, Users } from 'lucide-react';
+import { Check, Copy, Flag, KeyRound, LogOut, Play, Send, Trash2, UserPlus, Users, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 const MODE_LABELS = {
@@ -54,6 +54,8 @@ function Lobby() {
 
     // Amis
     const [friends, setFriends] = useState([]);
+    const [friendRequests, setFriendRequests] = useState([]);
+    const [roomInvitations, setRoomInvitations] = useState([]);
     const [addFriendInput, setAddFriendInput] = useState('');
     const [addingFriend, setAddingFriend] = useState(false);
 
@@ -76,23 +78,11 @@ function Lobby() {
     const [searchTimeRemaining, setSearchTimeRemaining] = useState(30);
     const searchTimerRef = useRef(null);
 
-    const handleMatchFound = useEffectEvent(async (notifyData) => {
+    const handleMatchFound = useEffectEvent((notifyData) => {
         clearInterval(searchTimerRef.current);
         setIsSearching(false);
-
-        try {
-            const data = await gameService.create({
-                mode,
-                realPlayers: notifyData.players,
-                botCount: notifyData.botCount
-            });
-
-            setSuccess(`Partie créée ! ${notifyData.totalPlayers} joueurs.`);
-            navigate(`/game?code=${encodeURIComponent(data.game.code)}`);
-        } catch (creationError) {
-            setError(creationError.message || 'Erreur création partie après match');
-            setLoading(false);
-        }
+        setSuccess(t('lobby.game_created'));
+        navigate(`/game?code=${encodeURIComponent(notifyData.game.code)}`);
     });
 
     const handleSoloFallback = useEffectEvent((data) => {
@@ -106,6 +96,10 @@ function Lobby() {
                 setError(creationError.message || 'Erreur création partie solo');
                 setLoading(false);
             });
+    });
+
+    const handleRoomGameStarted = useEffectEvent(({ game }) => {
+        navigate(`/game?code=${encodeURIComponent(game.code)}`);
     });
 
     // Connexion socket au montage
@@ -130,6 +124,16 @@ function Lobby() {
         socket.on('matchmaking:found', handleMatchFound);
 
         socket.on('matchmaking:solo-fallback', handleSoloFallback);
+        socket.on('room:updated', () => loadMyRoom());
+        socket.on('room:closed', () => {
+            setMyRoom(null);
+            setMembers([]);
+            setMessages([]);
+        });
+        socket.on('room:game-started', handleRoomGameStarted);
+        socket.on('room:invited', () => loadRoomInvitations());
+        socket.on('friend:request', () => loadFriendRequests());
+        socket.on('friend:updated', () => loadFriendsWithStatus());
 
         socket.on('connect_error', (err) => {
             console.error('[Socket] Connexion échouée:', err.message);
@@ -143,6 +147,8 @@ function Lobby() {
     useEffect(() => {
         loadMyRoom();
         loadFriendsWithStatus();
+        loadFriendRequests();
+        loadRoomInvitations();
     }, []);
 
     useEffect(() => {
@@ -180,6 +186,24 @@ function Lobby() {
             setFriends(data.friends || []);
         } catch (err) {
             console.error('Erreur lors du chargement des amis:', err);
+        }
+    };
+
+    const loadFriendRequests = async () => {
+        try {
+            const data = await friendService.getRequests();
+            setFriendRequests(data.requests || []);
+        } catch (err) {
+            console.error('Erreur lors du chargement des demandes:', err);
+        }
+    };
+
+    const loadRoomInvitations = async () => {
+        try {
+            const data = await gameRoomService.getInvitations();
+            setRoomInvitations(data.invitations || []);
+        } catch (err) {
+            console.error('Erreur lors du chargement des invitations:', err);
         }
     };
 
@@ -263,13 +287,53 @@ function Lobby() {
 
         try {
             const result = await friendService.addFriend(addFriendInput);
-            setSuccess(`${result.friend.username} ajouté à vos amis!`);
+            setSuccess(t('lobby.friend_request_sent', { username: result.request.username }));
             setAddFriendInput('');
-            loadFriendsWithStatus();
         } catch (err) {
             setError(err.message || 'Impossible d\'ajouter l\'ami');
         } finally {
             setAddingFriend(false);
+        }
+    };
+
+    const handleFriendRequest = async (requestId, accept) => {
+        try {
+            await friendService.respondToRequest(requestId, accept);
+            await Promise.all([loadFriendRequests(), loadFriendsWithStatus()]);
+        } catch (err) {
+            setError(err.message || 'Impossible de traiter la demande');
+        }
+    };
+
+    const handleRoomInvitation = async (invitationId, accept) => {
+        try {
+            await gameRoomService.respondToInvitation(invitationId, accept);
+            await loadRoomInvitations();
+            if (accept) await loadMyRoom();
+        } catch (err) {
+            setError(err.message || 'Impossible de traiter l\'invitation');
+        }
+    };
+
+    const handleLeaveRoom = async () => {
+        try {
+            await gameRoomService.leaveRoom(myRoom.id);
+            socketRef.current?.emit('room:leave', myRoom.id);
+            setMyRoom(null);
+            setMembers([]);
+            setMessages([]);
+        } catch (err) {
+            setError(err.message || 'Impossible de quitter le salon');
+        }
+    };
+
+    const handleStartRoomGame = async () => {
+        try {
+            setLoading(true);
+            await gameRoomService.startGame(myRoom.id, mode);
+        } catch (err) {
+            setError(err.message || 'Impossible de lancer la partie');
+            setLoading(false);
         }
     };
 
@@ -301,12 +365,12 @@ function Lobby() {
         }
     };
 
-    const handleInviteFriend = (friendUsername) => {
-        if (myRoom?.code) {
-            const text = `Viens jouer au WikisGuessr! Code du salon: ${myRoom.code}`;
-            navigator.clipboard.writeText(text);
-            setSuccess(`Invitation copiée pour ${friendUsername}`);
-            setTimeout(() => setSuccess(null), 2000);
+    const handleInviteFriend = async (friend) => {
+        try {
+            await gameRoomService.inviteFriend(myRoom.id, friend.id);
+            setSuccess(t('lobby.room_invite_sent', { username: friend.username }));
+        } catch (err) {
+            setError(err.message || 'Impossible d\'envoyer l\'invitation');
         }
     };
 
@@ -367,6 +431,20 @@ function Lobby() {
                             <strong>{t('lobby.friends_online')}</strong>
                             <span>{t('lobby.friends_count', { count: friends.length })}</span>
                         </div>
+                        {[...friendRequests.map((request) => ({ ...request, kind: 'friend' })), ...roomInvitations.map((invitation) => ({ ...invitation, kind: 'room' }))].map((request) => (
+                            <div className="lobby-friend" key={`${request.kind}-${request.id}`}>
+                                <LobbyAvatar user={{ username: request.username || request.inviter_username, avatar_url: request.avatar_url }} />
+                                <span className="lobby-friend-name">
+                                    {request.kind === 'friend' ? request.username : `${request.inviter_username} · ${request.code}`}
+                                </span>
+                                <button type="button" className="lobby-icon-button" onClick={() => request.kind === 'friend' ? handleFriendRequest(request.id, true) : handleRoomInvitation(request.id, true)} title={t('lobby.accept')}>
+                                    <Check size={16} aria-hidden="true" />
+                                </button>
+                                <button type="button" className="lobby-icon-button is-danger" onClick={() => request.kind === 'friend' ? handleFriendRequest(request.id, false) : handleRoomInvitation(request.id, false)} title={t('lobby.decline')}>
+                                    <X size={16} aria-hidden="true" />
+                                </button>
+                            </div>
+                        ))}
                         <div className="lobby-friends-list">
                             {friends.length === 0 ? (
                                 <p className="lobby-empty">{t('lobby.empty_friends')}</p>
@@ -377,7 +455,7 @@ function Lobby() {
                                     <button
                                         type="button"
                                         className="lobby-icon-button"
-                                        onClick={() => handleInviteFriend(friend.username)}
+                                        onClick={() => handleInviteFriend(friend)}
                                         title={t('lobby.invite', { username: friend.username })}
                                     >
                                         <Send size={16} aria-hidden="true" />
@@ -473,24 +551,31 @@ function Lobby() {
                                     <Copy size={17} aria-hidden="true" />
                                 </button>
 
+                                <div className="lobby-search-row">
+                                    {Number(myRoom.owner_id) === Number(user?.id) && (
+                                        <button type="button" className="paper-btn lobby-primary-button" onClick={handleStartRoomGame} disabled={loading}>
+                                            <Play size={17} aria-hidden="true" /> {t('lobby.start_with_room')}
+                                        </button>
+                                    )}
+                                    <button type="button" className="lobby-icon-button is-danger" onClick={handleLeaveRoom} title={t('lobby.leave_room')}>
+                                        <LogOut size={17} aria-hidden="true" />
+                                    </button>
+                                </div>
+
                                 <div className="lobby-explorers">
-                                    <h3><Users size={19} aria-hidden="true" /> {t('lobby.explorers', { count: members.length + 1 })}</h3>
-                                    <div className="lobby-member is-self">
-                                        <LobbyAvatar user={user} />
-                                        <strong>{t('lobby.you')}</strong>
-                                    </div>
+                                    <h3><Users size={19} aria-hidden="true" /> {t('lobby.explorers', { count: members.length })}</h3>
                                     {members.map((member) => (
-                                        <div className="lobby-member" key={member.id}>
+                                        <div className={`lobby-member${Number(member.id) === Number(user?.id) ? ' is-self' : ''}`} key={member.id}>
                                             <LobbyAvatar user={member} />
-                                            <span>{member.username}</span>
-                                            <button
+                                            <span>{Number(member.id) === Number(user?.id) ? t('lobby.you') : member.username}{Number(member.id) === Number(myRoom.owner_id) ? ` · ${t('lobby.host')}` : ''}</span>
+                                            {Number(member.id) !== Number(user?.id) && <button
                                                 type="button"
                                                 className="lobby-icon-button is-danger"
                                                 onClick={() => setReportTarget(member)}
                                                 title={t('lobby.report', { username: member.username })}
                                             >
                                                 <Flag size={15} aria-hidden="true" />
-                                            </button>
+                                            </button>}
                                         </div>
                                     ))}
                                 </div>

@@ -148,7 +148,15 @@
     "add_friend_title": "Añadir a este amigo",
     "invite": "Invitar a {{username}}",
     "remove": "Eliminar {{username}}",
-    "report": "Informar sobre {{username}}"
+    "report": "Informar sobre {{username}}",
+    "accept": "Aceptar",
+    "decline": "Rechazar",
+    "host": "Anfitrión",
+    "start_with_room": "Iniciar con la sala",
+    "leave_room": "Salir de la sala",
+    "friend_request_sent": "Solicitud de amistad enviada a {{username}}.",
+    "room_invite_sent": "Invitación de sala enviada a {{username}}.",
+    "game_created": "¡Partida creada!"
   },
   "shop": {
     "eyebrow": "Pase de explorador",

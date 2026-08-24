@@ -15,8 +15,6 @@ class MatchmakingService {
         // Timeouts to track pending searches
         this.searchTimeouts = new Map(); // userId -> timeoutId
         
-        // Matches found (temporary storage before game room creation)
-        this.pendingMatches = new Map(); // userId -> matchData
     }
 
     /**
@@ -62,6 +60,15 @@ class MatchmakingService {
         }
     }
 
+    takePlayers(mode, count = 2) {
+        const players = Object.values(this.queues[mode] || {}).slice(0, count);
+        players.forEach(({ userId }) => {
+            this.leaveQueue(userId, mode);
+            this.clearTimeout(userId);
+        });
+        return players;
+    }
+
     /**
      * Get queue size for a mode
      */
@@ -69,88 +76,22 @@ class MatchmakingService {
         return Object.keys(this.queues[mode] || {}).length;
     }
 
-    /**
-     * Process a queue after timeout
-     * Returns: { realPlayers, bots }
-     */
-    processQueue(mode, maxBots = 4) {
-        const queue = this.queues[mode] || {};
-        const players = Object.values(queue);
-
-        if (players.length === 0) {
-            // No one in queue, return null for solo fallback
-            return null;
-        }
-
-        if (players.length === 1) {
-            // Only 1 player, fill with bots
-            return {
-                realPlayers: players,
-                botCount: Math.min(3, maxBots - 1) // Max 4 total
-            };
-        }
-
-        if (players.length >= 2 && players.length <= maxBots) {
-            // 2-4 players, fill remaining with bots
-            return {
-                realPlayers: players,
-                botCount: Math.max(0, maxBots - players.length)
-            };
-        }
-
-        // Should not happen, but handle it
-        return {
-            realPlayers: players.slice(0, maxBots),
-            botCount: 0
-        };
+    scheduleSolo(userId, mode, timeoutMs, onTimeout) {
+        this.clearTimeout(userId);
+        const timeoutId = setTimeout(() => {
+            const player = this.leaveQueue(userId, mode);
+            this.searchTimeouts.delete(userId);
+            if (player) onTimeout(player);
+        }, timeoutMs);
+        this.searchTimeouts.set(userId, { timeoutId, mode });
     }
 
-    /**
-     * Start matchmaking timeout for a queue
-     * After timeout, either creates match or sends to solo
-     */
-    startMatchmakingTimeout(mode, timeoutMs = 30000, onComplete) {
-        // Clear any existing timeouts for this mode
-        Object.keys(this.searchTimeouts).forEach(userId => {
-            const stored = this.searchTimeouts.get(userId);
-            if (stored && stored.mode === mode) {
-                clearTimeout(stored.timeoutId);
-                this.searchTimeouts.delete(userId);
-            }
-        });
-
-        const timeoutId = setTimeout(() => {
-            const match = this.processQueue(mode);
-
-            // Get all players currently in queue
-            const queuePlayers = Object.values(this.queues[mode] || {});
-            
-            // Clear queue after processing
-            this.queues[mode] = {};
-
-            // Notify callback with results
-            if (onComplete) {
-                onComplete({
-                    mode,
-                    match, // null = no one, or { realPlayers, botCount }
-                    queuePlayers
-                });
-            }
-
-            // Clean up timeout entries
-            queuePlayers.forEach(p => {
-                if (this.searchTimeouts.has(p.userId)) {
-                    this.searchTimeouts.delete(p.userId);
-                }
-            });
-        }, timeoutMs);
-
-        // Store timeout for all players in queue
-        Object.keys(this.queues[mode] || {}).forEach(userId => {
-            this.searchTimeouts.set(userId, { timeoutId, mode });
-        });
-
-        return timeoutId;
+    clearTimeout(userId) {
+        const stored = this.searchTimeouts.get(userId);
+        if (stored) {
+            globalThis.clearTimeout(stored.timeoutId);
+            this.searchTimeouts.delete(userId);
+        }
     }
 
     /**
@@ -159,8 +100,7 @@ class MatchmakingService {
     cancelSearch(userId) {
         if (this.searchTimeouts.has(userId)) {
             const stored = this.searchTimeouts.get(userId);
-            clearTimeout(stored.timeoutId);
-            this.searchTimeouts.delete(userId);
+            this.clearTimeout(userId);
             
             // Leave queue
             this.leaveAllQueues(userId);

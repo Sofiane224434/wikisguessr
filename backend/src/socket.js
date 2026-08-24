@@ -3,6 +3,8 @@ import { query } from './config/db.js';
 import RoomMessage from './models/room-message.model.js';
 import Friend from './models/friend.model.js';
 import matchmakingService from './services/matchmaking.service.js';
+import { createSharedGame } from './controllers/game.controller.js';
+import GameRoom from './models/game-room.model.js';
 
 export function setupSocket(io) {
     // Middleware d'authentification JWT
@@ -23,54 +25,24 @@ export function setupSocket(io) {
         }
     });
 
-    // Matchmaking timer: process queues every 30 seconds
-    const MATCHMAKING_INTERVAL = 30000;
-    setInterval(() => {
-        const modes = ['normal', 'chrono', 'knowledge'];
-        
-        modes.forEach(mode => {
-            const queueSize = matchmakingService.getQueueSize(mode);
-            if (queueSize > 0) {
-                console.log(`[Matchmaking] Processing ${mode} queue with ${queueSize} players`);
-                
-                matchmakingService.startMatchmakingTimeout(mode, MATCHMAKING_INTERVAL, (result) => {
-                    const { match, queuePlayers } = result;
-
-                    if (!match) {
-                        // No one in queue, send solo notification
-                        queuePlayers.forEach(player => {
-                            const socket = io.sockets.sockets.get(player.socketId);
-                            if (socket) {
-                                socket.emit('matchmaking:solo-fallback', {
-                                    message: 'Aucun adversaire trouvé. Vous avez été déplacé en mode solo.'
-                                });
-                            }
-                        });
-                    } else {
-                        // Found players, notify them
-                        const { realPlayers, botCount } = match;
-                        const notifyData = {
-                            players: realPlayers.map(p => ({ userId: p.userId, username: p.username })),
-                            botCount,
-                            totalPlayers: realPlayers.length + botCount
-                        };
-
-                        realPlayers.forEach(player => {
-                            const socket = io.sockets.sockets.get(player.socketId);
-                            if (socket) {
-                                socket.emit('matchmaking:found', notifyData);
-                            }
-                        });
-
-                        console.log(`[Matchmaking] ${mode}: matched ${realPlayers.length} players + ${botCount} bots`);
-                    }
-                });
-            }
+    const createMatch = async (players, mode) => {
+        const creator = players[0];
+        const game = await createSharedGame({
+            mode,
+            creatorId: creator.userId,
+            creatorUsername: creator.username,
+            playerIds: players.map(({ userId: playerId }) => playerId)
         });
-    }, MATCHMAKING_INTERVAL);
+        const payload = {
+            game,
+            players: players.map(({ userId: playerId, username: playerUsername }) => ({ userId: playerId, username: playerUsername }))
+        };
+        players.forEach(({ socketId }) => io.sockets.sockets.get(socketId)?.emit('matchmaking:found', payload));
+    };
 
     io.on('connection', (socket) => {
         const { id: userId, username } = socket.user;
+        socket.join(`user:${userId}`);
 
         // Mettre à jour la présence à la connexion
         Friend.updateLastSeen(userId).catch(console.error);
@@ -85,6 +57,21 @@ export function setupSocket(io) {
         socket.on('room:leave', (roomId) => {
             if (!roomId) return;
             socket.leave(`room:${roomId}`);
+        });
+
+        socket.on('disconnecting', async () => {
+            const roomIds = [...socket.rooms]
+                .filter((roomName) => roomName.startsWith('room:'))
+                .map((roomName) => Number(roomName.slice(5)))
+                .filter(Number.isInteger);
+            for (const roomId of roomIds) {
+                try {
+                    const result = await GameRoom.leave(userId, roomId);
+                    io.to(`room:${roomId}`).emit(result.closed ? 'room:closed' : 'room:updated', { roomId });
+                } catch (error) {
+                    if (error.status !== 404) console.error('[Room] disconnect cleanup:', error);
+                }
+            }
         });
 
         // Envoyer un message de chat
@@ -115,12 +102,24 @@ export function setupSocket(io) {
         });
 
         // Matchmaking: player joins queue
-        socket.on('matchmaking:start', ({ mode }) => {
+        socket.on('matchmaking:start', async ({ mode }) => {
             try {
                 matchmakingService.joinQueue(userId, username, socket.id, mode);
                 const queueSize = matchmakingService.getQueueSize(mode);
                 socket.emit('matchmaking:joined', { mode, queueSize });
+                if (queueSize >= 2) {
+                    await createMatch(matchmakingService.takePlayers(mode, 2), mode);
+                    return;
+                }
+                matchmakingService.scheduleSolo(userId, mode, 30000, async (player) => {
+                    try {
+                        await createMatch([player], mode);
+                    } catch (error) {
+                        io.sockets.sockets.get(player.socketId)?.emit('matchmaking:error', { error: error.message });
+                    }
+                });
             } catch (err) {
+                matchmakingService.cancelSearch(userId);
                 socket.emit('matchmaking:error', { error: err.message });
             }
         });

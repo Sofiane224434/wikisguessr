@@ -12,6 +12,9 @@ CREATE TABLE IF NOT EXISTS games (
   target_article VARCHAR(255) NOT NULL,
     mode ENUM('normal','knowledge','chrono') NOT NULL DEFAULT 'normal',
   status ENUM('waiting','running','finished') NOT NULL DEFAULT 'waiting',
+    is_ranked TINYINT(1) NOT NULL DEFAULT 1,
+    player_count INT NOT NULL DEFAULT 1,
+    room_id INT DEFAULT NULL,
   created_by INT NOT NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
@@ -21,10 +24,24 @@ CREATE TABLE IF NOT EXISTS games (
 )
 `;
 
+const CREATE_GAME_PLAYERS_TABLE_SQL = `
+CREATE TABLE IF NOT EXISTS game_players (
+    game_id INT NOT NULL,
+    user_id INT NOT NULL,
+    joined_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (game_id, user_id),
+    KEY idx_game_players_user (user_id),
+    CONSTRAINT fk_game_players_game FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE,
+    CONSTRAINT fk_game_players_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+)
+`;
+
 const ENSURE_GAMES_MODE_ENUM_SQL = `
 ALTER TABLE games
 MODIFY COLUMN mode ENUM('normal','knowledge','chrono') NOT NULL DEFAULT 'normal'
 `;
+
+let gameSchemaReady = false;
 
 const normalizeMode = (mode) => (GAME_MODES.has(mode) ? mode : 'normal');
 
@@ -43,10 +60,25 @@ const generateCode = () => {
 const Game = {
     async ensureTable() {
         await query(CREATE_GAMES_TABLE_SQL);
-        await query(ENSURE_GAMES_MODE_ENUM_SQL);
+        if (!gameSchemaReady) {
+            const columns = await query('SHOW COLUMNS FROM games');
+            const existing = new Set(columns.map(({ Field }) => Field));
+            if (!existing.has('is_ranked')) {
+                await query('ALTER TABLE games ADD COLUMN is_ranked TINYINT(1) NOT NULL DEFAULT 1 AFTER status');
+            }
+            if (!existing.has('player_count')) {
+                await query('ALTER TABLE games ADD COLUMN player_count INT NOT NULL DEFAULT 1 AFTER is_ranked');
+            }
+            if (!existing.has('room_id')) {
+                await query('ALTER TABLE games ADD COLUMN room_id INT DEFAULT NULL AFTER player_count');
+            }
+            await query(ENSURE_GAMES_MODE_ENUM_SQL);
+            gameSchemaReady = true;
+        }
+        await query(CREATE_GAME_PLAYERS_TABLE_SQL);
     },
 
-    async create({ title, startArticle, targetArticle, mode = 'normal', createdBy }) {
+    async create({ title, startArticle, targetArticle, mode = 'normal', createdBy, playerIds = [], ranked = true, roomId = null }) {
         await this.ensureTable();
 
         const safeMode = normalizeMode(mode);
@@ -56,17 +88,29 @@ const Game = {
 
             try {
                 const sql = `
-INSERT INTO games (code, title, start_article, target_article, mode, created_by)
-VALUES (?, ?, ?, ?, ?, ?)
+INSERT INTO games (code, title, start_article, target_article, mode, is_ranked, player_count, room_id, created_by)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 `;
+                const uniquePlayerIds = [...new Set([createdBy, ...playerIds].map(Number).filter(Number.isInteger))];
                 const result = await query(sql, [
                     code,
                     title,
                     startArticle,
                     targetArticle,
                     safeMode,
+                    ranked ? 1 : 0,
+                    uniquePlayerIds.length,
+                    roomId,
                     createdBy
                 ]);
+
+                if (uniquePlayerIds.length > 0) {
+                    const placeholders = uniquePlayerIds.map(() => '(?, ?)').join(', ');
+                    await query(
+                        `INSERT IGNORE INTO game_players (game_id, user_id) VALUES ${placeholders}`,
+                        uniquePlayerIds.flatMap((playerId) => [result.insertId, playerId])
+                    );
+                }
 
                 return {
                     id: result.insertId,
@@ -75,6 +119,9 @@ VALUES (?, ?, ?, ?, ?, ?)
                     start_article: startArticle,
                     target_article: targetArticle,
                     mode: safeMode,
+                    is_ranked: ranked ? 1 : 0,
+                    player_count: uniquePlayerIds.length,
+                    room_id: roomId,
                     status: 'waiting',
                     created_by: createdBy
                 };
@@ -106,7 +153,7 @@ LIMIT 20
     async findByCode(code) {
         await this.ensureTable();
         const sql = `
-SELECT id, code, title, start_article, target_article, mode, status, created_by, created_at
+SELECT id, code, title, start_article, target_article, mode, status, is_ranked, player_count, room_id, created_by, created_at
 FROM games
 WHERE code = ?
 LIMIT 1
@@ -114,6 +161,15 @@ LIMIT 1
 
         const results = await query(sql, [String(code || '').trim().toUpperCase()]);
         return results[0] || null;
+    },
+
+    async isParticipant(gameId, userId) {
+        await this.ensureTable();
+        const rows = await query(
+            'SELECT 1 FROM game_players WHERE game_id = ? AND user_id = ? LIMIT 1',
+            [gameId, userId]
+        );
+        return rows.length > 0;
     }
 };
 
@@ -212,7 +268,9 @@ SELECT u.username,
        1600 AS elo
 FROM game_results gr
 JOIN users u ON u.id = gr.user_id
+JOIN games g ON g.id = gr.game_id
 WHERE gr.won = 1 AND gr.mode = 'chrono'
+    AND g.is_ranked = 1
 GROUP BY gr.user_id, u.username
 ORDER BY avg_score DESC
 LIMIT ${limitNum}
@@ -227,7 +285,9 @@ SELECT u.username,
        1600 AS elo
 FROM game_results gr
 JOIN users u ON u.id = gr.user_id
+JOIN games g ON g.id = gr.game_id
 WHERE gr.won = 1 AND gr.mode = 'knowledge'
+    AND g.is_ranked = 1
 GROUP BY gr.user_id, u.username
 ORDER BY avg_score DESC
 LIMIT ${limitNum}
@@ -242,7 +302,9 @@ SELECT u.username,
        1600 AS elo
 FROM game_results gr
 JOIN users u ON u.id = gr.user_id
+JOIN games g ON g.id = gr.game_id
 WHERE gr.won = 1 AND gr.mode = 'normal'
+    AND g.is_ranked = 1
 GROUP BY gr.user_id, u.username
 ORDER BY avg_score DESC
 LIMIT ${limitNum}

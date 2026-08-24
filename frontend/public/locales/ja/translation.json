@@ -148,7 +148,15 @@
     "add_friend_title": "この友人を追加する",
     "invite": "{{username}} を招待する",
     "remove": "{{username}} を削除する",
-    "report": "{{username}} を報告する"
+    "report": "{{username}} を報告する",
+    "accept": "承認",
+    "decline": "拒否",
+    "host": "ホスト",
+    "start_with_room": "ルームで開始",
+    "leave_room": "ルームを退出",
+    "friend_request_sent": "{{username}} にフレンド申請を送信しました。",
+    "room_invite_sent": "{{username}} にルーム招待を送信しました。",
+    "game_created": "ゲームを作成しました！"
   },
   "shop": {
     "eyebrow": "エクスプローラー・パス",

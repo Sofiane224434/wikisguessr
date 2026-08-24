@@ -201,6 +201,36 @@ export const getRandomRoll = async (_req, res) => {
     }
 };
 
+export const createSharedGame = async ({ mode = 'normal', creatorId, creatorUsername, playerIds, roomId = null }) => {
+    const safeMode = parseText(mode).toLowerCase() || 'normal';
+    const matchup = pickRandomMatchup(safeMode);
+    const uniquePlayerIds = [...new Set(playerIds.map(Number).filter(Number.isInteger))];
+    const ranked = uniquePlayerIds.length >= 4;
+    const reservations = [];
+
+    try {
+        for (const playerId of uniquePlayerIds) {
+            const reservation = await reserveGameQuota(playerId, safeMode);
+            reservations.push({ playerId, reservation });
+        }
+        return await Game.create({
+            title: `Partie ${safeMode} de ${creatorUsername}`,
+            startArticle: matchup.startArticle,
+            targetArticle: matchup.targetArticle,
+            mode: safeMode,
+            createdBy: creatorId,
+            playerIds: uniquePlayerIds,
+            ranked,
+            roomId
+        });
+    } catch (error) {
+        await Promise.all(reservations
+            .filter(({ reservation }) => reservation?.reserved)
+            .map(({ playerId, reservation }) => releaseGameQuota(playerId, reservation.knowledgeRequested).catch(() => {})));
+        throw error;
+    }
+};
+
 export const createGame = async (req, res) => {
     let quotaReservation = null;
     try {
@@ -221,7 +251,9 @@ export const createGame = async (req, res) => {
             startArticle,
             targetArticle,
             mode,
-            createdBy: req.user.id
+            createdBy: req.user.id,
+            playerIds: [req.user.id],
+            ranked: false
         });
 
         return res.status(201).json({ game });
@@ -348,7 +380,7 @@ export const submitGameResult = async (req, res) => {
             return res.status(404).json({ error: 'Partie introuvable' });
         }
 
-        if (game.created_by !== req.user.id) {
+        if (!(await Game.isParticipant(game.id, req.user.id))) {
             return res.status(403).json({ error: 'Acces interdit' });
         }
 
@@ -386,7 +418,7 @@ export const updateKnowledgeScore = async (req, res) => {
             return res.status(404).json({ error: 'Partie introuvable' });
         }
 
-        if (game.created_by !== req.user.id) {
+        if (!(await Game.isParticipant(game.id, req.user.id))) {
             return res.status(403).json({ error: 'Acces interdit' });
         }
 

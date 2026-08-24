@@ -38,6 +38,9 @@ CREATE TABLE IF NOT EXISTS `games` (
 	`target_article` VARCHAR(255) NOT NULL,
 	`mode` ENUM('normal','knowledge','chrono') NOT NULL DEFAULT 'normal',
 	`status` ENUM('waiting','running','finished') NOT NULL DEFAULT 'waiting',
+	`is_ranked` TINYINT(1) NOT NULL DEFAULT 1,
+	`player_count` INT NOT NULL DEFAULT 1,
+	`room_id` INT DEFAULT NULL,
 	`created_by` INT NOT NULL,
 	`created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 	PRIMARY KEY (`id`),
@@ -125,4 +128,44 @@ CREATE TABLE IF NOT EXISTS `user_daily_game_usage` (
 	`knowledge_games` INT NOT NULL DEFAULT 0,
 	PRIMARY KEY (`user_id`, `usage_date`),
 	CONSTRAINT `fk_daily_game_usage_user` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS `friend_requests` (
+	`id` INT NOT NULL AUTO_INCREMENT,
+	`sender_id` INT NOT NULL,
+	`recipient_id` INT NOT NULL,
+	`status` ENUM('pending','accepted','declined') NOT NULL DEFAULT 'pending',
+	`created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+	`responded_at` TIMESTAMP NULL DEFAULT NULL,
+	PRIMARY KEY (`id`),
+	KEY `idx_friend_requests_recipient_status` (`recipient_id`, `status`),
+	KEY `idx_friend_requests_sender_status` (`sender_id`, `status`),
+	CONSTRAINT `fk_friend_requests_sender` FOREIGN KEY (`sender_id`) REFERENCES `users`(`id`) ON DELETE CASCADE,
+	CONSTRAINT `fk_friend_requests_recipient` FOREIGN KEY (`recipient_id`) REFERENCES `users`(`id`) ON DELETE CASCADE,
+	CONSTRAINT `chk_friend_requests_different` CHECK (`sender_id` != `recipient_id`)
+);
+
+CREATE TABLE IF NOT EXISTS `game_players` (
+	`game_id` INT NOT NULL,
+	`user_id` INT NOT NULL,
+	`joined_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+	PRIMARY KEY (`game_id`, `user_id`),
+	KEY `idx_game_players_user` (`user_id`),
+	CONSTRAINT `fk_game_players_game` FOREIGN KEY (`game_id`) REFERENCES `games`(`id`) ON DELETE CASCADE,
+	CONSTRAINT `fk_game_players_user` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS `game_room_invitations` (
+	`id` INT NOT NULL AUTO_INCREMENT,
+	`room_id` INT NOT NULL,
+	`inviter_id` INT NOT NULL,
+	`invitee_id` INT NOT NULL,
+	`status` ENUM('pending','accepted','declined') NOT NULL DEFAULT 'pending',
+	`created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+	`responded_at` TIMESTAMP NULL DEFAULT NULL,
+	PRIMARY KEY (`id`),
+	KEY `idx_room_invitations_invitee_status` (`invitee_id`, `status`),
+	CONSTRAINT `fk_room_invitations_room` FOREIGN KEY (`room_id`) REFERENCES `game_rooms`(`id`) ON DELETE CASCADE,
+	CONSTRAINT `fk_room_invitations_inviter` FOREIGN KEY (`inviter_id`) REFERENCES `users`(`id`) ON DELETE CASCADE,
+	CONSTRAINT `fk_room_invitations_invitee` FOREIGN KEY (`invitee_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
 );
