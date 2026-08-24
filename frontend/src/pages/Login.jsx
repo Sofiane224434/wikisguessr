@@ -1,9 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { BookOpen, KeyRound } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { authService } from '../services/api.js';
 import { useAuth } from '../context/Authcontext.jsx';
 
 function Login() {
+    const { t } = useTranslation();
     const [isRegister, setIsRegister] = useState(false);
     const [isForgotPassword, setIsForgotPassword] = useState(false);
     const [username, setUsername] = useState('');
@@ -41,7 +44,7 @@ function Login() {
         lastHandledTokenRef.current = tokenFromUrl;
         setLoading(true);
         setError(null);
-        setSuccessMessage('Verification de l\'adresse email en cours...');
+        setSuccessMessage(t('login.verifying'));
 
         authService
             .verifyEmail(tokenFromUrl)
@@ -56,7 +59,7 @@ function Login() {
             .finally(() => {
                 setLoading(false);
             });
-    }, [tokenFromUrl, targetAfterAuth, login, navigate]);
+    }, [tokenFromUrl, targetAfterAuth, login, navigate, t]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -113,21 +116,28 @@ function Login() {
     };
 
     return (
-        <div className="login-container paper border border-2 shadow-large">
-            <h1>
+        <div className="login-container paper border-2 shadow-large">
+            <header className="login-heading">
+                <span><BookOpen size={24} aria-hidden="true" /></span>
+                <div>
+                    <p>{t('login.eyebrow')}</p>
+                    <h1>
                 {isResetPasswordMode
-                    ? 'Nouveau mot de passe'
+                    ? t('login.reset_title')
                     : isForgotPassword
-                        ? 'Mot de passe oublie'
+                        ? t('login.forgot_title')
                         : isRegister
-                            ? 'Inscription'
-                            : 'Connexion'}
-            </h1>
+                            ? t('register.title')
+                            : t('login.title')}
+                    </h1>
+                    <small>{isRegister ? t('register.subtitle') : t('login.subtitle')}</small>
+                </div>
+            </header>
             {successMessage && <p className="success">{successMessage}</p>}
-            <form onSubmit={handleSubmit}>
+            <form className="login-form" onSubmit={handleSubmit}>
                 {!isResetPasswordMode && isRegister && (
                     <div>
-                        <label htmlFor="username">Username:</label>
+                        <label htmlFor="username">{t('login.username')}</label>
                         <input
                             type="text"
                             id="username"
@@ -140,21 +150,21 @@ function Login() {
                 {!isResetPasswordMode && (
                     <div>
                         <label htmlFor="email">
-                            {isRegister || isForgotPassword ? 'Email:' : 'Email ou username:'}
+                            {isRegister || isForgotPassword ? t('login.email') : t('login.identifier')}
                         </label>
                         <input
                             type={isRegister || isForgotPassword ? 'email' : 'text'}
                             id="email"
                             value={identifier}
                             onChange={(e) => setIdentifier(e.target.value)}
-                            placeholder={isRegister || isForgotPassword ? 'email' : 'email ou username'}
+                            placeholder={isRegister || isForgotPassword ? t('login.email') : t('login.identifier')}
                             required
                         />
                     </div>
                 )}
                 {!isResetPasswordMode && !isForgotPassword && (
                     <div>
-                        <label htmlFor="password">Mot de passe:</label>
+                        <label htmlFor="password">{t('login.password')}</label>
                         <input
                             type="password"
                             id="password"
@@ -166,7 +176,7 @@ function Login() {
                 )}
                 {isRegister && !isForgotPassword && !isResetPasswordMode && (
                     <div>
-                        <label htmlFor="confirmPassword">Confirmer le mot de passe:</label>
+                        <label htmlFor="confirmPassword">{t('register.confirm_password')}</label>
                         <input
                             type="password"
                             id="confirmPassword"
@@ -179,7 +189,7 @@ function Login() {
                 {isResetPasswordMode && (
                     <>
                         <div>
-                            <label htmlFor="newPassword">Nouveau mot de passe:</label>
+                            <label htmlFor="newPassword">{t('login.new_password')}</label>
                             <input
                                 type="password"
                                 id="newPassword"
@@ -189,7 +199,7 @@ function Login() {
                             />
                         </div>
                         <div>
-                            <label htmlFor="confirmNewPassword">Confirmer le nouveau mot de passe:</label>
+                            <label htmlFor="confirmNewPassword">{t('login.confirm_new_password')}</label>
                             <input
                                 type="password"
                                 id="confirmNewPassword"
@@ -204,19 +214,19 @@ function Login() {
                 <button type="submit" disabled={loading}>
                     {loading
                         ? isResetPasswordMode
-                            ? 'Reinitialisation...'
+                            ? t('login.reset_loading')
                             : isForgotPassword
-                                ? 'Envoi...'
+                                ? t('login.forgot_loading')
                                 : isRegister
-                                    ? 'Inscription...'
-                                    : 'Connexion...'
+                                    ? t('register.loading')
+                                    : t('login.loading')
                         : isResetPasswordMode
-                            ? 'Changer le mot de passe'
+                            ? t('login.reset_submit')
                             : isForgotPassword
-                                ? 'Envoyer le lien de reinitialisation'
+                                ? t('login.forgot_submit')
                                 : isRegister
-                                    ? 'S\'inscrire'
-                                    : 'Se connecter'}
+                                    ? t('register.submit')
+                                    : t('login.submit')}
                 </button>
             </form>
             {!isResetPasswordMode && (
@@ -229,9 +239,9 @@ function Login() {
                                 setSuccessMessage(null);
                                 setIsForgotPassword(true);
                             }}
-                            style={{ marginTop: '12px' }}
+                            className="login-secondary-action"
                         >
-                            Mot de passe oublie ?
+                            <KeyRound size={16} aria-hidden="true" /> {t('login.forgot')}
                         </button>
                     )}
                     {!isForgotPassword && (
@@ -243,9 +253,9 @@ function Login() {
                                 setIsRegister((prev) => !prev);
                                 setIsForgotPassword(false);
                             }}
-                            style={{ marginTop: '12px' }}
+                            className="login-secondary-action"
                         >
-                            {isRegister ? 'Deja un compte ? Se connecter' : 'Pas de compte ? S\'inscrire'}
+                            {isRegister ? t('register.already_account') : t('login.no_account')}
                         </button>
                     )}
                     {isForgotPassword && (
@@ -256,9 +266,9 @@ function Login() {
                                 setSuccessMessage(null);
                                 setIsForgotPassword(false);
                             }}
-                            style={{ marginTop: '12px' }}
+                            className="login-secondary-action"
                         >
-                            Retour a la connexion
+                            {t('login.back')}
                         </button>
                     )}
                 </>

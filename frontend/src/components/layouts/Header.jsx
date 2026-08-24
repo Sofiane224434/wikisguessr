@@ -5,18 +5,20 @@ import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/Authcontext.jsx';
 import { BookOpen, Globe2, House, LogIn, LogOut, MoreHorizontal, ShoppingBag, Trophy, UserRound, UsersRound, X } from 'lucide-react';
 import { createElement, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 const PRIMARY_LINKS = [
-    { to: '/', label: 'Accueil', icon: House },
-    { to: '/lobby', label: 'Lobby', icon: UsersRound },
-    { to: '/leaderboard', label: 'Classement', mobileLabel: 'Scores', icon: Trophy },
-    { to: '/shop', label: 'Boutique', icon: ShoppingBag },
-    { to: '/profile', label: 'Profil', icon: UserRound }
+    { to: '/', labelKey: 'nav.home', icon: House },
+    { to: '/lobby', labelKey: 'nav.lobby', icon: UsersRound },
+    { to: '/leaderboard', labelKey: 'nav.leaderboard', mobileLabelKey: 'nav.scores', icon: Trophy },
+    { to: '/shop', labelKey: 'nav.shop', icon: ShoppingBag },
+    { to: '/profile', labelKey: 'nav.profile', icon: UserRound }
 ];
 
 const MOBILE_PRIMARY_LINKS = PRIMARY_LINKS.filter(({ to }) => to !== '/profile');
 
 function Header() {
+    const { t } = useTranslation();
     const navigate = useNavigate();
     const location = useLocation();
     const { user, logout } = useAuth();
@@ -31,7 +33,7 @@ function Header() {
     };
 
     const navLinks = user?.role === 'admin'
-        ? [...PRIMARY_LINKS, { to: '/admin', label: 'Admin', icon: BookOpen }]
+        ? [...PRIMARY_LINKS, { to: '/admin', labelKey: 'nav.admin', icon: BookOpen }]
         : PRIMARY_LINKS;
 
     return (
@@ -48,14 +50,14 @@ function Header() {
 
                 {user && (
                     <nav className="site-nav" aria-label="Navigation principale">
-                        {navLinks.map(({ to, label, icon }) => (
+                        {navLinks.map(({ to, labelKey, icon }) => (
                             <NavLink
                                 key={to}
                                 to={to}
                                 className={({ isActive }) => `site-nav-link${isActive ? ' is-active' : ''}`}
                             >
                                 {createElement(icon, { size: 17, 'aria-hidden': true })}
-                                <span>{label}</span>
+                                <span>{t(labelKey)}</span>
                             </NavLink>
                         ))}
                     </nav>
@@ -67,14 +69,14 @@ function Header() {
                         <LanguageSelect className="site-language-select" />
                     </div>
                     {user ? (
-                        <button type="button" className="paper-btn site-session-button" onClick={handleLogout} title="Déconnexion">
+                        <button type="button" className="paper-btn site-session-button" onClick={handleLogout} title={t('nav.logout')}>
                             <LogOut size={18} aria-hidden="true" />
-                            <span>Déconnexion</span>
+                            <span>{t('nav.logout')}</span>
                         </button>
                     ) : !isLoginRoute ? (
                         <button type="button" className="paper-btn site-session-button" onClick={() => navigate('/login')}>
                             <LogIn size={18} aria-hidden="true" />
-                            <span>Connexion</span>
+                            <span>{t('nav.login')}</span>
                         </button>
                     ) : null}
                     {user && (
@@ -94,14 +96,14 @@ function Header() {
 
             {user && (
                 <nav id="mobile-navigation" className="site-mobile-nav" aria-label="Navigation mobile">
-                    {MOBILE_PRIMARY_LINKS.map(({ to, label, mobileLabel, icon }) => (
+                    {MOBILE_PRIMARY_LINKS.map(({ to, labelKey, mobileLabelKey, icon }) => (
                         <NavLink
                             key={to}
                             to={to}
                             className={({ isActive }) => `site-mobile-nav-link${isActive ? ' is-active' : ''}`}
                         >
                             {createElement(icon, { size: 21, 'aria-hidden': true })}
-                            <span>{mobileLabel || label}</span>
+                            <span>{t(mobileLabelKey || labelKey)}</span>
                         </NavLink>
                     ))}
                     <button
@@ -111,7 +113,7 @@ function Header() {
                         aria-expanded={menuOpen}
                     >
                         <MoreHorizontal size={21} aria-hidden="true" />
-                        <span>Plus</span>
+                        <span>{t('nav.more')}</span>
                     </button>
                 </nav>
             )}
@@ -121,29 +123,29 @@ function Header() {
                     <button type="button" className="site-mobile-sheet-backdrop" onClick={() => setMenuOpen(false)} aria-label="Fermer le menu" />
                     <div className="site-mobile-sheet" role="dialog" aria-label="Plus d'options">
                         <div className="site-mobile-sheet-header">
-                            <strong>Plus d'options</strong>
+                            <strong>{t('nav.more_options')}</strong>
                             <button type="button" onClick={() => setMenuOpen(false)} aria-label="Fermer">
                                 <X size={20} aria-hidden="true" />
                             </button>
                         </div>
                         <NavLink to="/profile" onClick={() => setMenuOpen(false)} className="site-mobile-sheet-action">
                             <UserRound size={20} aria-hidden="true" />
-                            <span>Profil</span>
+                            <span>{t('nav.profile')}</span>
                         </NavLink>
                         {user.role === 'admin' && (
                             <NavLink to="/admin" onClick={() => setMenuOpen(false)} className="site-mobile-sheet-action">
                                 <BookOpen size={20} aria-hidden="true" />
-                                <span>Administration</span>
+                                <span>{t('nav.admin')}</span>
                             </NavLink>
                         )}
                         <div className="site-mobile-sheet-language">
                             <Globe2 size={20} aria-hidden="true" />
-                            <span>Langue</span>
+                            <span>{t('nav.language')}</span>
                             <LanguageSelect className="site-mobile-language-select" />
                         </div>
                         <button type="button" className="site-mobile-sheet-action is-danger" onClick={handleLogout}>
                             <LogOut size={20} aria-hidden="true" />
-                            <span>Déconnexion</span>
+                            <span>{t('nav.logout')}</span>
                         </button>
                     </div>
                 </>

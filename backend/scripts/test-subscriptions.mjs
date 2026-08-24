@@ -28,6 +28,7 @@ SET subscription_tier = 'free', subscription_expires_at = NULL
 WHERE id = ?
 `, [result.insertId]);
     await reserveGameQuota(result.insertId, 'knowledge');
+    await reserveGameQuota(result.insertId, 'knowledge');
 
     let limitRejected = false;
     try {
@@ -37,7 +38,7 @@ WHERE id = ?
     }
 
     if (!limitRejected) {
-        throw new Error('La seconde partie Connaissance Free doit etre refusee');
+        throw new Error('La troisieme partie Connaissance Free doit etre refusee');
     }
 
     console.log('Abonnements et quotas: OK');

@@ -58,7 +58,7 @@ CREATE TABLE IF NOT EXISTS friendships (
         await this.ensureTable();
         try {
             const sql = `
-SELECT u.id, u.username
+SELECT u.id, u.username, u.avatar_url
 FROM friendships f
 JOIN users u ON u.id = f.friend_id
 WHERE f.user_id = ?
@@ -99,7 +99,7 @@ ORDER BY f.created_at DESC
         await this.ensureTable();
         try {
             const sql = `
-SELECT u.id, u.username, u.last_seen,
+SELECT u.id, u.username, u.avatar_url, u.last_seen,
        IF(u.last_seen IS NOT NULL AND u.last_seen > DATE_SUB(NOW(), INTERVAL 5 MINUTE), 1, 0) as is_online
 FROM friendships f
 JOIN users u ON u.id = f.friend_id

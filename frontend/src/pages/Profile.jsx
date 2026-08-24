@@ -1,5 +1,6 @@
 import { Camera, Trash2, UserRound } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/Authcontext.jsx';
 import { authService, gameService, resolveMediaUrl } from '../services/api.js';
 
@@ -35,6 +36,7 @@ const formatDate = (raw) => {
 };
 
 function Profile() {
+    const { t } = useTranslation();
     const { user, updateUser } = useAuth();
     const avatarInputRef = useRef(null);
     const [results, setResults] = useState([]);
@@ -147,7 +149,7 @@ function Profile() {
     };
 
     return (
-        <div className="site-page paper border border-2 shadow-large mx-auto w-full max-w-4xl px-4 py-10">
+        <div className="site-page paper border-2 shadow-large mx-auto w-full max-w-4xl px-4 py-10">
             <div className="profile-identity">
                 <div className="profile-avatar-block">
                     <div className="profile-avatar-preview">
@@ -156,7 +158,7 @@ function Profile() {
                         ) : (
                             <UserRound size={46} aria-hidden="true" />
                         )}
-                        {avatarSaving && <span>Traitement...</span>}
+                        {avatarSaving && <span>{t('profile.processing')}</span>}
                     </div>
                     <div className="profile-avatar-actions">
                         <input
@@ -167,22 +169,22 @@ function Profile() {
                             hidden
                         />
                         <button type="button" onClick={() => avatarInputRef.current?.click()} disabled={avatarSaving}>
-                            <Camera size={17} aria-hidden="true" /> {user?.avatar_url ? 'Changer' : 'Ajouter une photo'}
+                            <Camera size={17} aria-hidden="true" /> {user?.avatar_url ? t('profile.change_photo') : t('profile.add_photo')}
                         </button>
                         {user?.avatar_url && (
                             <button type="button" className="is-danger" onClick={handleAvatarDelete} disabled={avatarSaving} title="Supprimer la photo">
-                                <Trash2 size={17} aria-hidden="true" /> Supprimer
+                                <Trash2 size={17} aria-hidden="true" /> {t('profile.delete_photo')}
                             </button>
                         )}
                     </div>
-                    <small>JPEG, PNG ou WebP · 5 Mo maximum</small>
+                    <small>{t('profile.photo_help')}</small>
                     {avatarError && <p className="profile-avatar-error" role="alert">{avatarError}</p>}
                 </div>
                 <div>
-                    <h1 className="mb-2 text-3xl font-bold text-slate-900">Profil</h1>
+                    <h1 className="mb-2 text-3xl font-bold text-slate-900">{t('profile.title')}</h1>
                     {user && (
                         <p className="text-slate-500 text-sm">
-                            Connecté en tant que <strong className="text-slate-700">{user.username}</strong>
+                            {t('profile.connected_as', { username: user.username })}
                             {user.email && ` · ${user.email}`}
                         </p>
                     )}
@@ -191,7 +193,7 @@ function Profile() {
 
             <section className="mb-8 border-y border-slate-200 bg-white px-1 py-6">
                 <div className="mb-5">
-                    <h2 className="text-xl font-semibold text-slate-900">Paramètres du compte</h2>
+                    <h2 className="text-xl font-semibold text-slate-900">{t('profile.account_settings')}</h2>
                     {usernameLocked && (
                         <p className="mt-1 text-sm text-amber-700">
                             Prochain changement de username : {usernameAvailableAt.toLocaleDateString('fr-FR')}
@@ -215,7 +217,7 @@ function Profile() {
                     </label>
 
                     <label className="grid gap-1.5 text-sm font-medium text-slate-700">
-                        Adresse e-mail
+                        {t('profile.email')}
                         <input
                             className="form-input bg-white"
                             type="email"
@@ -227,7 +229,7 @@ function Profile() {
                     </label>
 
                     <label className="grid gap-1.5 text-sm font-medium text-slate-700">
-                        Nouveau mot de passe
+                        {t('profile.new_password')}
                         <input
                             className="form-input bg-white"
                             type="password"
@@ -239,7 +241,7 @@ function Profile() {
                     </label>
 
                     <label className="grid gap-1.5 text-sm font-medium text-slate-700">
-                        Confirmer le nouveau mot de passe
+                        {t('profile.confirm_password')}
                         <input
                             className="form-input bg-white"
                             type="password"
@@ -251,7 +253,7 @@ function Profile() {
                     </label>
 
                     <label className="grid gap-1.5 text-sm font-medium text-slate-700 md:col-span-2">
-                        Mot de passe actuel
+                        {t('profile.current_password')}
                         <input
                             className="form-input bg-white"
                             type="password"
@@ -264,7 +266,7 @@ function Profile() {
 
                     <div className="flex items-center gap-4 md:col-span-2">
                         <button className="btn btn-primary" type="submit" disabled={profileSaving}>
-                            {profileSaving ? 'Enregistrement...' : 'Enregistrer'}
+                            {profileSaving ? t('common.saving') : t('common.save')}
                         </button>
                         {profileError && <p className="text-sm text-red-600">{profileError}</p>}
                         {profileSuccess && <p className="text-sm text-emerald-700">{profileSuccess}</p>}
@@ -275,40 +277,40 @@ function Profile() {
             <div className="mb-8 grid grid-cols-3 gap-4">
                 <div className="rounded-xl border border-slate-200 bg-white p-4 text-center shadow-sm">
                     <p className="text-2xl font-bold text-slate-900">{totalGames}</p>
-                    <p className="mt-1 text-xs uppercase tracking-widest text-slate-500">Parties</p>
+                    <p className="mt-1 text-xs uppercase tracking-widest text-slate-500">{t('profile.games')}</p>
                 </div>
                 <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-center shadow-sm">
                     <p className="text-2xl font-bold text-emerald-700">{wins}</p>
-                    <p className="mt-1 text-xs uppercase tracking-widest text-emerald-600">Victoires</p>
+                    <p className="mt-1 text-xs uppercase tracking-widest text-emerald-600">{t('profile.wins')}</p>
                 </div>
                 <div className="rounded-xl border border-violet-200 bg-violet-50 p-4 text-center shadow-sm">
                     <p className="text-2xl font-bold text-violet-700">{winRate}%</p>
-                    <p className="mt-1 text-xs uppercase tracking-widest text-violet-600">Taux de victoire</p>
+                    <p className="mt-1 text-xs uppercase tracking-widest text-violet-600">{t('profile.win_rate')}</p>
                 </div>
             </div>
 
-            <h2 className="mb-4 text-xl font-semibold text-slate-900">Historique des parties</h2>
+            <h2 className="mb-4 text-xl font-semibold text-slate-900">{t('profile.history')}</h2>
 
             {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
 
             {loading ? (
-                <p className="text-center text-slate-500">Chargement...</p>
+                <p className="text-center text-slate-500">{t('common.loading')}</p>
             ) : results.length === 0 ? (
                 <p className="rounded-xl border border-slate-200 bg-white p-6 text-center text-slate-500 text-sm">
-                    Aucune partie enregistrée pour l'instant.
+                    {t('profile.empty_history')}
                 </p>
             ) : (
-                <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
+                <div className="profile-history-scroll overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
                     <table className="w-full text-sm">
-                        <thead>
+                        <thead className="profile-history-head">
                             <tr className="border-b border-slate-100 bg-slate-50 text-[11px] uppercase tracking-widest text-slate-500">
-                                <th className="px-4 py-3 text-left">Date</th>
-                                <th className="px-4 py-3 text-left">Mode</th>
-                                <th className="px-4 py-3 text-left">Départ → Cible</th>
-                                <th className="px-4 py-3 text-right">Clics</th>
-                                <th className="px-4 py-3 text-right">Temps</th>
-                                <th className="px-4 py-3 text-right">Points</th>
-                                <th className="px-4 py-3 text-center">Résultat</th>
+                                <th className="px-4 py-3 text-left">{t('profile.date')}</th>
+                                <th className="px-4 py-3 text-left">{t('profile.mode')}</th>
+                                <th className="px-4 py-3 text-left">{t('profile.route')}</th>
+                                <th className="px-4 py-3 text-right">{t('profile.clicks')}</th>
+                                <th className="px-4 py-3 text-right">{t('profile.time')}</th>
+                                <th className="px-4 py-3 text-right">{t('profile.points')}</th>
+                                <th className="px-4 py-3 text-center">{t('profile.result')}</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -326,7 +328,7 @@ function Profile() {
                                         <td className="px-4 py-3 text-slate-500 text-xs whitespace-nowrap">{formatDate(r.played_at)}</td>
                                         <td className="px-4 py-3">
                                             <span className={`rounded-full border px-2 py-0.5 text-xs font-semibold ${MODE_BADGE[r.mode] || 'border-slate-200 bg-slate-50 text-slate-700'}`}>
-                                                {MODE_LABELS[r.mode] || r.mode}
+                                                {t(`common.${r.mode}`, { defaultValue: MODE_LABELS[r.mode] || r.mode })}
                                             </span>
                                         </td>
                                         <td className="px-4 py-3 text-slate-700 max-w-50 truncate">
@@ -339,9 +341,9 @@ function Profile() {
                                         <td className="px-4 py-3 text-right font-semibold text-rose-700">{Math.round(points)} pts</td>
                                         <td className="px-4 py-3 text-center">
                                             {r.won ? (
-                                                <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-bold text-emerald-700">Gagné</span>
+                                                <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-bold text-emerald-700">{t('common.won')}</span>
                                             ) : (
-                                                <span className="rounded-full bg-rose-100 px-2 py-0.5 text-xs font-bold text-rose-700">Perdu</span>
+                                                <span className="rounded-full bg-rose-100 px-2 py-0.5 text-xs font-bold text-rose-700">{t('common.lost')}</span>
                                             )}
                                         </td>
                                     </tr>

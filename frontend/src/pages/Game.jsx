@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useEffectEvent, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Compass } from 'lucide-react';
+import DOMPurify from 'dompurify';
+import { useTranslation } from 'react-i18next';
 import { gameService } from '../services/api.js';
 
 const normalizeArticle = (value) =>
@@ -48,6 +50,13 @@ const MODE_LABELS = {
 
 const toTimerStorageKey = (code) => `${TIMER_STORAGE_PREFIX}${String(code || '').trim().toUpperCase()}`;
 const toStateStorageKey = (code) => `${STATE_STORAGE_PREFIX}${String(code || '').trim().toUpperCase()}`;
+
+const sanitizeWikiHtml = (html) => DOMPurify.sanitize(String(html || ''), {
+    USE_PROFILES: { html: true },
+    ADD_TAGS: ['audio', 'video', 'source'],
+    ADD_ATTR: ['controls', 'poster', 'preload', 'srcset'],
+    FORBID_TAGS: ['button', 'embed', 'form', 'iframe', 'input', 'object']
+});
 
 const readPersistedStartAt = (code) => {
     try {
@@ -323,13 +332,13 @@ const extractRenderableHtml = (rawHtml) => {
         const bodyHtml = articleRoot.innerHTML?.trim();
 
         if (bodyHtml) {
-            return bodyHtml;
+            return sanitizeWikiHtml(bodyHtml);
         }
     } catch {
-        return html;
+        return sanitizeWikiHtml(html);
     }
 
-    return html;
+    return sanitizeWikiHtml(html);
 };
 
 const extractSnippetFromHtml = (rawHtml) => {
@@ -379,6 +388,7 @@ const buildPersistedGameState = ({
 });
 
 function Game() {
+    const { t } = useTranslation();
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
     const contentRef = useRef(null);
@@ -1028,19 +1038,19 @@ function Game() {
     };
 
     if (loadingGame) {
-        return <div className="game-loading"><Compass className="game-loading-icon" size={44} /><strong>Préparation de l’expédition</strong><span>Ouverture des archives Wikipédia...</span></div>;
+        return <div className="game-loading"><Compass className="game-loading-icon" size={44} /><strong>{t('game.preparing')}</strong><span>{t('game.opening')}</span></div>;
     }
 
     if (!gameCode && !isPreviewMode) {
         return (
             <div className="p-6">
-                <p className="text-red-600">Code de partie ou titre de previsualisation manquant</p>
+                <p className="text-red-600">{t('game.missing_code')}</p>
                 <button
                     type="button"
                     className="mt-4 rounded-lg bg-slate-900 px-4 py-2 text-white"
                     onClick={() => navigate('/lobby')}
                 >
-                    Retour au lobby
+                    {t('game.back_lobby')}
                 </button>
             </div>
         );
@@ -1049,13 +1059,13 @@ function Game() {
     if (!game) {
         return (
             <div className="p-6">
-                <p className="text-red-600">{error || 'Partie introuvable'}</p>
+                <p className="text-red-600">{error || t('game.not_found')}</p>
                 <button
                     type="button"
                     className="mt-4 rounded-lg bg-slate-900 px-4 py-2 text-white"
                     onClick={() => navigate('/lobby')}
                 >
-                    Retour au lobby
+                    {t('game.back_lobby')}
                 </button>
             </div>
         );
@@ -1064,8 +1074,8 @@ function Game() {
     const displayedSeconds = isChronoMode ? chronoRemainingSeconds : elapsedSeconds;
     const displayedTime = formatClock(displayedSeconds);
     const isOnStartArticle = normalizeArticle(currentArticle) === normalizeArticle(game.start_article);
-    const currentArticleLabel = isOnStartArticle ? 'Depart' : (currentArticle || '...');
-    const modeLabel = MODE_LABELS[gameMode] || game.mode;
+    const currentArticleLabel = isOnStartArticle ? t('game.start') : (currentArticle || '...');
+    const modeLabel = t(`common.${gameMode}`, { defaultValue: MODE_LABELS[gameMode] || game.mode });
     const knowledgeAnsweredCount = Object.keys(knowledgeQuizAnswers).length;
     const knowledgeAllAnswered = knowledgeQuiz.length > 0 && knowledgeAnsweredCount === knowledgeQuiz.length;
     const knowledgeScore = knowledgeQuiz.reduce((total, item, index) => {
@@ -1080,37 +1090,37 @@ function Game() {
                     <div className="flex min-w-0 items-center gap-2 overflow-hidden text-[11px] uppercase tracking-[0.22em] text-slate-500">
                         <span className="rounded-full bg-slate-900 px-2.5 py-1 font-semibold text-white">{modeLabel}</span>
                         <span className="inline-flex min-w-0 items-center gap-1 rounded-full border border-cyan-200 bg-cyan-50 px-2.5 py-1 text-cyan-800">
-                            Départ:
+                            {t('game.start')}:
                             <strong className="max-w-40 truncate font-semibold normal-case text-cyan-950 md:max-w-56 lg:max-w-64" title={game.start_article}>{game.start_article}</strong>
                         </span>
                         <span className="inline-flex min-w-0 items-center gap-1 rounded-full border border-fuchsia-200 bg-fuchsia-50 px-2.5 py-1 text-fuchsia-800">
-                            Cible:
+                            {t('game.target')}:
                             <strong className="max-w-36 truncate font-semibold normal-case text-fuchsia-950 md:max-w-52 lg:max-w-60" title={game.target_article}>{game.target_article}</strong>
                         </span>
                     </div>
 
                     <div className="flex min-w-0 items-center justify-start gap-2 overflow-hidden text-[11px] uppercase tracking-[0.22em] text-slate-500 lg:justify-end">
                         <span className="inline-flex min-w-0 items-center gap-1 rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-blue-800">
-                            Article:
+                            {t('game.article')}:
                             <strong className="max-w-32 truncate font-semibold normal-case text-blue-950 md:max-w-48 lg:max-w-56" title={currentArticle || '...'}>{currentArticleLabel}</strong>
                         </span>
                         <span className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-amber-800">
-                            Clics: <strong className="font-semibold text-amber-950">{clicks}</strong>
+                            {t('game.clicks')}: <strong className="font-semibold text-amber-950">{clicks}</strong>
                         </span>
                         <span className="rounded-full border border-violet-200 bg-violet-50 px-2.5 py-1 text-violet-800">
-                            {isChronoMode ? 'Temps restant' : 'Temps'}: <strong ref={timerDisplayRef} className="font-semibold text-violet-950">{displayedTime}</strong>
+                            {isChronoMode ? t('game.remaining_time') : t('game.time')}: <strong ref={timerDisplayRef} className="font-semibold text-violet-950">{displayedTime}</strong>
                         </span>
                         {isChronoMode && (
                             <span className="rounded-full border border-rose-200 bg-rose-50 px-2.5 py-1 text-rose-800">
-                                Points: <strong className="font-semibold text-rose-950">{chronoScore}</strong>
+                                {t('game.points')}: <strong className="font-semibold text-rose-950">{chronoScore}</strong>
                             </span>
                         )}
                         <button
                             type="button"
                             onClick={handleGoBack}
                             disabled={articleHistory.length < 2 || loadingArticle}
-                            aria-label="Retour à l'article précédent"
-                            title="Retour"
+                            aria-label={t('game.back_article')}
+                            title={t('game.back')}
                             className="h-8 w-8 shrink-0 rounded-md border border-slate-200 bg-white text-slate-700 transition enabled:hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
                             style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: 0, lineHeight: 1 }}
                         >
@@ -1121,8 +1131,8 @@ function Game() {
                         <button
                             type="button"
                             onClick={handleQuitGame}
-                            aria-label="Quitter la partie"
-                            title="Quitter"
+                            aria-label={t('game.quit_game')}
+                            title={t('game.quit')}
                             className="h-8 w-8 shrink-0 rounded-md border border-rose-200 bg-rose-50 text-rose-700 transition hover:bg-rose-100 hover:text-rose-800"
                             style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: 0, lineHeight: 1 }}
                         >
@@ -1137,16 +1147,16 @@ function Game() {
 
                 {won && (
                     <div className="mx-auto mt-2 max-w-6xl rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-800">
-                        Objectif atteint ! Tu as trouvé l’article cible {isChronoMode ? `avec ${chronoScore} points restants.` : `en ${displayedTime}.`}
+                        {isChronoMode ? t('game.won_points', { points: chronoScore }) : t('game.won_time', { time: displayedTime })}
                     </div>
                 )}
 
                 {won && isKnowledgeMode && (
                     <div className="mx-auto mt-2 max-w-6xl rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-3 text-indigo-900">
-                        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-700">Quiz connaissance</p>
+                        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-700">{t('game.quiz')}</p>
 
                         {knowledgeQuizLoading ? (
-                            <p className="mt-2 text-sm">Generation du quiz en cours...</p>
+                            <p className="mt-2 text-sm">{t('game.quiz_loading')}</p>
                         ) : knowledgeQuizError ? (
                             <p className="mt-2 text-sm text-rose-700">{knowledgeQuizError}</p>
                         ) : knowledgeQuiz.length > 0 ? (
@@ -1191,11 +1201,11 @@ function Game() {
                                             {knowledgeQuizSubmitted && (
                                                 <div className="mt-2 space-y-1">
                                                     <p className="text-xs text-slate-600">
-                                                        {isAnswered && selectedAnswer === item.answerIndex ? 'Bonne reponse.' : `Bonne reponse: ${item.choices[item.answerIndex]}`}
+                                                        {isAnswered && selectedAnswer === item.answerIndex ? t('game.correct') : t('game.correct_answer', { answer: item.choices[item.answerIndex] })}
                                                     </p>
                                                     {item.sourceQuote && (
                                                         <p className="text-xs italic text-slate-500">
-                                                            Indice texte lu: "{item.sourceQuote}"{item.sourceTitle ? ` (${item.sourceTitle})` : ''}
+                                                            {t('game.source_hint', { quote: `"${item.sourceQuote}"` })}{item.sourceTitle ? ` (${item.sourceTitle})` : ''}
                                                         </p>
                                                     )}
                                                 </div>
@@ -1211,23 +1221,23 @@ function Game() {
                                         disabled={!knowledgeAllAnswered || knowledgeQuizSubmitted}
                                         className="rounded-lg border border-indigo-300 bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition enabled:hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
                                     >
-                                        Valider le quiz
+                                        {t('game.validate_quiz')}
                                     </button>
                                     <p className="text-sm text-slate-700">
-                                        Reponses: {knowledgeAnsweredCount}/{knowledgeQuiz.length}
-                                        {knowledgeQuizSubmitted ? ` | Score: ${knowledgeScore}/${knowledgeQuiz.length}` : ''}
+                                        {t('game.answers', { answered: knowledgeAnsweredCount, total: knowledgeQuiz.length })}
+                                        {knowledgeQuizSubmitted ? ` | ${t('game.score', { score: knowledgeScore, total: knowledgeQuiz.length })}` : ''}
                                     </p>
                                 </div>
                             </div>
                         ) : (
-                            <p className="mt-2 text-sm">Aucune question disponible.</p>
+                            <p className="mt-2 text-sm">{t('game.no_question')}</p>
                         )}
                     </div>
                 )}
 
                 {chronoDefeat && (
                     <div className="mx-auto mt-2 max-w-6xl rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-800">
-                        Defaite chrono: tu as atteint 0 point ou 0 temps.
+                        {t('game.chrono_defeat')}
                     </div>
                 )}
             </div>
@@ -1236,12 +1246,12 @@ function Game() {
                 {error ? (
                     <div className="flex h-full items-center justify-center px-4">
                         <div className="rounded-xl border border-rose-200 bg-rose-50 px-6 py-5 text-center text-rose-800">
-                            <p className="text-lg font-semibold uppercase tracking-[0.16em]">Erreur</p>
+                            <p className="text-lg font-semibold uppercase tracking-[0.16em]">{t('game.error')}</p>
                             <p className="mt-2 text-sm">{error}</p>
                         </div>
                     </div>
                 ) : loadingArticle && !html ? (
-                    <div className="flex h-full items-center justify-center text-slate-600">Chargement de l’article...</div>
+                    <div className="flex h-full items-center justify-center text-slate-600">{t('game.article_loading')}</div>
                 ) : (
                     <div
                         ref={contentRef}
@@ -1250,7 +1260,7 @@ function Game() {
                     >
                         <div
                             className="game-article-sheet wiki-mobile-html prose mx-auto w-full max-w-5xl prose-slate"
-                            dangerouslySetInnerHTML={{ __html: html || '<p>Aucun contenu disponible.</p>' }}
+                            dangerouslySetInnerHTML={{ __html: html || `<p>${t('game.no_content')}</p>` }}
                         />
                     </div>
                 )}

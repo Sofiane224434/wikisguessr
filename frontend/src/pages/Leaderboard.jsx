@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { gameService } from '../services/api.js';
 
 const MODES = [
@@ -14,9 +15,9 @@ const rankBadgeClass = (rank) => {
     return 'bg-white text-slate-500 border-slate-200';
 };
 
-function LeaderboardTable({ rows, sortBy }) {
+function LeaderboardTable({ rows, sortBy, t }) {
     if (!rows || rows.length === 0) {
-        return <p className="mt-6 text-center text-slate-500 text-sm">Aucun résultat pour le moment.</p>;
+        return <p className="mt-6 text-center text-slate-500 text-sm">{t('leaderboard.empty')}</p>;
     }
 
     // Tri selon le choix de l'utilisateur
@@ -33,10 +34,10 @@ function LeaderboardTable({ rows, sortBy }) {
             <table className="w-full text-sm">
                 <thead>
                     <tr className="border-b border-slate-100 bg-slate-50 text-[11px] uppercase tracking-widest text-slate-500">
-                        <th className="px-4 py-3 text-left">Rang</th>
-                        <th className="px-4 py-3 text-left">Joueur</th>
+                        <th className="px-4 py-3 text-left">{t('leaderboard.rank')}</th>
+                        <th className="px-4 py-3 text-left">{t('leaderboard.player')}</th>
                         <th className="px-4 py-3 text-right">ELO</th>
-                        <th className="px-4 py-3 text-right">Moyenne Points</th>
+                        <th className="px-4 py-3 text-right">{t('leaderboard.average')}</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -63,6 +64,7 @@ function LeaderboardTable({ rows, sortBy }) {
 }
 
 function Leaderboard() {
+    const { t } = useTranslation();
     const [activeMode, setActiveMode] = useState('normal');
     const [sortBy, setSortBy] = useState('elo');
     const [data, setData] = useState({});
@@ -91,8 +93,8 @@ function Leaderboard() {
     };
 
     return (
-        <div className="site-page paper border border-3 shadow-large mx-auto w-full max-w-4xl px-4 py-10">
-            <h1 className="mb-6 text-3xl font-bold text-slate-900">Classement</h1>
+        <div className="site-page paper border-3 shadow-large mx-auto w-full max-w-4xl px-4 py-10">
+            <h1 className="mb-6 text-3xl font-bold text-slate-900">{t('leaderboard.title')}</h1>
 
             <div className="mb-6 flex flex-wrap gap-2">
                 {MODES.map((m) => (
@@ -102,7 +104,7 @@ function Leaderboard() {
                         onClick={() => changeMode(m.key)}
                         className={`rounded-full px-4 py-1.5 text-sm font-semibold transition ${activeMode === m.key ? 'bg-slate-900 text-white' : 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50'}`}
                     >
-                        {m.label}
+                        {t(`common.${m.key}`, { defaultValue: m.label })}
                     </button>
                 ))}
             </div>
@@ -113,17 +115,17 @@ function Leaderboard() {
                     onChange={(e) => setSortBy(e.target.value)}
                     className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm hover:border-slate-400 focus:border-slate-500 focus:outline-none focus:ring-2 focus:ring-slate-200"
                 >
-                    <option value="elo">Trier par ELO</option>
-                    <option value="points">Trier par Moyenne Points</option>
+                    <option value="elo">{t('leaderboard.sort_elo')}</option>
+                    <option value="points">{t('leaderboard.sort_points')}</option>
                 </select>
             </div>
 
             {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
 
             {loading ? (
-                <p className="text-center text-slate-500">Chargement...</p>
+                <p className="text-center text-slate-500">{t('common.loading')}</p>
             ) : (
-                <LeaderboardTable rows={data[activeMode] || []} sortBy={sortBy} />
+                <LeaderboardTable rows={data[activeMode] || []} sortBy={sortBy} t={t} />
             )}
         </div>
     );

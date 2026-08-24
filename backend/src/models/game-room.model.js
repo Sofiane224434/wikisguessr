@@ -128,7 +128,7 @@ WHERE gr.code = ?
         await this.ensureMembersTable();
         try {
             const sql = `
-SELECT u.id, u.username
+SELECT u.id, u.username, u.avatar_url
 FROM game_room_members grm
 JOIN users u ON u.id = grm.user_id
 WHERE grm.room_id = ?

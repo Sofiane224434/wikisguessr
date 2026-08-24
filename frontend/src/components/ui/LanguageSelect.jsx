@@ -16,7 +16,7 @@ const languageLabels = {
 };
 
 function LanguageSelect({ className = '' }) {
-    const { i18n } = useTranslation();
+    const { i18n, t } = useTranslation();
     const [open, setOpen] = useState(false);
     const rootRef = useRef(null);
     const menuId = useId();
@@ -60,13 +60,13 @@ function LanguageSelect({ className = '' }) {
                 aria-haspopup="listbox"
                 aria-expanded={open}
                 aria-controls={menuId}
-                title="Changer de langue"
+                title={t('language.change')}
             >
                 <span>{languageLabels[currentLanguage]?.short || currentLanguage.toUpperCase()}</span>
                 <ChevronDown size={15} aria-hidden="true" />
             </button>
             {open && (
-                <div id={menuId} className="language-picker-menu" role="listbox" aria-label="Choisir la langue">
+                <div id={menuId} className="language-picker-menu" role="listbox" aria-label={t('language.choose')}>
                     {uniqueLanguages.map((code) => {
                         const language = languageLabels[code] || { short: code.toUpperCase(), name: code.toUpperCase() };
                         const selected = code === currentLanguage;

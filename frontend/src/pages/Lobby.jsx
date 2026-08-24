@@ -1,11 +1,13 @@
 import { useEffect, useEffectEvent, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { io } from 'socket.io-client';
-import { gameService, gameRoomService, friendService, roomMessageService } from '../services/api.js';
+import { useAuth } from '../context/Authcontext.jsx';
+import { gameService, gameRoomService, friendService, resolveMediaUrl, roomMessageService } from '../services/api.js';
 import ReportModal from '../components/ui/ReportModal.jsx';
 import GameModeModal from '../components/ui/GameModeModal.jsx';
 import MatchmakingUI from '../components/ui/MatchmakingUI.jsx';
 import { Copy, Flag, KeyRound, Play, Send, Trash2, UserPlus, Users } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 const MODE_LABELS = {
     normal: 'Normal',
@@ -15,7 +17,24 @@ const MODE_LABELS = {
 
 const MODE_SEQUENCE = ['normal', 'knowledge', 'chrono'];
 
+function LobbyAvatar({ user, online = null }) {
+    const [imageFailed, setImageFailed] = useState(false);
+    const avatarUrl = resolveMediaUrl(user?.avatar_url);
+    const initial = String(user?.username || '?').slice(0, 1).toUpperCase();
+
+    return (
+        <span className="lobby-avatar" aria-hidden="true">
+            {avatarUrl && !imageFailed ? (
+                <img src={avatarUrl} alt="" onError={() => setImageFailed(true)} />
+            ) : initial}
+            {online !== null && <i className={online ? 'is-online' : ''} />}
+        </span>
+    );
+}
+
 function Lobby() {
+    const { t } = useTranslation();
+    const { user } = useAuth();
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const requestedMode = searchParams.get('mode');
@@ -294,7 +313,7 @@ function Lobby() {
     if (roomLoading) {
         return (
             <div className="lobby-scene lobby-loading">
-                <p>Ouverture de la bibliothèque...</p>
+                <p>{t('lobby.opening')}</p>
             </div>
         );
     }
@@ -313,7 +332,7 @@ function Lobby() {
                 <img src="/assets/img/hautecolonne.svg" alt="" />
             </div>
             <div className="lobby-content">
-                <h1 className="lobby-title">Lobby</h1>
+                <h1 className="lobby-title">{t('lobby.title')}</h1>
 
                 {(error || success) && (
                     <div className={`lobby-notice ${error ? 'is-error' : 'is-success'}`} role="status">
@@ -322,47 +341,44 @@ function Lobby() {
                 )}
 
                 <div className="lobby-grid">
-                    <section className="paper border border-2 shadow-large lobby-panel lobby-community" aria-labelledby="community-title">
-                        <h2 id="community-title">Amis &amp;<br />communauté</h2>
+                    <section className="paper border-2 shadow-large lobby-panel lobby-community" aria-labelledby="community-title">
+                        <h2 id="community-title">{t('lobby.community')}</h2>
                         <div className="lobby-search-row">
                             <input
                                 type="text"
                                 value={addFriendInput}
                                 onChange={(event) => setAddFriendInput(event.target.value)}
                                 onKeyDown={(event) => event.key === 'Enter' && handleAddFriend()}
-                                placeholder="Ajouter un érudit"
-                                aria-label="Ajouter un ami"
+                                placeholder={t('lobby.add_friend')}
+                                aria-label={t('lobby.add_friend_label')}
                             />
                             <button
                                 type="button"
                                 className="lobby-icon-button"
                                 onClick={handleAddFriend}
                                 disabled={addingFriend || !addFriendInput.trim()}
-                                title="Ajouter cet ami"
+                                title={t('lobby.add_friend_title')}
                             >
                                 <UserPlus size={19} aria-hidden="true" />
                             </button>
                         </div>
 
                         <div className="lobby-friends-heading">
-                            <strong>Amis en ligne</strong>
-                            <span>Amis ({friends.length})</span>
+                            <strong>{t('lobby.friends_online')}</strong>
+                            <span>{t('lobby.friends_count', { count: friends.length })}</span>
                         </div>
                         <div className="lobby-friends-list">
                             {friends.length === 0 ? (
-                                <p className="lobby-empty">Votre cercle d’érudits est vide.</p>
+                                <p className="lobby-empty">{t('lobby.empty_friends')}</p>
                             ) : friends.map((friend) => (
                                 <div className="lobby-friend" key={friend.id}>
-                                    <span className="lobby-avatar" aria-hidden="true">
-                                        {String(friend.username || '?').slice(0, 1).toUpperCase()}
-                                        <i className={friend.is_online ? 'is-online' : ''} />
-                                    </span>
+                                    <LobbyAvatar user={friend} online={Boolean(friend.is_online)} />
                                     <span className="lobby-friend-name">{friend.username}</span>
                                     <button
                                         type="button"
                                         className="lobby-icon-button"
                                         onClick={() => handleInviteFriend(friend.username)}
-                                        title={`Inviter ${friend.username}`}
+                                        title={t('lobby.invite', { username: friend.username })}
                                     >
                                         <Send size={16} aria-hidden="true" />
                                     </button>
@@ -370,7 +386,7 @@ function Lobby() {
                                         type="button"
                                         className="lobby-icon-button is-danger"
                                         onClick={() => handleRemoveFriend(friend.id)}
-                                        title={`Retirer ${friend.username}`}
+                                        title={t('lobby.remove', { username: friend.username })}
                                     >
                                         <Trash2 size={16} aria-hidden="true" />
                                     </button>
@@ -379,15 +395,15 @@ function Lobby() {
                         </div>
                     </section>
 
-                    <section className="paper border border-1 shadow-large lobby-panel lobby-games lobby-play-hub" aria-labelledby="games-title">
+                    <section className="paper border shadow-large lobby-panel lobby-games lobby-play-hub" aria-labelledby="games-title">
                         <div className="lobby-hub-heading">
-                            <span>Nouvelle expédition</span>
-                            <h2 id="games-title">Explorez Wikipédia</h2>
+                            <span>{t('lobby.new_expedition')}</span>
+                            <h2 id="games-title">{t('lobby.explore')}</h2>
                         </div>
 
                         <div className="lobby-planet-stage">
                             <div className="lobby-orbit-ring" aria-hidden="true" />
-                            <div className="lobby-mode-orbit" role="radiogroup" aria-label="Mode de jeu">
+                            <div className="lobby-mode-orbit" role="radiogroup" aria-label={t('lobby.game_mode')}>
                                 {MODE_SEQUENCE.map((modeValue) => (
                                     <button
                                         key={modeValue}
@@ -398,7 +414,7 @@ function Lobby() {
                                         onClick={() => setMode(modeValue)}
                                     >
                                         <i aria-hidden="true" />
-                                        <span>{MODE_LABELS[modeValue]}</span>
+                                        <span>{t(`common.${modeValue}`, { defaultValue: MODE_LABELS[modeValue] })}</span>
                                     </button>
                                 ))}
                             </div>
@@ -416,11 +432,11 @@ function Lobby() {
                             disabled={loading}
                         >
                             <Play size={18} fill="currentColor" aria-hidden="true" />
-                            {loading ? 'Préparation...' : `Lancer · ${MODE_LABELS[mode]}`}
+                            {loading ? t('lobby.preparing') : t('lobby.launch', { mode: t(`common.${mode}`) })}
                         </button>
 
                         <div className="lobby-join-dock">
-                            <label htmlFor="room-code"><KeyRound size={17} aria-hidden="true" /> Rejoindre un salon</label>
+                            <label htmlFor="room-code"><KeyRound size={17} aria-hidden="true" /> {t('lobby.join_room')}</label>
                             <div>
                                 <input
                                     id="room-code"
@@ -430,7 +446,7 @@ function Lobby() {
                                     onKeyDown={(event) => event.key === 'Enter' && handleJoinRoom()}
                                     maxLength={12}
                                     placeholder="CODE"
-                                    aria-label="Code de salon"
+                                    aria-label={t('lobby.room_code')}
                                 />
                                 <button
                                     type="button"
@@ -438,40 +454,40 @@ function Lobby() {
                                     onClick={handleJoinRoom}
                                     disabled={joiningRoom || !joinCode.trim()}
                                 >
-                                    {joiningRoom ? 'Entrée...' : 'Rejoindre'}
+                                    {joiningRoom ? t('lobby.joining') : t('lobby.join')}
                                 </button>
                             </div>
                         </div>
                     </section>
 
-                    <section className="paper border border-5 shadow-large lobby-panel lobby-room" aria-labelledby="room-title">
+                    <section className="paper border-5 shadow-large lobby-panel lobby-room" aria-labelledby="room-title">
                         <div>
-                            <h2 id="room-title">Mon salon</h2>
-                            <p className="lobby-room-subtitle">Étude privée</p>
+                            <h2 id="room-title">{t('lobby.my_room')}</h2>
+                            <p className="lobby-room-subtitle">{t('lobby.private_study')}</p>
                         </div>
 
                         {myRoom ? (
                             <>
-                                <button type="button" className="paper-btn lobby-room-code" onClick={copyToClipboard} title="Copier le code du salon">
+                                <button type="button" className="paper-btn lobby-room-code" onClick={copyToClipboard} title={t('lobby.copy_code')}>
                                     <span>{myRoom.code}</span>
                                     <Copy size={17} aria-hidden="true" />
                                 </button>
 
                                 <div className="lobby-explorers">
-                                    <h3><Users size={19} aria-hidden="true" /> Explorateurs ({members.length + 1})</h3>
+                                    <h3><Users size={19} aria-hidden="true" /> {t('lobby.explorers', { count: members.length + 1 })}</h3>
                                     <div className="lobby-member is-self">
-                                        <span className="lobby-avatar">V</span>
-                                        <strong>Vous</strong>
+                                        <LobbyAvatar user={user} />
+                                        <strong>{t('lobby.you')}</strong>
                                     </div>
                                     {members.map((member) => (
                                         <div className="lobby-member" key={member.id}>
-                                            <span className="lobby-avatar">{String(member.username || '?').slice(0, 1).toUpperCase()}</span>
+                                            <LobbyAvatar user={member} />
                                             <span>{member.username}</span>
                                             <button
                                                 type="button"
                                                 className="lobby-icon-button is-danger"
                                                 onClick={() => setReportTarget(member)}
-                                                title={`Signaler ${member.username}`}
+                                                title={t('lobby.report', { username: member.username })}
                                             >
                                                 <Flag size={15} aria-hidden="true" />
                                             </button>
@@ -481,7 +497,7 @@ function Lobby() {
 
                                 <div className="lobby-chat-log" aria-live="polite">
                                     {messages.length === 0 ? (
-                                        <p className="lobby-empty">Le salon est silencieux.</p>
+                                        <p className="lobby-empty">{t('lobby.silent')}</p>
                                     ) : messages.map((message, messageIndex) => (
                                         <p key={message.id || `${message.username}-${message.created_at || messageIndex}`}>
                                             <strong>{message.username}</strong> {message.message}
@@ -496,21 +512,21 @@ function Lobby() {
                                         value={chatMessage}
                                         onChange={(event) => setChatMessage(event.target.value)}
                                         onKeyDown={(event) => event.key === 'Enter' && handleSendMessage()}
-                                        placeholder="Chat..."
+                                        placeholder={t('lobby.chat')}
                                         aria-label="Message du salon"
                                     />
                                     <button
                                         type="button"
                                         onClick={handleSendMessage}
                                         disabled={sendingMessage || !chatMessage.trim()}
-                                        title="Envoyer"
+                                        title={t('lobby.send')}
                                     >
                                         <Send size={20} aria-hidden="true" />
                                     </button>
                                 </div>
                             </>
                         ) : (
-                            <p className="lobby-empty">Aucun salon actif.</p>
+                            <p className="lobby-empty">{t('lobby.no_room')}</p>
                         )}
                     </section>
                 </div>

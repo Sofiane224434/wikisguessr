@@ -282,6 +282,22 @@
 
 .login-container { max-width: 520px; }
 
+.login-heading { display: grid; grid-template-columns: 46px minmax(0, 1fr); align-items: start; gap: 0.9rem; margin-bottom: 1.4rem; }
+.login-heading > span { display: inline-flex; width: 46px; height: 46px; align-items: center; justify-content: center; color: #f7f0e4; background: #315f64; border: 1px solid #25484c; border-radius: 4px; }
+.login-heading p { margin: 0 0 0.15rem; color: #826238; font-size: 0.72rem; font-weight: 800; text-transform: uppercase; }
+.login-heading h1 { margin: 0; }
+.login-heading small { display: block; max-width: 40ch; margin-top: 0.55rem; color: #655240; line-height: 1.45; }
+.login-form { display: grid; gap: 0.9rem; }
+.login-form > div { display: grid; gap: 0.32rem; }
+.login-form label { color: #463523; font-size: 0.88rem; font-weight: 700; }
+.login-form input { width: 100%; min-height: 44px; margin: 0 !important; }
+.login-form > button { width: 100%; min-height: 44px; margin: 0.3rem 0 0 !important; }
+.login-secondary-action { display: flex !important; width: fit-content !important; align-items: center; gap: 0.35rem; margin: 0.75rem auto 0 !important; padding: 0.25rem !important; color: #315f64 !important; background: transparent !important; border: 0 !important; box-shadow: none !important; font-size: 0.88rem; text-decoration: underline; }
+
+.site-header.is-public .site-header-inner { grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); }
+.site-header.is-public .site-brand { justify-self: start; }
+.site-header.is-public .site-header-tools { grid-column: 2; justify-self: center; }
+
 .site-page h1,
 .site-page h2,
 .login-container h1 {
@@ -548,6 +564,10 @@
 
 /* Boutique et abonnements */
 .shop-page { max-width: 1180px; }
+.shop-page.paper { background-color: #f5eee2 !important; }
+
+.profile-history-scroll { max-height: min(480px, 58vh); overflow: auto; overscroll-behavior: contain; }
+.profile-history-head { position: sticky; z-index: 2; top: 0; background: #f5eee2; }
 
 .shop-heading {
   display: flex;
@@ -1665,6 +1685,14 @@
     border-radius: 50%;
     box-shadow: 0 2px 5px rgba(42, 26, 16, 0.28);
     font-weight: 700;
+    overflow: visible;
+  }
+
+  .lobby-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: inherit;
   }
 
   .lobby-avatar i {

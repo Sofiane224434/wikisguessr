@@ -1,15 +1,11 @@
 import { Check, Crown, ExternalLink, Gauge, ShieldCheck, ShoppingBag, Sparkles } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { subscriptionService } from '../services/api.js';
 
-const PLAN_DETAILS = {
-    free: ['5 parties par jour', '1 partie Connaissance par jour', 'Accès au multijoueur'],
-    silver: ['50 parties par jour', '10 parties Connaissance par jour', 'Pour jouer régulièrement'],
-    gold: ['100 parties par jour', 'Mode Connaissance illimité', 'Le maximum pour les passionnés']
-};
-
 function Shop() {
+    const { t } = useTranslation();
     const [searchParams] = useSearchParams();
     const [plans, setPlans] = useState([]);
     const [subscription, setSubscription] = useState(null);
@@ -69,37 +65,37 @@ function Shop() {
     };
 
     return (
-        <div className="site-page shop-page">
+        <div className="site-page shop-page paper border-2 shadow-large">
             <header className="shop-heading">
                 <div className="shop-heading-icon"><ShoppingBag size={27} aria-hidden="true" /></div>
                 <div>
-                    <p>Pass explorateur</p>
-                    <h1>Boutique</h1>
-                    <span>Choisissez le rythme qui correspond à vos expéditions Wikipédia.</span>
+                    <p>{t('shop.eyebrow')}</p>
+                    <h1>{t('shop.title')}</h1>
+                    <span>{t('shop.subtitle')}</span>
                 </div>
             </header>
 
             {loading ? (
-                <div className="shop-loading"><Sparkles size={24} aria-hidden="true" /> Préparation des offres...</div>
+                <div className="shop-loading"><Sparkles size={24} aria-hidden="true" /> {t('shop.loading')}</div>
             ) : (
                 <>
                     {subscription && (
                         <section className="shop-current-plan" aria-label="Votre abonnement">
                             <div>
-                                <span>Votre formule</span>
-                                <strong>{subscription.plan.name}{subscription.isAdminIncluded ? ' · Admin inclus' : ''}</strong>
+                                <span>{t('shop.your_plan')}</span>
+                                <strong>{subscription.plan.name}{subscription.isAdminIncluded ? ` · ${t('shop.admin_included')}` : ''}</strong>
                             </div>
                             <div>
                                 <Gauge size={20} aria-hidden="true" />
-                                <span>{subscription.usage.totalGames} partie(s) aujourd’hui</span>
+                                <span>{t('shop.games_today', { count: subscription.usage.totalGames })}</span>
                             </div>
                             <div>
                                 <Crown size={20} aria-hidden="true" />
-                                <span>{subscription.plan.knowledgeGamesUnlimited ? 'Connaissance illimitée' : `${subscription.usage.knowledgeGamesRemaining} Connaissance restante(s)`}</span>
+                                <span>{subscription.plan.knowledgeGamesUnlimited ? t('shop.knowledge_unlimited') : t('shop.knowledge_remaining', { count: subscription.usage.knowledgeGamesRemaining })}</span>
                             </div>
                             {subscription.billing?.managedByStripe && !subscription.isAdminIncluded && (
                                 <button type="button" className="shop-manage-button" onClick={handleManageBilling}>
-                                    <ExternalLink size={17} aria-hidden="true" /> Gérer
+                                    <ExternalLink size={17} aria-hidden="true" /> {t('shop.manage')}
                                 </button>
                             )}
                         </section>
@@ -120,11 +116,11 @@ function Shop() {
                                     </div>
                                     <p className="shop-price">
                                         <strong>{(plan.priceMonthlyCents / 100).toFixed(2).replace('.', ',')} €</strong>
-                                        <span>{isPaid ? '/ mois' : 'pour toujours'}</span>
+                                        <span>{isPaid ? t('shop.per_month') : t('shop.forever')}</span>
                                     </p>
                                     <ul>
-                                        {PLAN_DETAILS[plan.id].map((detail) => (
-                                            <li key={detail}><Check size={17} aria-hidden="true" />{detail}</li>
+                                        {[1, 2, 3].map((detailIndex) => (
+                                            <li key={detailIndex}><Check size={17} aria-hidden="true" />{t(`shop.${plan.id}_${detailIndex}`)}</li>
                                         ))}
                                     </ul>
                                     <button
@@ -133,19 +129,19 @@ function Shop() {
                                         onClick={() => handleSubscribe(plan.id)}
                                     >
                                         {isCurrent
-                                            ? 'Formule actuelle'
+                                            ? t('shop.current')
                                             : pendingTier === plan.id
-                                                ? 'Ouverture...'
+                                                ? t('shop.opening')
                                                 : isPaid && hasActiveStripeSubscription
-                                                    ? 'Changer via Stripe'
-                                                    : isPaid ? `Choisir ${plan.name}` : 'Inclus'}
+                                                    ? t('shop.change_stripe')
+                                                    : isPaid ? t('shop.choose', { plan: plan.name }) : t('shop.included')}
                                     </button>
                                 </article>
                             );
                         })}
                     </div>
 
-                    <p className="shop-payment-note"><ShieldCheck size={16} aria-hidden="true" /> Paiement sécurisé et abonnement géré par Stripe. WikisGuessr ne conserve aucune donnée bancaire.</p>
+                    <p className="shop-payment-note"><ShieldCheck size={16} aria-hidden="true" /> {t('shop.payment_note')}</p>
                 </>
             )}
         </div>
