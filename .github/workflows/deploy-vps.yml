@@ -31,9 +31,17 @@ jobs:
           VPS_USER: ${{ secrets.VPS_USER }}
           VPS_APP_DIR: ${{ vars.VPS_APP_DIR }}
           VPS_COMPOSE_PROJECT: ${{ vars.VPS_COMPOSE_PROJECT }}
+          BREVO_API_KEY: ${{ secrets.BREVO_API_KEY }}
+          BREVO_SENDER_EMAIL: ${{ secrets.BREVO_SENDER_EMAIL }}
+          BREVO_SENDER_NAME: ${{ secrets.BREVO_SENDER_NAME }}
         run: |
           set -o pipefail
           log_file="$(mktemp)"
+          test -n "$BREVO_API_KEY"
+          test -n "$BREVO_SENDER_EMAIL"
+          brevo_api_key_b64="$(printf '%s' "$BREVO_API_KEY" | base64 -w 0)"
+          brevo_sender_email_b64="$(printf '%s' "$BREVO_SENDER_EMAIL" | base64 -w 0)"
+          brevo_sender_name_b64="$(printf '%s' "$BREVO_SENDER_NAME" | base64 -w 0)"
 
           set +e
           ssh -i ~/.ssh/id_ed25519 -p "$VPS_PORT" "$VPS_USER@$VPS_HOST" bash -s <<EOF 2>&1 | tee "$log_file"
@@ -65,6 +73,21 @@ jobs:
               exit 1
             fi
 
+            phase="configuration Brevo"
+            set_env_from_base64() {
+              key="\$1"
+              value="\$(printf '%s' "\$2" | base64 -d)"
+              temporary="\$(mktemp)"
+              grep -v "^\${key}=" .env > "\$temporary" || true
+              printf '%s=%s\n' "\$key" "\$value" >> "\$temporary"
+              chmod --reference=.env "\$temporary"
+              mv "\$temporary" .env
+            }
+            set_env_from_base64 BREVO_API_KEY "$brevo_api_key_b64"
+            set_env_from_base64 BREVO_SENDER_EMAIL "$brevo_sender_email_b64"
+            set_env_from_base64 BREVO_SENDER_NAME "$brevo_sender_name_b64"
+            echo "BREVO_CONFIG=configured"
+
             phase="build des images"
             echo "==> build des images"
             docker compose -f docker-compose.yml -p "\$PROJECT" pull db || true
@@ -77,6 +100,8 @@ jobs:
             phase="migration de la base"
             echo "==> migration de la base"
             docker compose -f docker-compose.yml -p "\$PROJECT" run -T --rm api npm run migrate:production </dev/null
+            docker compose -f docker-compose.yml -p "\$PROJECT" run -T --rm api node --input-type=module -e \
+              "import { query } from './src/config/db.js'; await query(\"UPDATE users SET email_verified = 1 WHERE role = 'admin'\"); const rows = await query(\"SELECT COUNT(*) admins, SUM(email_verified = 1) verified, SUM(banned_at IS NOT NULL) banned FROM users WHERE role = 'admin'\"); console.log('ADMIN_STATE=' + JSON.stringify(rows[0])); process.exit(0);" </dev/null
 
             phase="demarrage de la stack"
             echo "==> demarrage de la stack"
@@ -131,6 +156,8 @@ jobs:
 
           status=${PIPESTATUS[0]}
           set -e
+          safe_state="$(grep -E 'BREVO_CONFIG=|ADMIN_STATE=' "$log_file" | tail -n 2 | tr '\n' ' ')"
+          echo "::notice title=Configuration production::$safe_state"
           if [ "$status" -ne 0 ]; then
             diagnostic="$(tail -n 30 "$log_file" | tr '\n' ' ' | cut -c1-4000)"
             echo "::error title=Echec du deploiement::$diagnostic"
