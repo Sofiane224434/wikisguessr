@@ -130,6 +130,8 @@ function Shop() {
                                     >
                                         {isCurrent
                                             ? t('shop.current')
+                                            : subscription?.isAdminIncluded
+                                                ? t('shop.admin_included')
                                             : pendingTier === plan.id
                                                 ? t('shop.opening')
                                                 : isPaid && hasActiveStripeSubscription
