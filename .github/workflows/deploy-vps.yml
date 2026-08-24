@@ -83,8 +83,7 @@ jobs:
             echo "==> demarrage de la stack"
             docker rm -f wikisguessr-api wikisguessr-app 2>/dev/null || true
             docker compose -f docker-compose.yml -p "\$PROJECT" up -d --build --no-deps api
-            app_image="\$(docker compose -f docker-compose.yml -p "\$PROJECT" images -q app)"
-            test -n "\$app_image"
+            app_image="\${PROJECT}-app"
             docker run -d --name wikisguessr-app --restart unless-stopped \
               --network "\${PROJECT}_wikisnet" --network-alias app \
               -p 127.0.0.1:3010:80 "\$app_image"
