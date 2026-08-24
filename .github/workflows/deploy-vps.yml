@@ -15,7 +15,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup SSH key
         run: |
@@ -32,7 +32,10 @@ jobs:
           VPS_APP_DIR: ${{ vars.VPS_APP_DIR }}
           VPS_COMPOSE_PROJECT: ${{ vars.VPS_COMPOSE_PROJECT }}
         run: |
-          ssh -i ~/.ssh/id_ed25519 -p "$VPS_PORT" "$VPS_USER@$VPS_HOST" bash -s <<EOF
+          set -o pipefail
+          log_file="$(mktemp)"
+
+          ssh -i ~/.ssh/id_ed25519 -p "$VPS_PORT" "$VPS_USER@$VPS_HOST" bash -s <<EOF 2>&1 | tee "$log_file"
             set -euo pipefail
 
             APP_DIR="$VPS_APP_DIR"
@@ -75,3 +78,14 @@ jobs:
             echo "==> nettoyage images orphelines"
             docker image prune -f
           EOF
+
+          status=${PIPESTATUS[0]}
+          if [ "$status" -ne 0 ]; then
+            {
+              echo "### Echec du deploiement"
+              echo '```text'
+              tail -n 80 "$log_file"
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+          exit "$status"
