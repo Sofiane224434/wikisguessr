@@ -207,9 +207,9 @@ curl -I https://wikisguessr.azim404.com
 | ------- | -------------------- | ---------------- | ------------------------- |
 | `db`    | wikisguessr-db       | mysql:8          | interne uniquement        |
 | `api`   | wikisguessr-api      | build backend    | interne uniquement (5000) |
-| `app`   | wikisguessr-app      | build frontend   | 127.0.0.1:3009 -> 80      |
+| `app`   | wikisguessr-app      | build frontend   | 127.0.0.1:3010 -> 80      |
 
-Le conteneur `app` (nginx) sert le build Vite et proxifie `/api/*` vers `api:5000`. Le nginx hote proxifie HTTPS vers `127.0.0.1:3009`.
+Le conteneur `app` (nginx) sert le build Vite et proxifie `/api/*` vers `api:5000`. Le nginx hote proxifie HTTPS vers `127.0.0.1:3010`.
 
 ### 6. Donnees persistantes
 
