@@ -2,15 +2,17 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { authService } from '../services/api.js';
 import { useAuth } from '../context/Authcontext.jsx';
+import { useTranslation } from 'react-i18next';
 
 function VerifyEmail() {
+    const { t } = useTranslation();
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
     const { login } = useAuth();
     const token = searchParams.get('token');
     const next = searchParams.get('next') || '/';
-    const [status, setStatus] = useState(token ? 'Verification de ton adresse mail...' : null);
-    const [error, setError] = useState(token ? null : 'Token de verification manquant.');
+    const [status, setStatus] = useState(token ? t('verify.pending') : null);
+    const [error, setError] = useState(token ? null : t('verify.missing'));
 
     useEffect(() => {
         if (!token) {
@@ -30,8 +32,8 @@ function VerifyEmail() {
     }, [login, navigate, next, token]);
 
     return (
-        <div className="login-container paper border border-2 shadow-large">
-            <h1>Verification email</h1>
+        <div className="login-container paper border-2 shadow-large">
+            <h1>{t('verify.title')}</h1>
             {status && <p>{status}</p>}
             {error && <p className="error">{error}</p>}
         </div>

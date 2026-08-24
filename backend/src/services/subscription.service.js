@@ -5,8 +5,8 @@ export const SUBSCRIPTION_PLANS = {
         id: 'free',
         name: 'Free',
         priceMonthlyCents: 0,
-        totalGamesPerDay: 5,
-        knowledgeGamesPerDay: 1
+        totalGamesPerDay: 10,
+        knowledgeGamesPerDay: 2
     },
     silver: {
         id: 'silver',

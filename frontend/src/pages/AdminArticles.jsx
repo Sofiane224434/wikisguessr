@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { wikiService } from '../services/api.js';
+import { useTranslation } from 'react-i18next';
 
 const normalizeForSearch = (value) => String(value || '')
     .normalize('NFKD')
@@ -64,6 +65,7 @@ const toMobileHtmlLinkFromInput = (value) => {
 };
 
 function AdminArticles() {
+    const { t } = useTranslation();
     const navigate = useNavigate();
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -466,9 +468,9 @@ function AdminArticles() {
                 <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
                         <p className="text-sm uppercase tracking-[0.3em] text-cyan-300">Admin</p>
-                        <h1 className="mt-2 text-3xl font-semibold">Liste des articles</h1>
+                        <h1 className="mt-2 text-3xl font-semibold">{t('admin_articles.title')}</h1>
                         <p className="mt-2 text-sm text-slate-300">
-                            Tous les articles du dataset avec le lien utilisé par le jeu.
+                            {t('admin_articles.subtitle')}
                         </p>
                     </div>
 
@@ -477,39 +479,39 @@ function AdminArticles() {
                         onClick={() => navigate('/admin')}
                         className="rounded-full border border-slate-700 bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
                     >
-                        Retour Admin
+                        {t('admin_articles.back')}
                     </button>
                 </div>
 
                 <div className="order-1 rounded-2xl border border-slate-800 bg-slate-900/80 p-4">
                     <label htmlFor="article-search" className="mb-2 block text-xs uppercase tracking-[0.25em] text-slate-400">
-                        Rechercher un article
+                        {t('admin_articles.search')}
                     </label>
                     <input
                         id="article-search"
                         type="text"
                         value={search}
                         onChange={(event) => setSearch(event.target.value)}
-                        placeholder="Ex: France, ChatGPT, Montagne..."
+                        placeholder={t('admin_articles.search_placeholder')}
                         className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-500 focus:border-cyan-400"
                     />
                 </div>
 
                 <form onSubmit={handleAddArticle} className="order-3 rounded-2xl border border-slate-800 bg-slate-900/80 p-4">
-                    <p className="mb-3 text-xs uppercase tracking-[0.25em] text-cyan-300">Ajouter un article</p>
+                    <p className="mb-3 text-xs uppercase tracking-[0.25em] text-cyan-300">{t('admin_articles.add_title')}</p>
                     <div className="grid gap-3 md:grid-cols-2">
                         <input
                             type="text"
                             value={newName}
                             onChange={(event) => setNewName(event.target.value)}
-                            placeholder="Nom de l'article"
+                            placeholder={t('admin_articles.name_placeholder')}
                             className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-500 focus:border-cyan-400"
                         />
                         <input
                             type="text"
                             value={newLink}
                             onChange={(event) => setNewLink(event.target.value)}
-                            placeholder="Titre Wikipedia ou URL Wikipedia"
+                            placeholder={t('admin_articles.link_placeholder')}
                             className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-500 focus:border-cyan-400"
                         />
                     </div>
@@ -519,13 +521,13 @@ function AdminArticles() {
                             disabled={adding}
                             className="rounded-full bg-cyan-400 px-5 py-2 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300 disabled:opacity-60"
                         >
-                            {adding ? 'Ajout...' : 'Ajouter'}
+                            {adding ? t('admin_articles.adding') : t('admin_articles.add')}
                         </button>
                     </div>
                 </form>
 
                 <div className="order-4 rounded-2xl border border-slate-800 bg-slate-900/80 p-4">
-                    <p className="mb-3 text-xs uppercase tracking-[0.25em] text-amber-300">Testeur global des liens</p>
+                    <p className="mb-3 text-xs uppercase tracking-[0.25em] text-amber-300">{t('admin_articles.tester')}</p>
                     <div className="flex flex-wrap items-center gap-4 text-sm text-slate-300">
                         <label className="inline-flex items-center gap-2">
                             <input
@@ -557,7 +559,7 @@ function AdminArticles() {
                             onClick={handleValidateAll}
                             className="rounded-full bg-amber-400 px-5 py-2 text-sm font-semibold text-slate-950 transition hover:bg-amber-300 disabled:opacity-60"
                         >
-                            {validating ? 'Validation...' : 'Tester tout le dataset'}
+                            {validating ? t('admin_articles.validating') : t('admin_articles.validate')}
                         </button>
                     </div>
 
@@ -591,9 +593,9 @@ function AdminArticles() {
                 </div>
 
                 <div className="order-5 rounded-2xl border border-slate-800 bg-slate-900/80 p-4">
-                    <p className="mb-3 text-xs uppercase tracking-[0.25em] text-fuchsia-300">Paronymies / homonymies a resoudre</p>
+                    <p className="mb-3 text-xs uppercase tracking-[0.25em] text-fuchsia-300">{t('admin_articles.disambiguation')}</p>
                     {pendingDisambiguations.length === 0 ? (
-                        <p className="text-sm text-slate-400">Aucune page de paronymie/homonymie en attente.</p>
+                        <p className="text-sm text-slate-400">{t('admin_articles.no_disambiguation')}</p>
                     ) : (
                         <div className="space-y-1">
                             {pendingDisambiguations.map((item) => (
@@ -691,7 +693,7 @@ function AdminArticles() {
 
                 {validationResult?.summary && (
                     <div className="order-7 rounded-2xl border border-slate-800 bg-slate-900/70 p-4 text-sm">
-                        <p className="mb-3 text-xs uppercase tracking-[0.24em] text-slate-400">Résultat validation</p>
+                        <p className="mb-3 text-xs uppercase tracking-[0.24em] text-slate-400">{t('admin_articles.validation_result')}</p>
                         <div className="grid gap-2 text-slate-200 md:grid-cols-7">
                             <p>Total: <strong>{validationResult.summary.total}</strong></p>
                             <p>OK: <strong className="text-emerald-300">{validationResult.summary.ok}</strong></p>
@@ -726,23 +728,23 @@ function AdminArticles() {
                     </div>
                 )}
 
-                {loading && <p className="order-8 text-slate-300">Chargement des articles...</p>}
+                {loading && <p className="order-8 text-slate-300">{t('admin_articles.loading')}</p>}
                 {error && <p className="order-8 text-red-300">{error}</p>}
 
                 {!loading && !error && (
                     <div className="order-2 overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/70">
                         <div className="flex items-center justify-between border-b border-slate-800 px-4 py-3 text-xs uppercase tracking-[0.24em] text-slate-400">
-                            <span>{filteredArticles.length} articles affichés</span>
-                            <span>{articles.length} articles au total</span>
+                            <span>{t('admin_articles.displayed', { count: filteredArticles.length })}</span>
+                            <span>{t('admin_articles.total', { count: articles.length })}</span>
                         </div>
 
                         <div className="max-h-[65vh] overflow-auto">
                             <table className="w-full border-collapse text-sm">
                                 <thead className="sticky top-0 bg-slate-950/95 backdrop-blur">
                                     <tr className="text-left text-slate-300">
-                                        <th className="px-4 py-3 font-semibold">Nom</th>
-                                        <th className="px-4 py-3 font-semibold">Lien utilisé</th>
-                                        <th className="admin-table-actions-cell px-4 py-3 font-semibold">Actions</th>
+                                        <th className="px-4 py-3 font-semibold">{t('admin_articles.name')}</th>
+                                        <th className="px-4 py-3 font-semibold">{t('admin_articles.used_link')}</th>
+                                        <th className="admin-table-actions-cell px-4 py-3 font-semibold">{t('admin_articles.actions')}</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -815,14 +817,14 @@ function AdminArticles() {
                                                             onClick={() => handleSaveEdit(item.id)}
                                                             className="admin-table-button is-confirm"
                                                         >
-                                                            {saving ? '...' : 'Valider'}
+                                                            {saving ? '...' : t('admin_articles.confirm')}
                                                         </button>
                                                         <button
                                                             type="button"
                                                             onClick={cancelEdit}
                                                             className="admin-table-button"
                                                         >
-                                                            Annuler
+                                                            {t('admin_articles.cancel')}
                                                         </button>
                                                     </div>
                                                 ) : (

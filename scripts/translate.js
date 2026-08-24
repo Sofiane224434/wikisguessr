@@ -90,7 +90,11 @@ function protectVariables(text) {
 }
 
 function restoreVariables(text, variables) {
-    return text.replace(/__VAR_(\d+)__/g, (_, index) => variables[Number(index)] ?? '');
+    return text
+        .replace(/__VAR_(\d+)__/g, (_, index) => variables[Number(index)] ?? '')
+        .replace(/&#x27;|&#39;|&apos;/g, "'")
+        .replace(/&quot;/g, '"')
+        .replace(/&amp;/g, '&');
 }
 
 async function translateLanguage(translator, lang, deeplLang, sourceMap, previousSourceMap) {
