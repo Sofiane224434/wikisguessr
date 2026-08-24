@@ -84,6 +84,8 @@ jobs:
             echo "==> verification de l API"
             docker compose -f docker-compose.yml -p "\$PROJECT" exec -T api node --input-type=module -e \
               "const response = await fetch('http://127.0.0.1:5000/api/site-state'); console.log('API_HEALTH_STATUS=' + response.status); if (!response.ok) process.exit(1);"
+            docker compose -f docker-compose.yml -p "\$PROJECT" exec -T api node --input-type=module -e \
+              "const response = await fetch('http://app/api/site-state'); console.log('APP_PROXY_STATUS=' + response.status); if (!response.ok) process.exit(1);"
 
             phase="configuration du proxy public"
             echo "==> configuration du proxy public"
