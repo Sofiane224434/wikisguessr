@@ -80,6 +80,11 @@ jobs:
             echo "==> demarrage de la stack"
             docker compose -f docker-compose.yml -p "\$PROJECT" up -d --build --remove-orphans
 
+            phase="verification de l API"
+            echo "==> verification de l API"
+            docker compose -f docker-compose.yml -p "\$PROJECT" exec -T api node --input-type=module -e \
+              "const response = await fetch('http://127.0.0.1:5000/api/site-state'); console.log('API_HEALTH_STATUS=' + response.status); if (!response.ok) process.exit(1);"
+
             echo "==> docker compose ps"
             docker compose -f docker-compose.yml -p "\$PROJECT" ps
 
