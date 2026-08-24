@@ -16,12 +16,14 @@ i18n
   .use(initReactI18next)
   .init({
     backend: {
-      loadPath: '/locales/{{lng}}/translation.json',
+      loadPath: '/locales/{{lng}}/translation.json?v=20260901',
+      requestOptions: { cache: 'no-store' },
     },
-    lng: 'fr',
     load: 'languageOnly',
     fallbackLng: 'fr',
     supportedLngs: ['fr', 'en', 'es', 'ar', 'pt', 'zh', 'de', 'hi', 'ru', 'ja'],
+    nonExplicitSupportedLngs: true,
+    returnNull: false,
     detection: {
       order: ['localStorage', 'cookie'],
       caches: ['localStorage', 'cookie'],
