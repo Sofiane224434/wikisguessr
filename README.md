@@ -107,9 +107,9 @@ Photos de profil :
 Quiz IA mode connaissance :
 
 - Quand une partie `knowledge` est gagnee, le front appelle `POST /api/games/:code/knowledge-quiz`.
-- Le backend envoie un seul prompt a Gemini avec les articles intermediaires visites et demande 5 QCM.
+- Le backend envoie un seul prompt a Gemini avec les articles intermediaires visites et demande 5 QCM. Pour un parcours direct, les articles de depart et cible servent de contexte.
 - Le quiz knowledge est strictement IA: si Gemini est indisponible (quota, API down, reponse invalide, config absente), l API retourne une erreur sans fallback local.
-- Si le contexte de navigation est vide (aucun article intermediaire), l API repond en `400` avec un message explicite.
+- Si aucun article du parcours ne fournit de contexte exploitable, l API repond en `400` avec un message explicite.
 - Les questions sont forcees vers des details lisibles dans les extraits (pas de culture generale) et incluent une courte citation source (`sourceQuote`).
 
 Consommation IA (admin) :

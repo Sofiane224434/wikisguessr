@@ -3,7 +3,8 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Compass } from 'lucide-react';
 import DOMPurify from 'dompurify';
 import { useTranslation } from 'react-i18next';
-import { gameService } from '../services/api.js';
+import { io } from 'socket.io-client';
+import { gameService, resolveMediaUrl } from '../services/api.js';
 
 const normalizeArticle = (value) =>
     decodeURIComponent(String(value || '').replace(/\+/g, ' '))
@@ -39,6 +40,19 @@ const formatClock = (totalSeconds) => {
     const minutes = String(Math.floor(safeSeconds / 60)).padStart(2, '0');
     const seconds = String(safeSeconds % 60).padStart(2, '0');
     return `${minutes}:${seconds}`;
+};
+
+const calculateGamePoints = ({ mode, clicks, elapsedSeconds, chronoScore, knowledgeScore, won }) => {
+    if (!won) {
+        return 0;
+    }
+    if (mode === 'chrono') {
+        return Math.max(0, Math.round(chronoScore));
+    }
+    if (mode === 'knowledge') {
+        return Math.max(0, Math.round((knowledgeScore * 100) + 500 - (clicks * 50) - (elapsedSeconds / 4)));
+    }
+    return Math.max(0, Math.round(1000 - (clicks * 100) - (elapsedSeconds / 2)));
 };
 
 const MODE_LABELS = {
@@ -424,6 +438,14 @@ function Game() {
     const [knowledgeQuizError, setKnowledgeQuizError] = useState('');
     const [knowledgeQuizAnswers, setKnowledgeQuizAnswers] = useState({});
     const [knowledgeQuizSubmitted, setKnowledgeQuizSubmitted] = useState(false);
+    const [participants, setParticipants] = useState([]);
+    const [showAbandonConfirm, setShowAbandonConfirm] = useState(false);
+    const [abandoned, setAbandoned] = useState(false);
+    const [showResultModal, setShowResultModal] = useState(false);
+    const [resultSaving, setResultSaving] = useState(false);
+    const [resultSaved, setResultSaved] = useState(false);
+    const [resultSaveError, setResultSaveError] = useState('');
+    const [replaying, setReplaying] = useState(false);
 
     const gameCode = searchParams.get('code');
     const previewTitle = searchParams.get('previewTitle');
@@ -432,7 +454,7 @@ function Game() {
     const isChronoMode = gameMode === 'chrono';
     const isKnowledgeMode = gameMode === 'knowledge';
     const chronoDefeat = isChronoMode && !won && (chronoRemainingSeconds <= 0 || chronoScore <= 0);
-    const canInteractWithArticle = !won && !chronoDefeat;
+    const canInteractWithArticle = !won && !chronoDefeat && !abandoned;
 
     const saveCurrentGameState = useCallback((snapshot) => {
         if (!gameCode) {
@@ -730,16 +752,6 @@ function Game() {
 
         knowledgeQuizRequestedRef.current = true;
 
-        if (!resultSubmittedRef.current) {
-            resultSubmittedRef.current = true;
-            gameService.submitResult(gameCode, {
-                clicks,
-                time_seconds: elapsedSecondsRef.current,
-                score: 0,
-                won: true
-            }).catch(() => { });
-        }
-
         setKnowledgeQuizLoading(true);
         setKnowledgeQuizError('');
 
@@ -861,41 +873,97 @@ function Game() {
             });
     }, [gameCode, previewTitle]);
 
-    // Soumission du résultat pour les modes non-knowledge (normal + chrono win/defeat)
     useEffect(() => {
-        if (!game || !gameCode || isPreviewMode || isKnowledgeMode) {
+        if (!gameCode || isPreviewMode) {
+            return undefined;
+        }
+
+        const token = localStorage.getItem('token');
+        const socketUrl = import.meta.env.DEV ? 'http://localhost:5000' : window.location.origin;
+        const socket = io(socketUrl, {
+            auth: { token },
+            transports: import.meta.env.DEV ? ['polling'] : ['websocket', 'polling']
+        });
+
+        socket.on('game:participants', ({ code, participants: nextParticipants }) => {
+            if (String(code || '').toUpperCase() === String(gameCode).toUpperCase()) {
+                setParticipants(Array.isArray(nextParticipants) ? nextParticipants : []);
+            }
+        });
+        socket.emit('game:join', gameCode);
+
+        return () => {
+            socket.emit('game:leave', gameCode);
+            socket.disconnect();
+        };
+    }, [gameCode, isPreviewMode]);
+
+    const knowledgeResultReady = isKnowledgeMode
+        && won
+        && (knowledgeQuizSubmitted || (!knowledgeQuizLoading && Boolean(knowledgeQuizError)));
+    const resultReady = abandoned || chronoDefeat || (won && !isKnowledgeMode) || knowledgeResultReady;
+
+    // La modale précède la sortie et la sauvegarde termine avant d'activer le bouton Quitter.
+    useEffect(() => {
+        if (!resultReady) {
             return;
         }
 
-        const isTerminal = won || chronoDefeat;
-        if (!isTerminal || resultSubmittedRef.current) {
+        setShowResultModal(true);
+    }, [resultReady]);
+
+    const saveFinalResult = useCallback(async () => {
+        if (!game || !gameCode || isPreviewMode || resultSubmittedRef.current) {
             return;
         }
 
         resultSubmittedRef.current = true;
-        gameService.submitResult(gameCode, {
-            clicks,
-            time_seconds: elapsedSecondsRef.current,
-            score: isChronoMode ? chronoScore : 0,
-            won: Boolean(won)
-        }).catch(() => { });
-    }, [won, chronoDefeat, game, gameCode, isPreviewMode, isKnowledgeMode, isChronoMode, clicks, chronoScore]);
+        setResultSaving(true);
+        setResultSaveError('');
 
-    // Mise à jour du score knowledge quand le quiz est soumis
+        try {
+            const finalKnowledgeScore = isKnowledgeMode && knowledgeQuizSubmitted
+                ? knowledgeQuiz.reduce((total, item, index) => {
+                    return total + (knowledgeQuizAnswers[index] === item.answerIndex ? 1 : 0);
+                }, 0)
+                : 0;
+            const finalWon = Boolean(won && !abandoned);
+            await gameService.submitResult(gameCode, {
+                clicks,
+                time_seconds: elapsedSecondsRef.current,
+                score: calculateGamePoints({
+                    mode: gameMode,
+                    clicks,
+                    elapsedSeconds: elapsedSecondsRef.current,
+                    chronoScore,
+                    knowledgeScore: finalKnowledgeScore,
+                    won: finalWon
+                }),
+                won: finalWon
+            });
+
+            if (isKnowledgeMode && knowledgeQuizSubmitted) {
+                await gameService.updateKnowledgeScore(gameCode, finalKnowledgeScore);
+            }
+            setResultSaved(true);
+        } catch (saveError) {
+            resultSubmittedRef.current = false;
+            setResultSaveError(saveError?.message || 'Impossible d’enregistrer le résultat.');
+        } finally {
+            setResultSaving(false);
+        }
+    }, [abandoned, chronoScore, clicks, game, gameCode, gameMode, isKnowledgeMode, isPreviewMode, knowledgeQuiz, knowledgeQuizAnswers, knowledgeQuizSubmitted, won]);
+
     useEffect(() => {
-        if (!knowledgeQuizSubmitted || !gameCode || isPreviewMode || !isKnowledgeMode) {
+        if (!resultReady) {
             return;
         }
 
-        const score = knowledgeQuiz.reduce((total, item, index) => {
-            return total + (knowledgeQuizAnswers[index] === item.answerIndex ? 1 : 0);
-        }, 0);
-
-        gameService.updateKnowledgeScore(gameCode, score).catch(() => { });
-    }, [knowledgeQuizSubmitted, gameCode, isPreviewMode, isKnowledgeMode, knowledgeQuiz, knowledgeQuizAnswers]);
+        saveFinalResult();
+    }, [resultReady, saveFinalResult]);
 
     useEffect(() => {
-        if (!startedAt || won || chronoDefeat) {
+        if (!startedAt || won || chronoDefeat || abandoned) {
             return undefined;
         }
 
@@ -918,7 +986,7 @@ function Game() {
         }, 1000);
 
         return () => clearInterval(intervalId);
-    }, [startedAt, won, isChronoMode, chronoDefeat]);
+    }, [startedAt, won, isChronoMode, chronoDefeat, abandoned]);
 
     useEffect(() => {
         if (!gameCode || !game) {
@@ -979,12 +1047,14 @@ function Game() {
     }, []);
 
     const handleContentClick = (event) => {
-        if (!canInteractWithArticle) {
+        const anchor = event.target.closest('a');
+        if (!anchor) {
             return;
         }
 
-        const anchor = event.target.closest('a');
-        if (!anchor) {
+        if (!canInteractWithArticle) {
+            event.preventDefault();
+            event.stopPropagation();
             return;
         }
 
@@ -1004,11 +1074,50 @@ function Game() {
     };
 
     const handleQuitGame = () => {
-        if (gameCode && !isPreviewMode) {
-            clearPersistedGameState(gameCode);
+        if (isPreviewMode) {
+            navigate('/admin/articles');
+            return;
         }
 
-        navigate(isPreviewMode ? '/admin/articles' : '/lobby');
+        if (resultReady) {
+            setShowResultModal(true);
+            return;
+        }
+
+        setShowAbandonConfirm(true);
+    };
+
+    const handleConfirmAbandon = () => {
+        elapsedSecondsRef.current = startedAtRef.current
+            ? Math.max(elapsedSecondsRef.current, Math.floor((Date.now() - startedAtRef.current) / 1000))
+            : elapsedSecondsRef.current;
+        setElapsedSeconds(elapsedSecondsRef.current);
+        setShowAbandonConfirm(false);
+        setAbandoned(true);
+    };
+
+    const handleFinalizeQuit = () => {
+        if (!resultSaved) {
+            return;
+        }
+        clearPersistedGameState(gameCode);
+        navigate('/lobby');
+    };
+
+    const handleReplay = async () => {
+        if (!resultSaved || replaying) {
+            return;
+        }
+        setReplaying(true);
+        setResultSaveError('');
+        try {
+            const response = await gameService.create({ mode: gameMode, solo: true });
+            clearPersistedGameState(gameCode);
+            navigate(`/game?code=${encodeURIComponent(response.game.code)}`);
+        } catch (replayError) {
+            setResultSaveError(replayError?.message || 'Impossible de relancer une partie.');
+            setReplaying(false);
+        }
     };
 
     const handleSelectKnowledgeAnswer = (questionIndex, answerIndex) => {
@@ -1082,6 +1191,14 @@ function Game() {
         const selected = knowledgeQuizAnswers[index];
         return total + (selected === item.answerIndex ? 1 : 0);
     }, 0);
+    const finalPoints = calculateGamePoints({
+        mode: gameMode,
+        clicks,
+        elapsedSeconds: elapsedSecondsRef.current,
+        chronoScore,
+        knowledgeScore,
+        won: Boolean(won && !abandoned)
+    });
 
     return (
         <div className="game-shell flex h-screen flex-col text-slate-900">
@@ -1144,6 +1261,26 @@ function Game() {
                         </button>
                     </div>
                 </div>
+
+                {participants.length > 1 && (
+                    <div className="game-participants mx-auto mt-2 flex max-w-6xl gap-2 overflow-x-auto" aria-label="Progression des joueurs">
+                        {participants.map((participant) => {
+                            const avatarUrl = resolveMediaUrl(participant.avatar_url);
+                            const finished = participant.progress_status === 'finished';
+                            return (
+                                <div className={`game-participant${finished ? ' is-finished' : ''}`} key={participant.user_id}>
+                                    <span className="game-participant-avatar">
+                                        {avatarUrl ? <img src={avatarUrl} alt="" /> : String(participant.username || '?').slice(0, 1).toUpperCase()}
+                                    </span>
+                                    <span>
+                                        <strong>{participant.username}</strong>
+                                        <small>{finished ? 'Terminé' : 'En cours'}</small>
+                                    </span>
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
 
                 {won && (
                     <div className="mx-auto mt-2 max-w-6xl rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-800">
@@ -1265,6 +1402,50 @@ function Game() {
                     </div>
                 )}
             </div>
+
+            {showAbandonConfirm && (
+                <div className="game-modal-backdrop" role="presentation">
+                    <section className="game-modal" role="dialog" aria-modal="true" aria-labelledby="abandon-title">
+                        <p className="game-modal-kicker">Partie en cours</p>
+                        <h2 id="abandon-title">Abandonner la partie ?</h2>
+                        <p>Votre progression actuelle sera enregistrée comme une partie abandonnée.</p>
+                        <div className="game-modal-actions">
+                            <button type="button" className="is-secondary" onClick={() => setShowAbandonConfirm(false)}>Continuer à jouer</button>
+                            <button type="button" className="is-danger" onClick={handleConfirmAbandon}>Abandonner</button>
+                        </div>
+                    </section>
+                </div>
+            )}
+
+            {showResultModal && (
+                <div className="game-modal-backdrop" role="presentation">
+                    <section className="game-modal game-result-modal" role="dialog" aria-modal="true" aria-labelledby="result-title">
+                        <p className="game-modal-kicker">Résultat</p>
+                        <h2 id="result-title">Bien joué !</h2>
+                        <p className="game-result-status">
+                            {abandoned ? 'Partie abandonnée' : chronoDefeat ? 'Temps écoulé' : 'Objectif atteint'}
+                        </p>
+                        <div className="game-result-stats">
+                            <div><strong>{finalPoints}</strong><span>Points</span></div>
+                            <div><strong>{clicks}</strong><span>Clics</span></div>
+                            <div><strong>{formatClock(elapsedSecondsRef.current)}</strong><span>Temps</span></div>
+                            {isKnowledgeMode && knowledgeQuizSubmitted && <div><strong>{knowledgeScore}/{knowledgeQuiz.length}</strong><span>Quiz</span></div>}
+                        </div>
+                        {resultSaveError && <p className="game-result-error">{resultSaveError}</p>}
+                        <div className="game-modal-actions">
+                            {resultSaveError && (
+                                <button type="button" className="is-secondary" onClick={saveFinalResult} disabled={resultSaving}>Réessayer</button>
+                            )}
+                            <button type="button" className="is-secondary" onClick={handleReplay} disabled={!resultSaved || resultSaving || replaying}>
+                                {replaying ? 'Relance…' : 'Rejouer'}
+                            </button>
+                            <button type="button" onClick={handleFinalizeQuit} disabled={!resultSaved || resultSaving || replaying}>
+                                {resultSaving ? 'Enregistrement…' : resultSaved ? 'Quitter la partie' : 'Préparation…'}
+                            </button>
+                        </div>
+                    </section>
+                </div>
+            )}
         </div>
     );
 }

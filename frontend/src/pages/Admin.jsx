@@ -20,6 +20,7 @@ function Admin() {
     const [selectedReport, setSelectedReport] = useState(null);
     const [reportDetail, setReportDetail] = useState(null);
     const [updatingReport, setUpdatingReport] = useState(false);
+    const [updatingSubscriptionId, setUpdatingSubscriptionId] = useState(null);
 
     const toNumberOrNull = (value) => {
         const parsed = Number(value);
@@ -209,8 +210,23 @@ function Admin() {
         }
     };
 
+    const handleSetSubscription = async (player, tier) => {
+        setUpdatingSubscriptionId(player.id);
+        setError(null);
+        try {
+            const data = await authService.setUserSubscription(player.id, tier);
+            setSuccess(`${player.username} : ${data.message}`);
+            const usersData = await authService.getUsers();
+            setPlayers(Array.isArray(usersData.users) ? usersData.users : []);
+        } catch (err) {
+            setError(err.message || 'Impossible de modifier l’offre');
+        } finally {
+            setUpdatingSubscriptionId(null);
+        }
+    };
+
     return (
-        <div className="site-page admin-page paper border border-4 shadow-large min-h-[calc(100vh-4rem)] px-4 py-8 text-white">
+        <div className="site-page admin-page paper border-4 shadow-large min-h-[calc(100vh-4rem)] px-4 py-8 text-white">
             <div className="mx-auto max-w-4xl space-y-6">
                 <div>
                     <p className="text-sm uppercase tracking-[0.3em] text-cyan-300">Admin</p>
@@ -290,6 +306,7 @@ function Admin() {
                                         <th className="px-3 py-2 font-semibold">{t('admin.username')}</th>
                                         <th className="px-3 py-2 font-semibold">Email</th>
                                         <th className="px-3 py-2 font-semibold">{t('admin.role')}</th>
+                                        <th className="px-3 py-2 font-semibold">Offre</th>
                                         <th className="px-3 py-2 font-semibold">{t('admin.status')}</th>
                                         <th className="px-3 py-2 font-semibold">{t('admin.action')}</th>
                                     </tr>
@@ -303,6 +320,25 @@ function Admin() {
                                                 <span className="rounded-full border border-slate-700 bg-slate-950 px-2 py-0.5 text-xs uppercase tracking-[0.08em] text-cyan-300">
                                                     {player.role}
                                                 </span>
+                                            </td>
+                                            <td className="px-3 py-2">
+                                                {player.role === 'admin' ? (
+                                                    <span className="text-xs text-amber-300">Gold inclus</span>
+                                                ) : (
+                                                    <div className="flex gap-1">
+                                                        {['free', 'silver', 'gold'].map((tier) => (
+                                                            <button
+                                                                type="button"
+                                                                key={tier}
+                                                                onClick={() => handleSetSubscription(player, tier)}
+                                                                disabled={updatingSubscriptionId === player.id || player.subscription_tier === tier}
+                                                                className="rounded border border-slate-700 px-1.5 py-0.5 text-[11px] uppercase text-slate-200 disabled:opacity-40"
+                                                            >
+                                                                {tier}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                )}
                                             </td>
                                             <td className="px-3 py-2">
                                                 <span className={`rounded-full border px-2 py-0.5 text-xs font-semibold ${player.banned_at ? 'border-red-700 bg-red-950/50 text-red-300' : 'border-emerald-700 bg-emerald-950/50 text-emerald-300'}`}>
@@ -508,7 +544,7 @@ function Admin() {
                     className="antique-modal-backdrop fixed inset-0 z-50 flex items-center justify-center p-4"
                     onClick={(e) => e.target === e.currentTarget && setSelectedReport(null)}
                 >
-                    <div className="antique-modal paper border border-4 shadow-large w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto">
+                    <div className="antique-modal paper border-4 shadow-large w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto">
                         <div className="mb-4 flex items-start justify-between">
                             <div>
                                 <p className="text-xs uppercase tracking-widest text-red-400">Signalement #{selectedReport.id}</p>

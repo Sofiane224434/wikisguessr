@@ -487,6 +487,33 @@ export const getUsers = async (req, res) => {
     }
 };
 
+export const setUserSubscription = async (req, res) => {
+    try {
+        const userId = Number(req.params.userId);
+        const tier = String(req.body?.tier || '').trim().toLowerCase();
+        if (!Number.isInteger(userId) || !['free', 'silver', 'gold'].includes(tier)) {
+            return res.status(400).json({ error: 'Utilisateur ou offre invalide' });
+        }
+
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ error: 'Utilisateur introuvable' });
+        }
+        if (user.role === 'admin') {
+            return res.status(400).json({ error: 'Gold est déjà inclus pour les administrateurs' });
+        }
+
+        const updatedUser = await User.setSubscriptionByAdmin(userId, tier);
+        return res.json({
+            message: tier === 'free' ? 'Offre révoquée' : `Offre ${tier} attribuée pour un mois`,
+            user: updatedUser
+        });
+    } catch (error) {
+        console.error('setUserSubscription error:', error);
+        return res.status(500).json({ error: 'Impossible de modifier l’offre' });
+    }
+};
+
 // POST /api/auth/ban (admin)
 export const banUser = async (req, res) => {
     try {

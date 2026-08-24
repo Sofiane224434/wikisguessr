@@ -5,19 +5,20 @@ import Friend from './models/friend.model.js';
 import matchmakingService from './services/matchmaking.service.js';
 import { createSharedGame } from './controllers/game.controller.js';
 import GameRoom from './models/game-room.model.js';
+import Game from './models/game.model.js';
 
 export function setupSocket(io) {
+    const matchmakingTarget = 8;
+
     // Middleware d'authentification JWT
     io.use(async (socket, next) => {
         const token = socket.handshake.auth?.token;
         if (!token) return next(new Error('Non autorisé'));
         try {
             const decoded = jwt.verify(token, process.env.JWT_SECRET);
-            // Compatibilité : anciens tokens sans username → requête DB
-            if (!decoded.username) {
-                const rows = await query('SELECT username FROM users WHERE id = ? LIMIT 1', [decoded.id]);
-                decoded.username = rows?.[0]?.username || 'Inconnu';
-            }
+            const rows = await query('SELECT username, avatar_url FROM users WHERE id = ? LIMIT 1', [decoded.id]);
+            decoded.username = rows?.[0]?.username || decoded.username || 'Inconnu';
+            decoded.avatarUrl = rows?.[0]?.avatar_url || null;
             socket.user = decoded;
             next();
         } catch {
@@ -35,13 +36,47 @@ export function setupSocket(io) {
         });
         const payload = {
             game,
-            players: players.map(({ userId: playerId, username: playerUsername }) => ({ userId: playerId, username: playerUsername }))
+            players: players.map(({ userId: playerId, username: playerUsername, avatarUrl }) => ({
+                userId: playerId,
+                username: playerUsername,
+                avatar_url: avatarUrl
+            }))
         };
         players.forEach(({ socketId }) => io.sockets.sockets.get(socketId)?.emit('matchmaking:found', payload));
     };
 
+    const emitQueueState = (mode) => {
+        const queuedPlayers = matchmakingService.getQueuePlayers(mode);
+        const players = queuedPlayers.map(({ userId: playerId, username: playerUsername, avatarUrl }) => ({
+            userId: playerId,
+            username: playerUsername,
+            avatar_url: avatarUrl
+        }));
+        queuedPlayers.forEach(({ socketId }) => {
+            io.sockets.sockets.get(socketId)?.emit('matchmaking:updated', {
+                mode,
+                queueSize: players.length,
+                targetSize: matchmakingTarget,
+                players
+            });
+        });
+    };
+
+    const createQueuedMatch = async (mode) => {
+        const players = matchmakingService.takePlayers(mode, matchmakingTarget);
+        try {
+            await createMatch(players, mode);
+        } catch (error) {
+            players.forEach(({ socketId }) => {
+                io.sockets.sockets.get(socketId)?.emit('matchmaking:error', { error: error.message });
+            });
+            error.matchmakingNotified = true;
+            throw error;
+        }
+    };
+
     io.on('connection', (socket) => {
-        const { id: userId, username } = socket.user;
+        const { id: userId, username, avatarUrl } = socket.user;
         socket.join(`user:${userId}`);
 
         // Mettre à jour la présence à la connexion
@@ -57,6 +92,28 @@ export function setupSocket(io) {
         socket.on('room:leave', (roomId) => {
             if (!roomId) return;
             socket.leave(`room:${roomId}`);
+        });
+
+        socket.on('game:join', async (rawCode) => {
+            try {
+                const code = String(rawCode || '').trim().toUpperCase();
+                const game = await Game.findByCode(code);
+                if (!game || !(await Game.isParticipant(game.id, userId))) {
+                    throw new Error('Partie inaccessible');
+                }
+                socket.join(`game:${code}`);
+                socket.emit('game:participants', {
+                    code,
+                    participants: await Game.getParticipants(game.id)
+                });
+            } catch (error) {
+                socket.emit('game:error', { error: error.message });
+            }
+        });
+
+        socket.on('game:leave', (rawCode) => {
+            const code = String(rawCode || '').trim().toUpperCase();
+            if (code) socket.leave(`game:${code}`);
         });
 
         socket.on('disconnecting', async () => {
@@ -98,36 +155,47 @@ export function setupSocket(io) {
         socket.on('disconnect', () => {
             Friend.updateLastSeen(userId).catch(console.error);
             // Cancel any active matchmaking search
-            matchmakingService.cancelSearch(userId);
+            const search = matchmakingService.cancelSearch(userId);
+            if (search?.mode) emitQueueState(search.mode);
         });
 
         // Matchmaking: player joins queue
         socket.on('matchmaking:start', async ({ mode }) => {
             try {
-                matchmakingService.joinQueue(userId, username, socket.id, mode);
+                matchmakingService.joinQueue(userId, username, avatarUrl, socket.id, mode);
                 const queueSize = matchmakingService.getQueueSize(mode);
-                socket.emit('matchmaking:joined', { mode, queueSize });
-                if (queueSize >= 2) {
-                    await createMatch(matchmakingService.takePlayers(mode, 2), mode);
+                emitQueueState(mode);
+                if (queueSize >= matchmakingTarget) {
+                    await createQueuedMatch(mode);
                     return;
                 }
-                matchmakingService.scheduleSolo(userId, mode, 30000, async (player) => {
-                    try {
-                        await createMatch([player], mode);
-                    } catch (error) {
-                        io.sockets.sockets.get(player.socketId)?.emit('matchmaking:error', { error: error.message });
-                    }
-                });
             } catch (err) {
                 matchmakingService.cancelSearch(userId);
-                socket.emit('matchmaking:error', { error: err.message });
+                if (!err.matchmakingNotified) {
+                    socket.emit('matchmaking:error', { error: err.message });
+                }
+            }
+        });
+
+        socket.on('matchmaking:start-now', async ({ mode }) => {
+            try {
+                const queuedPlayers = matchmakingService.getQueuePlayers(mode);
+                if (!queuedPlayers.some((player) => Number(player.userId) === Number(userId))) {
+                    throw new Error('Recherche de partie introuvable');
+                }
+                await createQueuedMatch(mode);
+            } catch (err) {
+                if (!err.matchmakingNotified) {
+                    socket.emit('matchmaking:error', { error: err.message });
+                }
             }
         });
 
         // Matchmaking: player cancels search
         socket.on('matchmaking:cancel', () => {
             const canceled = matchmakingService.cancelSearch(userId);
-            socket.emit('matchmaking:canceled', { canceled });
+            if (canceled?.mode) emitQueueState(canceled.mode);
+            socket.emit('matchmaking:canceled', { canceled: Boolean(canceled) });
         });
     });
 }
