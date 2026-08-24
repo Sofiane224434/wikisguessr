@@ -1,8 +1,6 @@
 node_modules
 dist
+npm-debug.log*
+.git
 .env
-.env.*
-Dockerfile
-.dockerignore
-npm-debug.log
-coverage
+.DS_Store

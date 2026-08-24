@@ -8,7 +8,13 @@
 /dist
 /frontend/dist
 /backend/dist
+/backend/uploads/avatars/*
+!/backend/uploads/avatars/.gitkeep
 /agent
 /conception/aides
 /.env
 .env
+Test.md
+Trello-plan-creation-roadmap.md
+cahier-des-charges-template.md
+dossier-projet.md

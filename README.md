@@ -26,6 +26,45 @@ npm run dev
 Backend : http://localhost:5000
 Frontend : http://localhost:5173
 
+Simulation CLI knowledge (A -> Z simplifie) :
+
+```bash
+npm run smoke:knowledge-sim
+```
+
+Ce script :
+- se connecte,
+- cree une partie `knowledge`,
+- prend les 10 premiers liens jouables de l article de depart,
+- simule un parcours intermediaire,
+- force la fin sur la cible,
+- appelle le quiz IA et affiche les questions + choix + `sourceQuote` en console,
+- enregistre aussi le dernier quiz dans `scripts/smoke-knowledge-last.txt`.
+
+Variables optionnelles :
+- `SMOKE_BASE_URL` (defaut: `http://127.0.0.1:5000/api`)
+- `SMOKE_KNOWLEDGE_IDENTIFIER` (defaut: `autotestquiz`)
+- `SMOKE_KNOWLEDGE_PASSWORD` (defaut: `Test1234!`)
+- `SMOKE_KNOWLEDGE_MAX_STEPS` (defaut: `10`)
+- `SMOKE_KNOWLEDGE_OUTPUT_FILE` (chemin du fichier de sortie, defaut: `scripts/smoke-knowledge-last.txt`)
+
+Connexion utilisateur : l'authentification accepte l'email ou le username (champ unique) avec le mot de passe.
+Quand un utilisateur est deja connecte, les pages `/` et `/login` redirigent automatiquement vers `/lobby`.
+
+Creation de partie MVP : depuis `/lobby` (utilisateur connecte), choisir le mode avec un bouton puis cliquer sur "Lancer". Un code de partie unique est genere et la partie s'ouvre sur `/game`.
+Aleatoire MVP : les articles de depart/cible sont tires aleatoirement depuis `backend/src/data/wiki-articles.json` (pages Wikipedia connues et noms communs, ex: `Couleur`, `Science`, `Internet`).
+Boucle de jeu MVP : la page `/game` recupere le contenu Wikipedia en `mobile-html` via le backend (`/api/wiki/mobile-html`) puis le rend dans l'interface sans iframe, en gardant la navigation interne dans la boucle, les images et le chronometre.
+Mode chrono : depart a 5 minutes et 300 points. Les points descendent plus lentement: `1 point toutes les 2 secondes` (soit `10 points en 20 s`). Chaque changement d'article via un lien ajoute `+5 s` au chrono mais retire `-10 points`. La partie est perdue si le temps ou les points atteignent 0.
+
+Resultats et classement :
+- A la fin de chaque partie (victoire ou defaite chrono), le front appelle `POST /api/games/:code/result`.
+- Pour le mode connaissance, le score du quiz (0-5) est envoye en `PATCH /api/games/:code/result/knowledge-score` quand le joueur valide ses reponses.
+- `GET /api/games/history` retourne l'historique personnel des 30 dernieres parties (authentifie).
+- `GET /api/games/leaderboard?mode=all|normal|chrono|knowledge` retourne le classement global ou par mode (authentifie).
+- La page `/leaderboard` affiche le classement avec onglets par mode.
+- La page `/profile` affiche les statistiques personnelles (parties, victoires, taux) et l'historique complet.
+- La table `game_results` est creee automatiquement au premier appel (`CREATE TABLE IF NOT EXISTS`).
+
 Variables backend (`backend/.env`) :
 
 ```env
@@ -38,7 +77,56 @@ CORS_ORIGIN=http://localhost:5173
 BREVO_API_KEY=...
 BREVO_SENDER_EMAIL=...
 BREVO_SENDER_NAME=WikisGuessr
+GEMINI_API_KEY=...
+GEMINI_MODEL=gemini-3.1-flash-lite
+APP_URL=http://localhost:5173
+STRIPE_SECRET_KEY=sk_test_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+STRIPE_SILVER_PRICE_ID=price_...
+STRIPE_GOLD_PRICE_ID=price_...
 ```
+
+Paiements Stripe :
+
+- Creer dans Stripe deux prix recurrents mensuels : Silver a 2,50 EUR et Gold a 5,00 EUR, puis renseigner leurs IDs `price_...`.
+- Activer et configurer le portail client Stripe afin que les joueurs puissent modifier ou resilier leur abonnement.
+- En local, lancer `stripe listen --forward-to localhost:5000/api/subscriptions/webhook` et copier le secret `whsec_...` affiche dans `backend/.env`.
+- Dans Stripe, enregistrer en production le webhook `https://wikisguessr.azim404.com/api/subscriptions/webhook` pour les evenements `checkout.session.completed`, `customer.subscription.created`, `customer.subscription.updated` et `customer.subscription.deleted`.
+- Appliquer la migration avec `npm run migrate:payments --prefix backend` en local. Sur une base deja deployee, appliquer `backend/migrations/20260823_add_stripe_payments.sql` avant de redemarrer l'API.
+- Tester la synchronisation signee avec `npm run test:payments --prefix backend`.
+
+L'abonnement n'est jamais active depuis le navigateur : seul le webhook Stripe signe met a jour les droits en base. Les donnees bancaires restent hebergees par Stripe Checkout.
+
+Photos de profil :
+
+- Appliquer `npm run migrate:avatars --prefix backend` sur une base locale existante.
+- Les images JPEG, PNG ou WebP de 5 Mo maximum sont recadrees en 512 x 512 et converties en WebP par le backend.
+- En production Docker, le volume `avatar_data` conserve les fichiers dans `/app/uploads` entre les deploiements.
+- Le parcours complet peut etre teste avec `npm run test:avatars --prefix backend` pendant que l'API tourne sur le port 5000.
+
+Quiz IA mode connaissance :
+
+- Quand une partie `knowledge` est gagnee, le front appelle `POST /api/games/:code/knowledge-quiz`.
+- Le backend envoie un seul prompt a Gemini avec les articles intermediaires visites et demande 5 QCM.
+- Le quiz knowledge est strictement IA: si Gemini est indisponible (quota, API down, reponse invalide, config absente), l API retourne une erreur sans fallback local.
+- Si le contexte de navigation est vide (aucun article intermediaire), l API repond en `400` avec un message explicite.
+- Les questions sont forcees vers des details lisibles dans les extraits (pas de culture generale) et incluent une courte citation source (`sourceQuote`).
+
+Consommation IA (admin) :
+
+- L admin affiche les compteurs de consommation du quiz knowledge (appels, tokens prompt/generation/total, dernieres executions).
+- L admin affiche aussi le restant quotidien estime (`remainingDailyCalls`) avec une limite configurable via `GEMINI_DAILY_REQUEST_LIMIT` (500 par defaut).
+- Optionnel: configurer `GEMINI_DAILY_TOKEN_LIMIT` pour afficher un restant tokens.
+- Endpoint backend: `GET /api/games/knowledge-quiz/usage` (acces admin uniquement).
+
+Mode demo offline (examen) :
+
+- Le fichier `backend/src/data/wiki-offline-demo.json` contient les pages Wikipedia mises en cache et des matchups separes par mode (`normal`, `chrono`, `knowledge`).
+- Le mode `normal` garde son parcours de reference (`Internet` -> `Quebec`).
+- Les modes `chrono` et `knowledge` utilisent des articles differents du mode `normal`.
+- Pour forcer ce parcours sans dependre d Internet, activer `OFFLINE_DEMO_MODE=true` dans l environnement backend puis relancer l API.
+- En mode force, la creation de partie utilise les matchups du JSON et le endpoint `/api/wiki/mobile-html` sert les pages du JSON.
+- Meme sans mode force, si Wikipedia est indisponible, l API tente automatiquement ce fallback JSON.
 
 Variables frontend (`frontend/.env`, optionnel) :
 

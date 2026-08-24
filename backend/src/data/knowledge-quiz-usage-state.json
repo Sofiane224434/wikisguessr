@@ -1,0 +1,16 @@
+{
+  "totalCalls": 0,
+  "successCalls": 0,
+  "failedCalls": 0,
+  "totalPromptTokens": 0,
+  "totalCandidateTokens": 0,
+  "totalTokens": 0,
+  "dayKey": "2026-08-23",
+  "dailyCalls": 0,
+  "dailyPromptTokens": 0,
+  "dailyCandidateTokens": 0,
+  "dailyTotalTokens": 0,
+  "lastCallAt": null,
+  "lastError": "",
+  "recentCalls": []
+}

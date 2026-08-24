@@ -56,8 +56,17 @@ jobs:
               exit 1
             fi
 
-            echo "==> docker compose up -d --build"
+            echo "==> build des images"
             docker compose -p "\$PROJECT" pull db || true
+            docker compose -p "\$PROJECT" build
+
+            echo "==> demarrage de MySQL"
+            docker compose -p "\$PROJECT" up -d db
+
+            echo "==> migration de la base"
+            docker compose -p "\$PROJECT" run --rm api npm run migrate:production
+
+            echo "==> demarrage de la stack"
             docker compose -p "\$PROJECT" up -d --build --remove-orphans
 
             echo "==> docker compose ps"

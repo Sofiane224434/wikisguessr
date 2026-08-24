@@ -1,43 +1,93 @@
 import { useTranslation } from 'react-i18next';
+import { Check, ChevronDown } from 'lucide-react';
+import { useEffect, useId, useRef, useState } from 'react';
 
 const languageLabels = {
-    fr: 'FR',
-    en: 'EN',
-    es: 'ES',
-    ar: 'AR',
-    pt: 'PT',
-    zh: 'ZH',
-    de: 'DE',
-    hi: 'HI',
-    ru: 'RU',
-    ja: 'JA',
+    fr: { short: 'FR', name: 'Français' },
+    en: { short: 'EN', name: 'English' },
+    es: { short: 'ES', name: 'Español' },
+    ar: { short: 'AR', name: 'العربية' },
+    pt: { short: 'PT', name: 'Português' },
+    zh: { short: 'ZH', name: '中文' },
+    de: { short: 'DE', name: 'Deutsch' },
+    hi: { short: 'HI', name: 'हिन्दी' },
+    ru: { short: 'RU', name: 'Русский' },
+    ja: { short: 'JA', name: '日本語' },
 };
 
-function LanguageSelect() {
+function LanguageSelect({ className = '' }) {
     const { i18n } = useTranslation();
+    const [open, setOpen] = useState(false);
+    const rootRef = useRef(null);
+    const menuId = useId();
     const currentLanguage = (i18n.resolvedLanguage || i18n.language || 'fr').slice(0, 2);
     const supportedLanguages = (i18n.options?.supportedLngs || [])
         .filter((code) => code && code !== 'cimode')
         .map((code) => code.slice(0, 2));
     const uniqueLanguages = [...new Set(supportedLanguages)];
 
-    const handleLanguageChange = (event) => {
-        i18n.changeLanguage(event.target.value);
+    useEffect(() => {
+        const closeMenu = (event) => {
+            if (!rootRef.current?.contains(event.target)) {
+                setOpen(false);
+            }
+        };
+        const closeWithEscape = (event) => {
+            if (event.key === 'Escape') {
+                setOpen(false);
+            }
+        };
+
+        document.addEventListener('pointerdown', closeMenu);
+        document.addEventListener('keydown', closeWithEscape);
+        return () => {
+            document.removeEventListener('pointerdown', closeMenu);
+            document.removeEventListener('keydown', closeWithEscape);
+        };
+    }, []);
+
+    const handleLanguageChange = async (code) => {
+        await i18n.changeLanguage(code);
+        setOpen(false);
     };
 
     return (
-        <select
-            value={currentLanguage}
-            onChange={handleLanguageChange}
-            className="text-sm bg-blue-500 hover:bg-blue-400 px-2 py-1 rounded transition font-mono text-white"
-            title="Changer de langue"
-        >
-            {uniqueLanguages.map((code) => (
-                <option key={code} value={code} className="text-black">
-                    {languageLabels[code] || code.toUpperCase()}
-                </option>
-            ))}
-        </select>
+        <div ref={rootRef} className={`language-picker ${className}`}>
+            <button
+                type="button"
+                className="language-picker-trigger"
+                onClick={() => setOpen((value) => !value)}
+                aria-haspopup="listbox"
+                aria-expanded={open}
+                aria-controls={menuId}
+                title="Changer de langue"
+            >
+                <span>{languageLabels[currentLanguage]?.short || currentLanguage.toUpperCase()}</span>
+                <ChevronDown size={15} aria-hidden="true" />
+            </button>
+            {open && (
+                <div id={menuId} className="language-picker-menu" role="listbox" aria-label="Choisir la langue">
+                    {uniqueLanguages.map((code) => {
+                        const language = languageLabels[code] || { short: code.toUpperCase(), name: code.toUpperCase() };
+                        const selected = code === currentLanguage;
+                        return (
+                            <button
+                                key={code}
+                                type="button"
+                                role="option"
+                                aria-selected={selected}
+                                className={`language-picker-option${selected ? ' is-selected' : ''}`}
+                                onClick={() => handleLanguageChange(code)}
+                            >
+                                <span className="language-picker-code">{language.short}</span>
+                                <span>{language.name}</span>
+                                {selected && <Check size={16} aria-hidden="true" />}
+                            </button>
+                        );
+                    })}
+                </div>
+            )}
+        </div>
     );
 }
 

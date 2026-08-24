@@ -6,6 +6,7 @@ import LanguageDetector from 'i18next-browser-languagedetector';
 import HttpBackend from 'i18next-http-backend';
 import { initReactI18next } from 'react-i18next';
 import { BrowserRouter } from 'react-router-dom';
+import { AuthProvider } from './context/Authcontext.jsx';
 import App from './App.jsx';
 import './index.css';
 
@@ -17,9 +18,14 @@ i18n
     backend: {
       loadPath: '/locales/{{lng}}/translation.json',
     },
+    lng: 'fr',
     load: 'languageOnly',
     fallbackLng: 'fr',
-    supportedLngs: ['fr', 'en'],
+    supportedLngs: ['fr', 'en', 'es', 'ar', 'pt', 'zh', 'de', 'hi', 'ru', 'ja'],
+    detection: {
+      order: ['localStorage', 'cookie'],
+      caches: ['localStorage', 'cookie'],
+    },
     interpolation: {
       escapeValue: false,
     },
@@ -28,7 +34,9 @@ i18n
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <BrowserRouter>
-      <App />
+      <AuthProvider>
+        <App />
+      </AuthProvider>
     </BrowserRouter>
   </React.StrictMode>
 );
