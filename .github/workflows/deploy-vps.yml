@@ -89,6 +89,16 @@ jobs:
             echo "==> configuration du proxy public"
             sudo -n install -m 0644 deploy/nginx/wikisguessr.azim404.com.conf \
               /etc/nginx/sites-available/wikisguessr.azim404.com
+            canonical_config="/etc/nginx/sites-available/wikisguessr.azim404.com"
+            for enabled_config in /etc/nginx/sites-enabled/* /etc/nginx/conf.d/*.conf; do
+              [ -e "\$enabled_config" ] || [ -L "\$enabled_config" ] || continue
+              if sudo -n grep -qE 'server_name[[:space:]]+wikisguessr\.azim404\.com' "\$enabled_config"; then
+                resolved_config="\$(readlink -f "\$enabled_config")"
+                if [ "\$resolved_config" != "\$canonical_config" ]; then
+                  sudo -n rm -f "\$enabled_config"
+                fi
+              fi
+            done
             sudo -n rm -f \
               /etc/nginx/sites-enabled/wikisguessr.azim404.com \
               /etc/nginx/sites-enabled/wikisguessr.azim404.com.conf
@@ -123,4 +133,4 @@ jobs:
           exit "$status"
 
       - name: Verify public endpoint
-        run: curl --fail --silent --show-error https://wikisguessr.azim404.com/api/site-state
+        run: curl --fail --silent --show-error "https://wikisguessr.azim404.com/api/site-state?deployment=${{ github.sha }}"
