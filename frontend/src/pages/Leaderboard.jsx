@@ -7,13 +7,6 @@ const MODES = [
     { key: 'knowledge', label: 'Connaissance' }
 ];
 
-const formatTime = (seconds) => {
-    if (seconds === null || seconds === undefined) return '—';
-    const m = String(Math.floor(Number(seconds) / 60)).padStart(2, '0');
-    const s = String(Number(seconds) % 60).padStart(2, '0');
-    return `${m}:${s}`;
-};
-
 const rankBadgeClass = (rank) => {
     if (rank === 1) return 'bg-amber-100 text-amber-800 border-amber-300';
     if (rank === 2) return 'bg-slate-100 text-slate-700 border-slate-300';
@@ -81,9 +74,6 @@ function Leaderboard() {
             return;
         }
 
-        setLoading(true);
-        setError(null);
-
         gameService.getLeaderboard(activeMode)
             .then((res) => {
                 setData((prev) => ({ ...prev, [activeMode]: res.leaderboard || [] }));
@@ -94,6 +84,12 @@ function Leaderboard() {
             .finally(() => setLoading(false));
     }, [activeMode, data]);
 
+    const changeMode = (mode) => {
+        setActiveMode(mode);
+        setError(null);
+        setLoading(!data[mode]);
+    };
+
     return (
         <div className="site-page paper border border-3 shadow-large mx-auto w-full max-w-4xl px-4 py-10">
             <h1 className="mb-6 text-3xl font-bold text-slate-900">Classement</h1>
@@ -103,7 +99,7 @@ function Leaderboard() {
                     <button
                         key={m.key}
                         type="button"
-                        onClick={() => setActiveMode(m.key)}
+                        onClick={() => changeMode(m.key)}
                         className={`rounded-full px-4 py-1.5 text-sm font-semibold transition ${activeMode === m.key ? 'bg-slate-900 text-white' : 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50'}`}
                     >
                         {m.label}

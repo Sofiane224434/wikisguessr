@@ -22,12 +22,17 @@ import { stripeWebhook } from './src/controllers/subscription.controller.js';
 
 const app = express();
 const httpServer = createServer(app);
-const allowedOrigins = [
+const configuredOrigins = (process.env.CORS_ORIGIN || '')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+const allowedOrigins = [...new Set([
+    ...configuredOrigins,
     'http://localhost:5173',
     'http://127.0.0.1:5173',
     'http://localhost:3009',
     'http://127.0.0.1:3009'
-];
+])];
 const io = new Server(httpServer, {
     cors: {
         origin: allowedOrigins,

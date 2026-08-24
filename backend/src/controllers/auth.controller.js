@@ -112,7 +112,7 @@ const sendResetPasswordEmail = async ({ email, username, resetUrl }) => {
 // POST /api/auth/register
 export const register = async (req, res) => {
     try {
-        const { username, email, password, confirmPassword, role, redirectPath } = req.body;
+        const { username, email, password, confirmPassword, redirectPath } = req.body;
         if (!username || !email || !password) {
             return res.status(400).json({ error: 'Username, email et mot de passe requis' });
         }
@@ -136,12 +136,11 @@ export const register = async (req, res) => {
             username,
             email,
             password,
-            role: role === 'admin' ? 'admin' : 'user',
+            role: 'user',
             emailVerified: 0,
             verificationToken,
             verificationExpiresAt
         });
-
         const appUrl = resolveAppUrl(req);
         const verificationUrl = buildVerificationUrl(
             verificationToken,

@@ -7,16 +7,13 @@ function VerifyEmail() {
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
     const { login } = useAuth();
-    const [status, setStatus] = useState('Verification de ton adresse mail...');
-    const [error, setError] = useState(null);
+    const token = searchParams.get('token');
+    const next = searchParams.get('next') || '/';
+    const [status, setStatus] = useState(token ? 'Verification de ton adresse mail...' : null);
+    const [error, setError] = useState(token ? null : 'Token de verification manquant.');
 
     useEffect(() => {
-        const token = searchParams.get('token');
-        const next = searchParams.get('next') || '/';
-
         if (!token) {
-            setStatus(null);
-            setError('Token de verification manquant.');
             return;
         }
 
@@ -30,7 +27,7 @@ function VerifyEmail() {
                 setStatus(null);
                 setError(err.message || 'Impossible de verifier l\'adresse mail.');
             });
-    }, [login, navigate, searchParams]);
+    }, [login, navigate, next, token]);
 
     return (
         <div className="login-container paper border border-2 shadow-large">

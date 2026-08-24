@@ -8,6 +8,7 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node server.js",
     "dev": "node server.js",
+    "migrate:production": "node scripts/migrate-production.mjs",
     "migrate:subscriptions": "node scripts/run-migration.mjs 20260823_add_subscriptions.sql",
     "migrate:payments": "node scripts/run-migration.mjs 20260823_add_stripe_payments.sql",
     "migrate:avatars": "node scripts/run-migration.mjs 20260823_add_user_avatars.sql",
