@@ -87,6 +87,11 @@ jobs:
             docker compose -f docker-compose.yml -p "\$PROJECT" exec -T api node --input-type=module -e \
               "const response = await fetch('http://app/api/site-state'); console.log('APP_PROXY_STATUS=' + response.status); if (!response.ok) process.exit(1);"
 
+            phase="verification du port applicatif"
+            echo "==> verification du port applicatif"
+            docker inspect wikisguessr-app --format 'APP_STATE={{.State.Status}} APP_PORTS={{json .NetworkSettings.Ports}} APP_BINDINGS={{json .HostConfig.PortBindings}}'
+            curl --fail --silent --show-error http://127.0.0.1:3010/api/site-state > /dev/null
+
             phase="configuration du proxy public"
             echo "==> configuration du proxy public"
             sudo -n install -m 0644 deploy/nginx/wikisguessr.azim404.com.conf \
