@@ -35,15 +35,18 @@ const requiredIndexes = new Map([
 ]);
 
 try {
+    const schema = await fs.readFile(new URL('../schema.sql', import.meta.url), 'utf8');
+    const tableStatements = schema.replace(
+        /^CREATE DATABASE[^;]+;\s*USE[^;]+;\s*/i,
+        ''
+    );
+    await connection.query(tableStatements);
+
     const [columnRows] = await connection.execute(
         'SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?',
         [database, 'users']
     );
     const existingColumns = new Set(columnRows.map(({ COLUMN_NAME }) => COLUMN_NAME));
-
-    if (existingColumns.size === 0) {
-        throw new Error(`La table ${database}.users est absente`);
-    }
 
     for (const [column, definition] of requiredUserColumns) {
         if (!existingColumns.has(column)) {
@@ -71,13 +74,6 @@ try {
             console.log(`Index ajoute: users.${index}`);
         }
     }
-
-    const schema = await fs.readFile(new URL('../schema.sql', import.meta.url), 'utf8');
-    const tableStatements = schema.replace(
-        /^CREATE DATABASE[^;]+;\s*USE[^;]+;\s*/i,
-        ''
-    );
-    await connection.query(tableStatements);
 
     console.log('Migration de production appliquee');
 } finally {
