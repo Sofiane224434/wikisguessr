@@ -93,9 +93,9 @@ jobs:
             phase="verification de l API"
             echo "==> verification de l API"
             docker compose -f docker-compose.yml -p "\$PROJECT" exec -T api node --input-type=module -e \
-              "const response = await fetch('http://127.0.0.1:5000/api/site-state'); console.log('API_HEALTH_STATUS=' + response.status); if (!response.ok) process.exit(1);"
+              "for (let attempt = 1; attempt <= 30; attempt++) { try { const response = await fetch('http://127.0.0.1:5000/api/site-state'); console.log('API_HEALTH_STATUS=' + response.status); if (response.ok) process.exit(0); } catch {} await new Promise(resolve => setTimeout(resolve, 1000)); } process.exit(1);"
             docker compose -f docker-compose.yml -p "\$PROJECT" exec -T api node --input-type=module -e \
-              "const response = await fetch('http://app/api/site-state'); console.log('APP_PROXY_STATUS=' + response.status); if (!response.ok) process.exit(1);"
+              "for (let attempt = 1; attempt <= 30; attempt++) { try { const response = await fetch('http://app/api/site-state'); console.log('APP_PROXY_STATUS=' + response.status); if (response.ok) process.exit(0); } catch {} await new Promise(resolve => setTimeout(resolve, 1000)); } process.exit(1);"
 
             phase="verification du port applicatif"
             echo "==> verification du port applicatif"
