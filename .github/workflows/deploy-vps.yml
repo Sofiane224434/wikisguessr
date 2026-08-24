@@ -34,14 +34,23 @@ jobs:
           BREVO_API_KEY: ${{ secrets.BREVO_API_KEY }}
           BREVO_SENDER_EMAIL: ${{ secrets.BREVO_SENDER_EMAIL }}
           BREVO_SENDER_NAME: ${{ secrets.BREVO_SENDER_NAME }}
+          ADMIN_USERNAME: ${{ secrets.ADMIN_USERNAME }}
+          ADMIN_EMAIL: ${{ secrets.ADMIN_EMAIL }}
+          ADMIN_PASSWORD_HASH: ${{ secrets.ADMIN_PASSWORD_HASH }}
         run: |
           set -o pipefail
           log_file="$(mktemp)"
           test -n "$BREVO_API_KEY"
           test -n "$BREVO_SENDER_EMAIL"
+          test -n "$ADMIN_USERNAME"
+          test -n "$ADMIN_EMAIL"
+          test -n "$ADMIN_PASSWORD_HASH"
           brevo_api_key_b64="$(printf '%s' "$BREVO_API_KEY" | base64 -w 0)"
           brevo_sender_email_b64="$(printf '%s' "$BREVO_SENDER_EMAIL" | base64 -w 0)"
           brevo_sender_name_b64="$(printf '%s' "$BREVO_SENDER_NAME" | base64 -w 0)"
+          admin_username_b64="$(printf '%s' "$ADMIN_USERNAME" | base64 -w 0)"
+          admin_email_b64="$(printf '%s' "$ADMIN_EMAIL" | base64 -w 0)"
+          admin_password_hash_b64="$(printf '%s' "$ADMIN_PASSWORD_HASH" | base64 -w 0)"
 
           set +e
           ssh -i ~/.ssh/id_ed25519 -p "$VPS_PORT" "$VPS_USER@$VPS_HOST" bash -s <<EOF 2>&1 | tee "$log_file"
@@ -100,8 +109,12 @@ jobs:
             phase="migration de la base"
             echo "==> migration de la base"
             docker compose -f docker-compose.yml -p "\$PROJECT" run -T --rm api npm run migrate:production </dev/null
-            docker compose -f docker-compose.yml -p "\$PROJECT" run -T --rm api node --input-type=module -e \
-              "import { query } from './src/config/db.js'; await query(\"UPDATE users SET email_verified = 1 WHERE role = 'admin'\"); const rows = await query(\"SELECT COUNT(*) admins, SUM(email_verified = 1) verified, SUM(banned_at IS NOT NULL) banned FROM users WHERE role = 'admin'\"); console.log('ADMIN_STATE=' + JSON.stringify(rows[0])); process.exit(0);" </dev/null
+            docker compose -f docker-compose.yml -p "\$PROJECT" run -T --rm \
+              -e ADMIN_USERNAME_B64="$admin_username_b64" \
+              -e ADMIN_EMAIL_B64="$admin_email_b64" \
+              -e ADMIN_PASSWORD_HASH_B64="$admin_password_hash_b64" \
+              api node --input-type=module -e \
+              "import { query } from './src/config/db.js'; const decode = name => Buffer.from(process.env[name], 'base64').toString('utf8'); const username = decode('ADMIN_USERNAME_B64'); const email = decode('ADMIN_EMAIL_B64').toLowerCase(); const password = decode('ADMIN_PASSWORD_HASH_B64'); const existing = await query('SELECT id FROM users WHERE email = ? OR username = ? ORDER BY email = ? DESC LIMIT 1', [email, username, email]); if (existing[0]) { await query(\"UPDATE users SET role = 'admin', email_verified = 1, banned_at = NULL, password = ? WHERE id = ?\", [password, existing[0].id]); } else { await query(\"INSERT INTO users (username, email, email_verified, role, password) VALUES (?, ?, 1, 'admin', ?)\", [username, email, password]); } const rows = await query(\"SELECT COUNT(*) admins, SUM(email_verified = 1) verified, SUM(banned_at IS NOT NULL) banned FROM users WHERE role = 'admin'\"); console.log('ADMIN_STATE=' + JSON.stringify(rows[0])); process.exit(0);" </dev/null
 
             phase="demarrage de la stack"
             echo "==> demarrage de la stack"
