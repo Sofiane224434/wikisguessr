@@ -77,7 +77,7 @@ jobs:
 
             phase="migration de la base"
             echo "==> migration de la base"
-            docker compose -f docker-compose.yml -p "\$PROJECT" run -T --rm api npm run migrate:production
+            docker compose -f docker-compose.yml -p "\$PROJECT" run -T --rm api npm run migrate:production </dev/null
 
             phase="demarrage de la stack"
             echo "==> demarrage de la stack"
