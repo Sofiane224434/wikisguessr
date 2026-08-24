@@ -85,6 +85,19 @@ jobs:
             docker compose -f docker-compose.yml -p "\$PROJECT" exec -T api node --input-type=module -e \
               "const response = await fetch('http://127.0.0.1:5000/api/site-state'); console.log('API_HEALTH_STATUS=' + response.status); if (!response.ok) process.exit(1);"
 
+            phase="configuration du proxy public"
+            echo "==> configuration du proxy public"
+            sudo -n install -m 0644 deploy/nginx/wikisguessr.azim404.com.conf \
+              /etc/nginx/sites-available/wikisguessr.azim404.com
+            sudo -n ln -sfn /etc/nginx/sites-available/wikisguessr.azim404.com \
+              /etc/nginx/sites-enabled/wikisguessr.azim404.com
+            sudo -n nginx -t
+            sudo -n systemctl reload nginx
+
+            phase="verification HTTPS publique"
+            echo "==> verification HTTPS publique"
+            curl --fail --silent --show-error https://wikisguessr.azim404.com/api/site-state > /dev/null
+
             echo "==> docker compose ps"
             docker compose -f docker-compose.yml -p "\$PROJECT" ps
 
