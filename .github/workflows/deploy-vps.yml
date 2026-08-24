@@ -128,6 +128,8 @@ jobs:
               "for (let attempt = 1; attempt <= 30; attempt++) { try { const response = await fetch('http://127.0.0.1:5000/api/site-state'); console.log('API_HEALTH_STATUS=' + response.status); if (response.ok) process.exit(0); } catch {} await new Promise(resolve => setTimeout(resolve, 1000)); } process.exit(1);" </dev/null
             docker compose -f docker-compose.yml -p "\$PROJECT" exec -T api node --input-type=module -e \
               "for (let attempt = 1; attempt <= 30; attempt++) { try { const response = await fetch('http://app/api/site-state'); console.log('APP_PROXY_STATUS=' + response.status); if (response.ok) process.exit(0); } catch {} await new Promise(resolve => setTimeout(resolve, 1000)); } process.exit(1);" </dev/null
+            docker compose -f docker-compose.yml -p "\$PROJECT" exec -T api node --input-type=module -e \
+              "const headers = { 'api-key': process.env.BREVO_API_KEY, accept: 'application/json' }; const account = await fetch('https://api.brevo.com/v3/account', { headers }); const sendersResponse = await fetch('https://api.brevo.com/v3/senders', { headers }); const data = sendersResponse.ok ? await sendersResponse.json() : {}; const senderActive = (data.senders || []).some(sender => sender.email?.toLowerCase() === process.env.BREVO_SENDER_EMAIL?.toLowerCase() && sender.active); console.log('BREVO_API_STATUS=' + account.status + ' BREVO_SENDER_ACTIVE=' + senderActive); if (!account.ok || !sendersResponse.ok || !senderActive) process.exit(1);" </dev/null
 
             phase="verification du port applicatif"
             echo "==> verification du port applicatif"
@@ -169,7 +171,7 @@ jobs:
 
           status=${PIPESTATUS[0]}
           set -e
-          safe_state="$(grep -E 'BREVO_CONFIG=|ADMIN_STATE=' "$log_file" | tail -n 2 | tr '\n' ' ')"
+          safe_state="$(grep -E 'BREVO_CONFIG=|ADMIN_STATE=|BREVO_API_STATUS=' "$log_file" | tail -n 3 | tr '\n' ' ')"
           echo "::notice title=Configuration production::$safe_state"
           if [ "$status" -ne 0 ]; then
             diagnostic="$(tail -n 30 "$log_file" | tr '\n' ' ' | cut -c1-4000)"
