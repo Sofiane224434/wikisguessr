@@ -213,7 +213,20 @@ function Lobby() {
         setShowModeModal(false);
 
         try {
+            if (myRoom?.id && Number(myRoom.owner_id) === Number(user?.id)) {
+                setSearchingWithRoom(true);
+                setMatchmakingPlayers(members.map((member) => ({
+                    userId: member.id,
+                    username: member.username,
+                    avatar_url: member.avatar_url
+                })));
+                setMatchmakingTarget(8);
+                setIsSearching(true);
+                return;
+            }
+
             // Start matchmaking via Socket.io
+            setSearchingWithRoom(false);
             socketRef.current.emit('matchmaking:start', { mode });
             setIsSearching(true);
             setMatchmakingPlayers([]);
@@ -316,17 +329,6 @@ function Lobby() {
         } catch (err) {
             setError(err.message || 'Impossible de quitter le salon');
         }
-    };
-
-    const handleStartRoomGame = async () => {
-        setSearchingWithRoom(true);
-        setMatchmakingPlayers(members.map((member) => ({
-            userId: member.id,
-            username: member.username,
-            avatar_url: member.avatar_url
-        })));
-        setMatchmakingTarget(8);
-        setIsSearching(true);
     };
 
     const handleRemoveFriend = async (friendId) => {
@@ -544,11 +546,6 @@ function Lobby() {
                                 </button>
 
                                 <div className="lobby-search-row">
-                                    {Number(myRoom.owner_id) === Number(user?.id) && (
-                                        <button type="button" className="paper-btn lobby-primary-button" onClick={handleStartRoomGame} disabled={loading}>
-                                            <Play size={17} aria-hidden="true" /> {t('lobby.start_with_room')}
-                                        </button>
-                                    )}
                                     <button type="button" className="lobby-icon-button is-danger" onClick={handleLeaveRoom} title={t('lobby.leave_room')}>
                                         <LogOut size={17} aria-hidden="true" />
                                     </button>
