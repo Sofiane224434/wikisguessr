@@ -1,6 +1,6 @@
 /* 1 seule ligne ! */
-@import "tailwindcss";
 @import "papercss/dist/paper.min.css";
+@import "tailwindcss";
 
 /* Scrollbar bibliothèque partagé par toutes les pages et zones défilantes. */
 * {
