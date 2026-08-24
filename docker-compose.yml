@@ -3,8 +3,6 @@ services:
     image: mysql:8
     container_name: wikisguessr-db
     restart: unless-stopped
-    ports:
-      - "127.0.0.1:3306:3306"
     environment:
       MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
       MYSQL_DATABASE: ${DB_NAME}
@@ -66,17 +64,6 @@ services:
       - api
     ports:
       - "127.0.0.1:3009:80"
-    networks:
-      - wikisnet
-
-  phpmyadmin:
-    image: phpmyadmin
-    restart: always
-    ports:
-      - "8000:80"
-    environment:
-      PMA_HOST: db
-      PMA_ARBITRARY: 1
     networks:
       - wikisnet
 
