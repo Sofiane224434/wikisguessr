@@ -89,6 +89,9 @@ jobs:
             echo "==> configuration du proxy public"
             sudo -n install -m 0644 deploy/nginx/wikisguessr.azim404.com.conf \
               /etc/nginx/sites-available/wikisguessr.azim404.com
+            sudo -n rm -f \
+              /etc/nginx/sites-enabled/wikisguessr.azim404.com \
+              /etc/nginx/sites-enabled/wikisguessr.azim404.com.conf
             sudo -n ln -sfn /etc/nginx/sites-available/wikisguessr.azim404.com \
               /etc/nginx/sites-enabled/wikisguessr.azim404.com
             sudo -n nginx -t
@@ -118,3 +121,6 @@ jobs:
             } >> "$GITHUB_STEP_SUMMARY"
           fi
           exit "$status"
+
+      - name: Verify public endpoint
+        run: curl --fail --silent --show-error https://wikisguessr.azim404.com/api/site-state
