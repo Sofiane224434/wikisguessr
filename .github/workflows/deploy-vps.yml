@@ -45,7 +45,7 @@ jobs:
 
             APP_DIR="$VPS_APP_DIR"
             PROJECT="$VPS_COMPOSE_PROJECT"
-            printf 'host=%s machine=%s addresses=%s\n' "\$(hostname)" "\$(cat /etc/machine-id)" "\$(hostname -I)" > /tmp/wikisguessr-deploy-target
+            printf 'sha=${{ github.sha }} host=%s machine=%s addresses=%s\n' "\$(hostname)" "\$(cat /etc/machine-id)" "\$(hostname -I)" > /tmp/wikisguessr-deploy-target
 
             if [ ! -d "\$APP_DIR/.git" ]; then
               echo "Cloning repository into \$APP_DIR"
@@ -138,6 +138,8 @@ jobs:
 
           status=${PIPESTATUS[0]}
           set -e
+          trace="$(grep -E '==>|wikisguessr-|APP_|DEPLOY_|deploy-container|deploy-context' "$log_file" | tail -n 40 | tr '\n' ' ' | cut -c1-4000)"
+          echo "::notice title=Trace du deploiement::$trace"
           if [ "$status" -ne 0 ]; then
             diagnostic="$(tail -n 30 "$log_file" | tr '\n' ' ' | cut -c1-4000)"
             echo "::error title=Echec du deploiement::$diagnostic"
