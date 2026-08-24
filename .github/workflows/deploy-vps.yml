@@ -78,7 +78,8 @@ jobs:
 
             phase="demarrage de la stack"
             echo "==> demarrage de la stack"
-            docker compose -f docker-compose.yml -p "\$PROJECT" up -d --build --force-recreate --no-deps api app
+            docker rm -f wikisguessr-api wikisguessr-app 2>/dev/null || true
+            docker compose -f docker-compose.yml -p "\$PROJECT" up -d --build --no-deps api app
             docker compose -f docker-compose.yml -p "\$PROJECT" up -d --remove-orphans
 
             phase="verification de l API"
