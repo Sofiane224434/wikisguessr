@@ -103,7 +103,7 @@ jobs:
               /etc/nginx/sites-enabled/wikisguessr.azim404.com \
               /etc/nginx/sites-enabled/wikisguessr.azim404.com.conf
             sudo -n ln -sfn /etc/nginx/sites-available/wikisguessr.azim404.com \
-              /etc/nginx/sites-enabled/wikisguessr.azim404.com
+              /etc/nginx/sites-enabled/wikisguessr.azim404.com.conf
             sudo -n nginx -t
             sudo -n systemctl reload nginx
 
