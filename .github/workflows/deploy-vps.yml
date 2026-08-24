@@ -37,7 +37,9 @@ jobs:
 
           set +e
           ssh -i ~/.ssh/id_ed25519 -p "$VPS_PORT" "$VPS_USER@$VPS_HOST" bash -s <<EOF 2>&1 | tee "$log_file"
-            set -euo pipefail
+            set -Eeuo pipefail
+            phase="initialisation"
+            trap 'status=\$?; echo "DEPLOY_FAILURE phase=\$phase line=\$LINENO status=\$status"; exit \$status' ERR
 
             APP_DIR="$VPS_APP_DIR"
             PROJECT="$VPS_COMPOSE_PROJECT"
@@ -50,6 +52,7 @@ jobs:
 
             cd "\$APP_DIR"
 
+            phase="mise a jour Git"
             echo "==> git fetch + reset"
             git fetch --all --prune
             git reset --hard origin/main
@@ -60,16 +63,20 @@ jobs:
               exit 1
             fi
 
+            phase="build des images"
             echo "==> build des images"
             docker compose -p "\$PROJECT" pull db || true
             docker compose -p "\$PROJECT" build
 
+            phase="demarrage de MySQL"
             echo "==> demarrage de MySQL"
             docker compose -p "\$PROJECT" up -d db
 
+            phase="migration de la base"
             echo "==> migration de la base"
             docker compose -p "\$PROJECT" run --rm api npm run migrate:production
 
+            phase="demarrage de la stack"
             echo "==> demarrage de la stack"
             docker compose -p "\$PROJECT" up -d --build --remove-orphans
 
@@ -83,6 +90,8 @@ jobs:
           status=${PIPESTATUS[0]}
           set -e
           if [ "$status" -ne 0 ]; then
+            diagnostic="$(tail -n 30 "$log_file" | tr '\n' ' ' | cut -c1-4000)"
+            echo "::error title=Echec du deploiement::$diagnostic"
             {
               echo "### Echec du deploiement"
               echo '```text'
