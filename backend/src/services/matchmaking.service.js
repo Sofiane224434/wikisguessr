@@ -5,7 +5,7 @@
 
 class MatchmakingService {
     constructor() {
-        // Queue structure: { mode: { [userId]: {userId, username, socketId, joinedAt} } }
+        // Queue structure: { mode: { [userId]: {userId, username, avatarUrl, socketId, joinedAt} } }
         this.queues = {
             normal: {},
             chrono: {},
@@ -20,7 +20,7 @@ class MatchmakingService {
     /**
      * Add player to queue
      */
-    joinQueue(userId, username, socketId, mode) {
+    joinQueue(userId, username, avatarUrl, socketId, mode) {
         if (!this.queues[mode]) {
             throw new Error(`Mode invalide: ${mode}`);
         }
@@ -31,6 +31,7 @@ class MatchmakingService {
         this.queues[mode][userId] = {
             userId,
             username,
+            avatarUrl,
             socketId,
             joinedAt: Date.now()
         };
@@ -60,7 +61,7 @@ class MatchmakingService {
         }
     }
 
-    takePlayers(mode, count = 2) {
+    takePlayers(mode, count = 8) {
         const players = Object.values(this.queues[mode] || {}).slice(0, count);
         players.forEach(({ userId }) => {
             this.leaveQueue(userId, mode);
@@ -98,15 +99,14 @@ class MatchmakingService {
      * Cancel active search for a player
      */
     cancelSearch(userId) {
-        if (this.searchTimeouts.has(userId)) {
-            const stored = this.searchTimeouts.get(userId);
-            this.clearTimeout(userId);
-            
-            // Leave queue
-            this.leaveAllQueues(userId);
-            return true;
+        for (const mode of Object.keys(this.queues)) {
+            if (this.queues[mode][userId]) {
+                this.clearTimeout(userId);
+                this.leaveQueue(userId, mode);
+                return { mode };
+            }
         }
-        return false;
+        return null;
     }
 
     /**

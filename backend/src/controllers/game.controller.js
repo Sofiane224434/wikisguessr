@@ -345,11 +345,14 @@ export const generateKnowledgeQuizForGame = async (req, res) => {
             return normalized !== normalizeArticle(game.start_article)
                 && normalized !== normalizeArticle(game.target_article);
         });
+        const quizArticles = intermediateVisitedArticles.length > 0
+            ? intermediateVisitedArticles
+            : visitedArticles;
 
         const quiz = await generateKnowledgeQuiz({
             startArticle: game.start_article,
             targetArticle: game.target_article,
-            visitedArticles: intermediateVisitedArticles,
+            visitedArticles: quizArticles,
             questionCount: 5
         });
 
@@ -399,6 +402,9 @@ export const submitGameResult = async (req, res) => {
             won
         });
 
+        const participants = await Game.getParticipants(game.id);
+        req.app.locals.io?.to(`game:${code}`).emit('game:participants', { code, participants });
+
         return res.json({ ok: true });
     } catch (error) {
         console.error('submitGameResult error:', error);
@@ -429,6 +435,9 @@ export const updateKnowledgeScore = async (req, res) => {
             userId: req.user.id,
             knowledgeScore
         });
+
+        const participants = await Game.getParticipants(game.id);
+        req.app.locals.io?.to(`game:${code}`).emit('game:participants', { code, participants });
 
         return res.json({ ok: true });
     } catch (error) {

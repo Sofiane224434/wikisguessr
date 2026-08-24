@@ -11,6 +11,7 @@ import {
 	updateProfile,
 	updateAvatar,
 	deleteAvatar,
+	setUserSubscription,
 	banUser,
 	unbanUser
 } from '../controllers/auth.controller.js';
@@ -40,5 +41,6 @@ router.get('/users', authMiddleware, getUsers);
 // Routes admin
 router.post('/ban', authMiddleware, adminOnly, banUser);
 router.post('/unban', authMiddleware, adminOnly, unbanUser);
+router.patch('/users/:userId/subscription', authMiddleware, adminOnly, setUserSubscription);
 
 export default router;

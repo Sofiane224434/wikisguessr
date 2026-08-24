@@ -61,11 +61,22 @@ LIMIT 1
 
     async listForAdmin() {
         const sql = `
-SELECT id, username, email, role, email_verified, created_at
+SELECT id, username, email, role, email_verified, subscription_tier,
+       subscription_expires_at, banned_at, created_at
 FROM users
 ORDER BY created_at DESC, id DESC
 `;
         return query(sql);
+    },
+
+    async setSubscriptionByAdmin(id, tier) {
+        const expiresAtExpression = tier === 'free' ? 'NULL' : 'DATE_ADD(NOW(), INTERVAL 1 MONTH)';
+        await query(`
+UPDATE users
+SET subscription_tier = ?, subscription_expires_at = ${expiresAtExpression}
+WHERE id = ? AND role <> 'admin'
+`, [tier, id]);
+        return this.findById(id);
     },
 
     // Créer un utilisateur

@@ -25,12 +25,13 @@ router.post('/join', authMiddleware, (req, res) => {
         }
 
         // Find this user's socket ID
-        const socket = io.sockets.sockets.get(req.user.id);
+        const socket = [...io.sockets.sockets.values()]
+            .find((candidate) => Number(candidate.user?.id) === Number(userId));
         if (!socket) {
             return res.status(400).json({ error: 'Socket not connected' });
         }
 
-        matchmakingService.joinQueue(userId, username, socket.id, mode);
+        matchmakingService.joinQueue(userId, username, null, socket.id, mode);
         const queueSize = matchmakingService.getQueueSize(mode);
 
         res.json({
@@ -56,7 +57,7 @@ router.post('/cancel', authMiddleware, (req, res) => {
         res.json({
             success: true,
             message: canceled ? 'Recherche annulée' : 'Aucune recherche active',
-            canceled
+            canceled: Boolean(canceled)
         });
     } catch (err) {
         console.error('[Matchmaking] Error canceling search:', err);

@@ -7,6 +7,7 @@ const DEFAULT_MODEL = 'gemini-3.1-flash-lite';
 const DEFAULT_QUESTION_COUNT = 5;
 const MAX_USAGE_HISTORY = 25;
 const DEFAULT_DAILY_REQUEST_LIMIT = 500;
+const GEMINI_REQUEST_TIMEOUT_MS = 15000;
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -451,29 +452,46 @@ export const generateKnowledgeQuiz = async ({
         visitedArticles: cleanedVisitedArticles
     });
 
-    const response = await fetch(
-        `${GEMINI_API_BASE_URL}/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`,
-        {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                contents: [
-                    {
-                        role: 'user',
-                        parts: [{ text: prompt }]
+    let response;
+    try {
+        response = await fetch(
+            `${GEMINI_API_BASE_URL}/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`,
+            {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                signal: AbortSignal.timeout(GEMINI_REQUEST_TIMEOUT_MS),
+                body: JSON.stringify({
+                    contents: [
+                        {
+                            role: 'user',
+                            parts: [{ text: prompt }]
+                        }
+                    ],
+                    generationConfig: {
+                        temperature: 0.55,
+                        topP: 0.95,
+                        maxOutputTokens: 1200,
+                        responseMimeType: 'application/json'
                     }
-                ],
-                generationConfig: {
-                    temperature: 0.55,
-                    topP: 0.95,
-                    maxOutputTokens: 1200,
-                    responseMimeType: 'application/json'
-                }
-            })
-        }
-    );
+                })
+            }
+        );
+    } catch (error) {
+        const timedOut = error?.name === 'TimeoutError' || error?.name === 'AbortError';
+        const message = timedOut ? 'Gemini ne répond pas dans le délai prévu' : 'Gemini est temporairement inaccessible';
+        recordKnowledgeQuizUsage({
+            ok: false,
+            model,
+            errorCode: timedOut ? 'GEMINI_TIMEOUT' : 'GEMINI_NETWORK_ERROR',
+            errorMessage: message
+        });
+        throw new KnowledgeQuizError(message, {
+            code: timedOut ? 'GEMINI_TIMEOUT' : 'GEMINI_NETWORK_ERROR',
+            status: 503
+        });
+    }
 
     const payload = await parseGeminiResponsePayload(response);
 

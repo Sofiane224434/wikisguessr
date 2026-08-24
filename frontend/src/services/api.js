@@ -53,6 +53,10 @@ export const authService = {
     },
     deleteAvatar: () => fetchAPI('/auth/profile/avatar', { method: 'DELETE' }),
     getUsers: () => fetchAPI('/auth/users'),
+    setUserSubscription: (userId, tier) => fetchAPI(`/auth/users/${encodeURIComponent(userId)}/subscription`, {
+        method: 'PATCH',
+        body: JSON.stringify({ tier })
+    }),
     verifyEmail: (token) => fetchAPI(`/auth/verify-email?token=${encodeURIComponent(token)}`),
     forgotPassword: (email) => fetchAPI('/auth/forgot-password', {
         method: 'POST',

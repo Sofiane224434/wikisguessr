@@ -1,16 +1,11 @@
-import { useEffect, useState } from 'react';
-import { Compass, Hourglass, Users, X } from 'lucide-react';
+import { Compass, Play, Users, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { resolveMediaUrl } from '../../services/api.js';
 
-function MatchmakingUI({ mode, queueSize, timeRemaining, onCancel }) {
+function MatchmakingUI({ mode, players, targetSize = 8, onCancel, onStartNow }) {
     const { t } = useTranslation();
-    const [displayQueue, setDisplayQueue] = useState(queueSize);
-
-    useEffect(() => {
-        setDisplayQueue(queueSize);
-    }, [queueSize]);
-
-    const progress = Math.max(0, Math.min(100, ((30 - timeRemaining) / 30) * 100));
+    const displayPlayers = Array.isArray(players) ? players : [];
+    const progress = Math.max(0, Math.min(100, (displayPlayers.length / targetSize) * 100));
 
     return (
         <div className="matchmaking-backdrop fixed inset-0 z-50 flex items-center justify-center">
@@ -31,23 +26,37 @@ function MatchmakingUI({ mode, queueSize, timeRemaining, onCancel }) {
                 <div className="matchmaking-status">
                     <div>
                         <Users size={19} aria-hidden="true" />
-                        <span><strong>{displayQueue}</strong> {t(displayQueue === 1 ? 'matchmaking.waiting_one' : 'matchmaking.waiting_many')}</span>
+                        <span><strong>{displayPlayers.length}/{targetSize}</strong> joueurs prêts</span>
                     </div>
-                    <div>
-                        <Hourglass size={19} aria-hidden="true" />
-                        <span><strong>{timeRemaining}s</strong> {t('matchmaking.solo_in')}</span>
-                    </div>
+                </div>
+
+                <div className="matchmaking-players" aria-label="Joueurs en attente">
+                    {Array.from({ length: targetSize }, (_, index) => {
+                        const player = displayPlayers[index];
+                        const avatarUrl = resolveMediaUrl(player?.avatar_url);
+                        return (
+                            <div className={`matchmaking-player${player ? ' is-ready' : ''}`} key={player?.userId || `empty-${index}`}>
+                                {avatarUrl ? <img src={avatarUrl} alt="" /> : <span>{String(player?.username || '?').slice(0, 1).toUpperCase()}</span>}
+                                <small>{player?.username || 'En attente'}</small>
+                            </div>
+                        );
+                    })}
                 </div>
 
                 <div className="matchmaking-progress" aria-hidden="true">
                     <span style={{ width: `${progress}%` }} />
                 </div>
 
-                <p className="matchmaking-note">{t('matchmaking.note')}</p>
+                <p className="matchmaking-note">La partie démarre à 8 joueurs. Vous pouvez aussi partir avec le groupe actuel.</p>
 
-                <button type="button" onClick={onCancel} className="matchmaking-cancel">
-                    {t('matchmaking.cancel_label')}
-                </button>
+                <div className="matchmaking-actions">
+                    <button type="button" onClick={onStartNow} className="matchmaking-start-now" disabled={displayPlayers.length === 0}>
+                        <Play size={17} fill="currentColor" aria-hidden="true" /> Démarrer maintenant ({displayPlayers.length})
+                    </button>
+                    <button type="button" onClick={onCancel} className="matchmaking-cancel">
+                        {t('matchmaking.cancel_label')}
+                    </button>
+                </div>
             </section>
         </div>
     );

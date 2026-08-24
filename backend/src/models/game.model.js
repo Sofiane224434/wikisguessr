@@ -170,6 +170,21 @@ LIMIT 1
             [gameId, userId]
         );
         return rows.length > 0;
+    },
+
+    async getParticipants(gameId) {
+        await this.ensureTable();
+        await GameResult.ensureTable();
+        return query(`
+SELECT u.id AS user_id, u.username, u.avatar_url,
+       CASE WHEN gr.id IS NULL THEN 'playing' ELSE 'finished' END AS progress_status,
+       gr.won, gr.clicks, gr.time_seconds, gr.score, gr.knowledge_score
+FROM game_players gp
+JOIN users u ON u.id = gp.user_id
+LEFT JOIN game_results gr ON gr.game_id = gp.game_id AND gr.user_id = gp.user_id
+WHERE gp.game_id = ?
+ORDER BY gp.joined_at ASC
+`, [gameId]);
     }
 };
 

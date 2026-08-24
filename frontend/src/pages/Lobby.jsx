@@ -2,7 +2,7 @@ import { useEffect, useEffectEvent, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import { useAuth } from '../context/Authcontext.jsx';
-import { gameService, gameRoomService, friendService, resolveMediaUrl, roomMessageService } from '../services/api.js';
+import { gameRoomService, friendService, resolveMediaUrl, roomMessageService } from '../services/api.js';
 import ReportModal from '../components/ui/ReportModal.jsx';
 import GameModeModal from '../components/ui/GameModeModal.jsx';
 import MatchmakingUI from '../components/ui/MatchmakingUI.jsx';
@@ -74,28 +74,14 @@ function Lobby() {
 
     // Matchmaking
     const [isSearching, setIsSearching] = useState(false);
-    const [queueSize, setQueueSize] = useState(0);
-    const [searchTimeRemaining, setSearchTimeRemaining] = useState(30);
-    const searchTimerRef = useRef(null);
+    const [matchmakingPlayers, setMatchmakingPlayers] = useState([]);
+    const [matchmakingTarget, setMatchmakingTarget] = useState(8);
+    const [searchingWithRoom, setSearchingWithRoom] = useState(false);
 
     const handleMatchFound = useEffectEvent((notifyData) => {
-        clearInterval(searchTimerRef.current);
         setIsSearching(false);
         setSuccess(t('lobby.game_created'));
         navigate(`/game?code=${encodeURIComponent(notifyData.game.code)}`);
-    });
-
-    const handleSoloFallback = useEffectEvent((data) => {
-        clearInterval(searchTimerRef.current);
-        setIsSearching(false);
-        setSuccess(data.message);
-
-        gameService.create({ mode, solo: true })
-            .then((response) => navigate(`/game?code=${encodeURIComponent(response.game.code)}`))
-            .catch((creationError) => {
-                setError(creationError.message || 'Erreur création partie solo');
-                setLoading(false);
-            });
     });
 
     const handleRoomGameStarted = useEffectEvent(({ game }) => {
@@ -116,14 +102,18 @@ function Lobby() {
             setMessages(prev => [...prev, msg]);
         });
 
-        socket.on('matchmaking:joined', ({ mode, queueSize }) => {
-            console.log(`[Matchmaking] Joined ${mode} queue, size: ${queueSize}`);
-            setQueueSize(queueSize);
+        socket.on('matchmaking:updated', ({ targetSize, players }) => {
+            setMatchmakingTarget(targetSize || 8);
+            setMatchmakingPlayers(Array.isArray(players) ? players : []);
         });
 
         socket.on('matchmaking:found', handleMatchFound);
 
-        socket.on('matchmaking:solo-fallback', handleSoloFallback);
+        socket.on('matchmaking:error', ({ error: matchmakingError }) => {
+            setError(matchmakingError || 'Impossible de créer la partie');
+            setIsSearching(false);
+            setLoading(false);
+        });
         socket.on('room:updated', () => loadMyRoom());
         socket.on('room:closed', () => {
             setMyRoom(null);
@@ -226,19 +216,7 @@ function Lobby() {
             // Start matchmaking via Socket.io
             socketRef.current.emit('matchmaking:start', { mode });
             setIsSearching(true);
-            setQueueSize(0);
-            setSearchTimeRemaining(30);
-
-            // Start countdown timer
-            searchTimerRef.current = setInterval(() => {
-                setSearchTimeRemaining(prev => {
-                    if (prev <= 1) {
-                        clearInterval(searchTimerRef.current);
-                        return 0;
-                    }
-                    return prev - 1;
-                });
-            }, 1000);
+            setMatchmakingPlayers([]);
         } catch (err) {
             setError(err.message || 'Impossible de lancer la recherche');
             setLoading(false);
@@ -246,10 +224,23 @@ function Lobby() {
     };
 
     const handleCancelSearch = () => {
-        clearInterval(searchTimerRef.current);
         setIsSearching(false);
         setLoading(false);
+        setSearchingWithRoom(false);
         socketRef.current?.emit('matchmaking:cancel');
+    };
+
+    const handleStartMatchNow = async () => {
+        if (searchingWithRoom && myRoom?.id) {
+            try {
+                await gameRoomService.startGame(myRoom.id, mode);
+            } catch (err) {
+                setError(err.message || 'Impossible de lancer la partie');
+                setLoading(false);
+            }
+            return;
+        }
+        socketRef.current?.emit('matchmaking:start-now', { mode });
     };
 
     const handleJoinRoom = async () => {
@@ -328,13 +319,14 @@ function Lobby() {
     };
 
     const handleStartRoomGame = async () => {
-        try {
-            setLoading(true);
-            await gameRoomService.startGame(myRoom.id, mode);
-        } catch (err) {
-            setError(err.message || 'Impossible de lancer la partie');
-            setLoading(false);
-        }
+        setSearchingWithRoom(true);
+        setMatchmakingPlayers(members.map((member) => ({
+            userId: member.id,
+            username: member.username,
+            avatar_url: member.avatar_url
+        })));
+        setMatchmakingTarget(8);
+        setIsSearching(true);
     };
 
     const handleRemoveFriend = async (friendId) => {
@@ -635,9 +627,10 @@ function Lobby() {
             {isSearching && (
                 <MatchmakingUI
                     mode={mode}
-                    queueSize={queueSize}
-                    timeRemaining={searchTimeRemaining}
+                    players={matchmakingPlayers}
+                    targetSize={matchmakingTarget}
                     onCancel={handleCancelSearch}
+                    onStartNow={handleStartMatchNow}
                 />
             )}
         </div>
