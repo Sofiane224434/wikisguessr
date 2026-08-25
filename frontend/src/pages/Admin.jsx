@@ -13,6 +13,8 @@ function Admin() {
     const [players, setPlayers] = useState([]);
     const [offline, setOffline] = useState(false);
     const [updatingOffline, setUpdatingOffline] = useState(false);
+    const [adminCheat, setAdminCheat] = useState(false);
+    const [updatingCheat, setUpdatingCheat] = useState(false);
     const [quizUsage, setQuizUsage] = useState(null);
     const [reports, setReports] = useState([]);
     const [reportsPending, setReportsPending] = useState(0);
