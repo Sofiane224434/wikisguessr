@@ -9,6 +9,7 @@ import {
     generateKnowledgeQuiz
 } from '../services/knowledge-quiz.service.js';
 import { releaseGameQuota, reserveGameQuota } from '../services/subscription.service.js';
+import { localizeWikiMatchup, normalizeWikiLanguage } from '../services/wiki-language.service.js';
 
 const parseText = (value) => String(value || '').trim();
 
@@ -201,9 +202,9 @@ export const getRandomRoll = async (_req, res) => {
     }
 };
 
-export const createSharedGame = async ({ mode = 'normal', creatorId, creatorUsername, playerIds, roomId = null }) => {
+export const createSharedGame = async ({ mode = 'normal', creatorId, creatorUsername, playerIds, roomId = null, wikiLanguage = 'fr' }) => {
     const safeMode = parseText(mode).toLowerCase() || 'normal';
-    const matchup = pickRandomMatchup(safeMode);
+    const matchup = await localizeWikiMatchup(pickRandomMatchup(safeMode), wikiLanguage);
     const uniquePlayerIds = [...new Set(playerIds.map(Number).filter(Number.isInteger))];
     const ranked = uniquePlayerIds.length >= 4;
     const reservations = [];
@@ -217,6 +218,7 @@ export const createSharedGame = async ({ mode = 'normal', creatorId, creatorUser
             title: `Partie ${safeMode} de ${creatorUsername}`,
             startArticle: matchup.startArticle,
             targetArticle: matchup.targetArticle,
+            wikiLanguage: matchup.wikiLanguage,
             mode: safeMode,
             createdBy: creatorId,
             playerIds: uniquePlayerIds,
@@ -235,7 +237,8 @@ export const createGame = async (req, res) => {
     let quotaReservation = null;
     try {
         const mode = parseText(req.body.mode).toLowerCase() || 'normal';
-        const fallbackMatchup = pickRandomMatchup(mode);
+        const requestedWikiLanguage = normalizeWikiLanguage(req.body.wikiLanguage);
+        const fallbackMatchup = await localizeWikiMatchup(pickRandomMatchup(mode), requestedWikiLanguage);
         const startArticle = parseText(req.body.startArticle) || fallbackMatchup.startArticle;
         const targetArticle = parseText(req.body.targetArticle) || fallbackMatchup.targetArticle;
         const title = parseText(req.body.title) || `Partie ${mode} de ${req.user.username}`;
@@ -250,6 +253,7 @@ export const createGame = async (req, res) => {
             title,
             startArticle,
             targetArticle,
+            wikiLanguage: fallbackMatchup.wikiLanguage,
             mode,
             createdBy: req.user.id,
             playerIds: [req.user.id],
@@ -353,6 +357,7 @@ export const generateKnowledgeQuizForGame = async (req, res) => {
             startArticle: game.start_article,
             targetArticle: game.target_article,
             visitedArticles: quizArticles,
+            language: game.wiki_lang,
             questionCount: 5
         });
 
@@ -401,6 +406,7 @@ export const submitGameResult = async (req, res) => {
             score,
             won
         });
+        await GameResult.processElo(game.id);
 
         const participants = await Game.getParticipants(game.id);
         req.app.locals.io?.to(`game:${code}`).emit('game:participants', { code, participants });
@@ -435,6 +441,7 @@ export const updateKnowledgeScore = async (req, res) => {
             userId: req.user.id,
             knowledgeScore
         });
+        await GameResult.processElo(game.id);
 
         const participants = await Game.getParticipants(game.id);
         req.app.locals.io?.to(`game:${code}`).emit('game:participants', { code, participants });

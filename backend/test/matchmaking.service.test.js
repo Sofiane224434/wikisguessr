@@ -4,8 +4,10 @@ import matchmakingService from '../src/services/matchmaking.service.js';
 
 const resetQueues = () => {
     for (const mode of ['normal', 'chrono', 'knowledge']) {
-        for (const player of matchmakingService.getQueuePlayers(mode)) {
-            matchmakingService.cancelSearch(player.userId);
+        for (const language of ['fr', 'en', 'ja']) {
+            for (const player of matchmakingService.getQueuePlayers(mode, language)) {
+                matchmakingService.cancelSearch(player.userId);
+            }
         }
     }
 };
@@ -51,6 +53,16 @@ test('annule le repli solo lorsqu’un joueur est apparié', async () => {
 test('annule une recherche même sans repli automatique planifié', () => {
     matchmakingService.joinQueue(5, 'Eli', null, 'socket-5', 'normal');
 
-    assert.deepEqual(matchmakingService.cancelSearch(5), { mode: 'normal' });
+    assert.deepEqual(matchmakingService.cancelSearch(5), { mode: 'normal', language: 'fr' });
     assert.equal(matchmakingService.getQueueSize('normal'), 0);
+});
+
+test('sépare les joueurs du même mode selon la langue Wikipédia', () => {
+    matchmakingService.joinQueue(6, 'Fatou', null, 'socket-6', 'normal', 'fr');
+    matchmakingService.joinQueue(7, 'Grace', null, 'socket-7', 'normal', 'en');
+
+    assert.equal(matchmakingService.getQueueSize('normal', 'fr'), 1);
+    assert.equal(matchmakingService.getQueueSize('normal', 'en'), 1);
+    assert.deepEqual(matchmakingService.takePlayers('normal', 8, 'en').map(({ userId }) => userId), [7]);
+    assert.deepEqual(matchmakingService.takePlayers('normal', 8, 'fr').map(({ userId }) => userId), [6]);
 });

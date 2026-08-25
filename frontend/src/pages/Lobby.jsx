@@ -33,7 +33,7 @@ function LobbyAvatar({ user, online = null }) {
 }
 
 function Lobby() {
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
     const { user } = useAuth();
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
@@ -227,7 +227,7 @@ function Lobby() {
 
             // Start matchmaking via Socket.io
             setSearchingWithRoom(false);
-            socketRef.current.emit('matchmaking:start', { mode });
+            socketRef.current.emit('matchmaking:start', { mode, wikiLanguage: i18n.resolvedLanguage || i18n.language });
             setIsSearching(true);
             setMatchmakingPlayers([]);
         } catch (err) {
@@ -246,14 +246,14 @@ function Lobby() {
     const handleStartMatchNow = async () => {
         if (searchingWithRoom && myRoom?.id) {
             try {
-                await gameRoomService.startGame(myRoom.id, mode);
+                await gameRoomService.startGame(myRoom.id, mode, i18n.resolvedLanguage || i18n.language);
             } catch (err) {
                 setError(err.message || 'Impossible de lancer la partie');
                 setLoading(false);
             }
             return;
         }
-        socketRef.current?.emit('matchmaking:start-now', { mode });
+        socketRef.current?.emit('matchmaking:start-now', { mode, wikiLanguage: i18n.resolvedLanguage || i18n.language });
     };
 
     const handleJoinRoom = async () => {
@@ -425,16 +425,16 @@ function Lobby() {
                             <strong>{t('lobby.friends_online')}</strong>
                             <span>{t('lobby.friends_count', { count: friends.length })}</span>
                         </div>
-                        {[...friendRequests.map((request) => ({ ...request, kind: 'friend' })), ...roomInvitations.map((invitation) => ({ ...invitation, kind: 'room' }))].map((request) => (
-                            <div className="lobby-friend" key={`${request.kind}-${request.id}`}>
-                                <LobbyAvatar user={{ username: request.username || request.inviter_username, avatar_url: request.avatar_url }} />
+                        {friendRequests.map((request) => (
+                            <div className="lobby-friend" key={request.id}>
+                                <LobbyAvatar user={{ username: request.username, avatar_url: request.avatar_url }} />
                                 <span className="lobby-friend-name">
-                                    {request.kind === 'friend' ? request.username : `${request.inviter_username} · ${request.code}`}
+                                    {request.username}
                                 </span>
-                                <button type="button" className="lobby-icon-button" onClick={() => request.kind === 'friend' ? handleFriendRequest(request.id, true) : handleRoomInvitation(request.id, true)} title={t('lobby.accept')}>
+                                <button type="button" className="lobby-icon-button" onClick={() => handleFriendRequest(request.id, true)} title={t('lobby.accept')}>
                                     <Check size={16} aria-hidden="true" />
                                 </button>
-                                <button type="button" className="lobby-icon-button is-danger" onClick={() => request.kind === 'friend' ? handleFriendRequest(request.id, false) : handleRoomInvitation(request.id, false)} title={t('lobby.decline')}>
+                                <button type="button" className="lobby-icon-button is-danger" onClick={() => handleFriendRequest(request.id, false)} title={t('lobby.decline')}>
                                     <X size={16} aria-hidden="true" />
                                 </button>
                             </div>
@@ -533,9 +533,16 @@ function Lobby() {
                     </section>
 
                     <section className="paper border-5 shadow-large lobby-panel lobby-room" aria-labelledby="room-title">
-                        <div>
+                        <div className="lobby-room-heading">
+                            <div>
                             <h2 id="room-title">{t('lobby.my_room')}</h2>
                             <p className="lobby-room-subtitle">{t('lobby.private_study')}</p>
+                            </div>
+                            {myRoom && (
+                                <button type="button" className="lobby-icon-button is-danger" onClick={handleLeaveRoom} title={t('lobby.leave_room')}>
+                                    <LogOut size={17} aria-hidden="true" />
+                                </button>
+                            )}
                         </div>
 
                         {myRoom ? (
@@ -544,12 +551,6 @@ function Lobby() {
                                     <span>{myRoom.code}</span>
                                     <Copy size={17} aria-hidden="true" />
                                 </button>
-
-                                <div className="lobby-search-row">
-                                    <button type="button" className="lobby-icon-button is-danger" onClick={handleLeaveRoom} title={t('lobby.leave_room')}>
-                                        <LogOut size={17} aria-hidden="true" />
-                                    </button>
-                                </div>
 
                                 <div className="lobby-explorers">
                                     <h3><Users size={19} aria-hidden="true" /> {t('lobby.explorers', { count: members.length })}</h3>
@@ -619,6 +620,20 @@ function Lobby() {
                     onClose={() => setShowModeModal(false)}
                     onConfirm={handleConfirmCreateGame}
                 />
+            )}
+
+            {roomInvitations[0] && (
+                <div className="game-modal-backdrop" role="presentation">
+                    <section className="game-modal" role="dialog" aria-modal="true" aria-labelledby="room-invitation-title">
+                        <p className="game-modal-kicker">{t('lobby.room_invitation', { defaultValue: 'Invitation de salon' })}</p>
+                        <h2 id="room-invitation-title">{t('lobby.join_inviter_room', { username: roomInvitations[0].inviter_username, defaultValue: `Rejoindre le salon de ${roomInvitations[0].inviter_username} ?` })}</h2>
+                        <p>{t('lobby.invitation_code', { code: roomInvitations[0].code, defaultValue: `Code du salon : ${roomInvitations[0].code}` })}</p>
+                        <div className="game-modal-actions">
+                            <button type="button" className="is-secondary" onClick={() => handleRoomInvitation(roomInvitations[0].id, false)}>{t('lobby.decline')}</button>
+                            <button type="button" onClick={() => handleRoomInvitation(roomInvitations[0].id, true)}>{t('lobby.accept')}</button>
+                        </div>
+                    </section>
+                </div>
             )}
 
             {isSearching && (

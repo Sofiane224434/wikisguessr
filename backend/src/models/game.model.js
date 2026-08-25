@@ -41,6 +41,38 @@ ALTER TABLE games
 MODIFY COLUMN mode ENUM('normal','knowledge','chrono') NOT NULL DEFAULT 'normal'
 `;
 
+const calculateEloDeltas = (players, kFactor = 32) => {
+    const deltas = players.map((player) => {
+    let expectedTotal = 0;
+    let actualTotal = 0;
+
+    players.forEach((opponent) => {
+        if (Number(opponent.user_id) === Number(player.user_id)) {
+            return;
+        }
+        expectedTotal += 1 / (1 + (10 ** ((Number(opponent.elo) - Number(player.elo)) / 400)));
+        if (Number(player.won) !== Number(opponent.won)) {
+            actualTotal += Number(player.won) > Number(opponent.won) ? 1 : 0;
+        } else if (Number(player.performance) !== Number(opponent.performance)) {
+            actualTotal += Number(player.performance) > Number(opponent.performance) ? 1 : 0;
+        } else {
+            actualTotal += 0.5;
+        }
+    });
+
+    const comparisons = Math.max(1, players.length - 1);
+        return {
+            userId: Number(player.user_id),
+            delta: Math.round(kFactor * ((actualTotal / comparisons) - (expectedTotal / comparisons)))
+        };
+    });
+    const roundingRemainder = deltas.reduce((sum, { delta }) => sum + delta, 0);
+    if (deltas.length > 0 && roundingRemainder !== 0) {
+        deltas[0].delta -= roundingRemainder;
+    }
+    return deltas;
+};
+
 let gameSchemaReady = false;
 
 const normalizeMode = (mode) => (GAME_MODES.has(mode) ? mode : 'normal');
@@ -72,13 +104,19 @@ const Game = {
             if (!existing.has('room_id')) {
                 await query('ALTER TABLE games ADD COLUMN room_id INT DEFAULT NULL AFTER player_count');
             }
+            if (!existing.has('elo_processed')) {
+                await query('ALTER TABLE games ADD COLUMN elo_processed TINYINT(1) NOT NULL DEFAULT 0 AFTER room_id');
+            }
+            if (!existing.has('wiki_lang')) {
+                await query("ALTER TABLE games ADD COLUMN wiki_lang VARCHAR(5) NOT NULL DEFAULT 'fr' AFTER target_article");
+            }
             await query(ENSURE_GAMES_MODE_ENUM_SQL);
             gameSchemaReady = true;
         }
         await query(CREATE_GAME_PLAYERS_TABLE_SQL);
     },
 
-    async create({ title, startArticle, targetArticle, mode = 'normal', createdBy, playerIds = [], ranked = true, roomId = null }) {
+    async create({ title, startArticle, targetArticle, wikiLanguage = 'fr', mode = 'normal', createdBy, playerIds = [], ranked = true, roomId = null }) {
         await this.ensureTable();
 
         const safeMode = normalizeMode(mode);
@@ -88,8 +126,8 @@ const Game = {
 
             try {
                 const sql = `
-INSERT INTO games (code, title, start_article, target_article, mode, is_ranked, player_count, room_id, created_by)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO games (code, title, start_article, target_article, wiki_lang, mode, is_ranked, player_count, room_id, created_by)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `;
                 const uniquePlayerIds = [...new Set([createdBy, ...playerIds].map(Number).filter(Number.isInteger))];
                 const result = await query(sql, [
@@ -97,6 +135,7 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                     title,
                     startArticle,
                     targetArticle,
+                    wikiLanguage,
                     safeMode,
                     ranked ? 1 : 0,
                     uniquePlayerIds.length,
@@ -118,6 +157,7 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                     title,
                     start_article: startArticle,
                     target_article: targetArticle,
+                    wiki_lang: wikiLanguage,
                     mode: safeMode,
                     is_ranked: ranked ? 1 : 0,
                     player_count: uniquePlayerIds.length,
@@ -153,7 +193,7 @@ LIMIT 20
     async findByCode(code) {
         await this.ensureTable();
         const sql = `
-SELECT id, code, title, start_article, target_article, mode, status, is_ranked, player_count, room_id, created_by, created_at
+SELECT id, code, title, start_article, target_article, wiki_lang, mode, status, is_ranked, player_count, room_id, elo_processed, created_by, created_at
 FROM games
 WHERE code = ?
 LIMIT 1
@@ -247,6 +287,49 @@ WHERE game_id = ? AND user_id = ?
         return query(sql, [knowledgeScore, gameId, userId]);
     },
 
+    async processElo(gameId) {
+        await Game.ensureTable();
+        await this.ensureTable();
+        const games = await query(
+            'SELECT id, mode, is_ranked, player_count, elo_processed FROM games WHERE id = ? LIMIT 1',
+            [gameId]
+        );
+        const game = games[0];
+        if (!game || !game.is_ranked || game.elo_processed || Number(game.player_count) < 2) {
+            return false;
+        }
+
+        const results = await query(`
+SELECT gr.user_id, gr.won, gr.score,
+       CASE WHEN gr.mode = 'knowledge' THEN gr.knowledge_score ELSE gr.score END AS performance,
+       u.elo
+FROM game_results gr
+JOIN users u ON u.id = gr.user_id
+WHERE gr.game_id = ?
+`, [gameId]);
+        if (results.length !== Number(game.player_count)) {
+            return false;
+        }
+        if (game.mode === 'knowledge' && results.some(({ performance }) => performance === null)) {
+            return false;
+        }
+
+        const claim = await query(
+            'UPDATE games SET elo_processed = 1 WHERE id = ? AND elo_processed = 0',
+            [gameId]
+        );
+        if (Number(claim.affectedRows) !== 1) {
+            return false;
+        }
+
+        const deltas = calculateEloDeltas(results);
+        await Promise.all(deltas.map(({ userId, delta }) => query(
+            'UPDATE users SET elo = GREATEST(100, elo + ?) WHERE id = ?',
+            [delta, userId]
+        )));
+        return true;
+    },
+
     async getByUser(userId, limit = 30) {
         await this.ensureTable();
         const limitNum = Math.max(1, Math.min(parseInt(limit) || 30, 1000)); // Clamp between 1 and 1000
@@ -280,14 +363,14 @@ LIMIT ${limitNum}
             const sql = `
 SELECT u.username,
        ROUND(AVG(gr.score), 2) AS avg_score,
-       1600 AS elo
+       u.elo
 FROM game_results gr
 JOIN users u ON u.id = gr.user_id
 JOIN games g ON g.id = gr.game_id
-WHERE gr.won = 1 AND gr.mode = 'chrono'
+WHERE gr.mode = 'chrono'
     AND g.is_ranked = 1
-GROUP BY gr.user_id, u.username
-ORDER BY avg_score DESC
+GROUP BY gr.user_id, u.username, u.elo
+ORDER BY u.elo DESC, avg_score DESC
 LIMIT ${limitNum}
 `;
             return query(sql, []);
@@ -297,14 +380,14 @@ LIMIT ${limitNum}
             const sql = `
 SELECT u.username,
        ROUND(AVG(gr.knowledge_score * 100 + 500 - (gr.clicks * 50) - (gr.time_seconds / 4)), 2) AS avg_score,
-       1600 AS elo
+       u.elo
 FROM game_results gr
 JOIN users u ON u.id = gr.user_id
 JOIN games g ON g.id = gr.game_id
-WHERE gr.won = 1 AND gr.mode = 'knowledge'
+WHERE gr.mode = 'knowledge'
     AND g.is_ranked = 1
-GROUP BY gr.user_id, u.username
-ORDER BY avg_score DESC
+GROUP BY gr.user_id, u.username, u.elo
+ORDER BY u.elo DESC, avg_score DESC
 LIMIT ${limitNum}
 `;
             return query(sql, []);
@@ -314,14 +397,14 @@ LIMIT ${limitNum}
             const sql = `
 SELECT u.username,
        ROUND(AVG(1000 - (gr.clicks * 100) - (gr.time_seconds / 2)), 2) AS avg_score,
-       1600 AS elo
+       u.elo
 FROM game_results gr
 JOIN users u ON u.id = gr.user_id
 JOIN games g ON g.id = gr.game_id
-WHERE gr.won = 1 AND gr.mode = 'normal'
+WHERE gr.mode = 'normal'
     AND g.is_ranked = 1
-GROUP BY gr.user_id, u.username
-ORDER BY avg_score DESC
+GROUP BY gr.user_id, u.username, u.elo
+ORDER BY u.elo DESC, avg_score DESC
 LIMIT ${limitNum}
 `;
             return query(sql, []);
@@ -331,5 +414,7 @@ LIMIT ${limitNum}
         return [];
     }
 };
+
+export { calculateEloDeltas };
 
 export default Game;

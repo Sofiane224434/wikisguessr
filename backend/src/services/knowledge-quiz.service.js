@@ -9,6 +9,18 @@ const MAX_USAGE_HISTORY = 25;
 const DEFAULT_DAILY_REQUEST_LIMIT = 500;
 const GEMINI_REQUEST_TIMEOUT_MS = 15000;
 const GEMINI_MAX_ATTEMPTS = 2;
+const QUIZ_LANGUAGE_NAMES = {
+    ar: 'arabe',
+    de: 'allemand',
+    en: 'anglais',
+    es: 'espagnol',
+    fr: 'francais',
+    hi: 'hindi',
+    ja: 'japonais',
+    pt: 'portugais',
+    ru: 'russe',
+    zh: 'chinois'
+};
 
 const QUIZ_RESPONSE_SCHEMA = {
     type: 'OBJECT',
@@ -338,7 +350,8 @@ const dedupeVisitedArticles = (items = []) => {
     return cleaned;
 };
 
-const buildPrompt = ({ startArticle, targetArticle, questionCount, visitedArticles }) => {
+const buildPrompt = ({ startArticle, targetArticle, questionCount, visitedArticles, language }) => {
+    const outputLanguage = QUIZ_LANGUAGE_NAMES[String(language || '').toLowerCase()] || QUIZ_LANGUAGE_NAMES.fr;
     const context = visitedArticles
         .map((item, index) => {
             const snippetText = item.snippet || 'Aucun extrait disponible.';
@@ -348,7 +361,7 @@ const buildPrompt = ({ startArticle, targetArticle, questionCount, visitedArticl
 
     return [
         'Tu es un generateur de quiz pour un jeu de navigation Wikipedia.',
-        'Tu dois produire exactement des QCM difficiles, en francais, en te basant uniquement sur les extraits fournis.',
+        `Tu dois produire exactement des QCM difficiles en ${outputLanguage}, en te basant uniquement sur les extraits fournis.`,
         'Regles strictes:',
         `- Retourne exactement ${questionCount} questions.`,
         '- Format JSON strict, sans markdown, sans commentaire, sans texte hors JSON.',
@@ -451,6 +464,7 @@ export const generateKnowledgeQuiz = async ({
     startArticle,
     targetArticle,
     visitedArticles,
+    language = 'fr',
     questionCount = DEFAULT_QUESTION_COUNT
 }) => {
     const apiKey = resolveGeminiApiKey();
@@ -478,7 +492,8 @@ export const generateKnowledgeQuiz = async ({
         startArticle,
         targetArticle,
         questionCount: safeQuestionCount,
-        visitedArticles: cleanedVisitedArticles
+        visitedArticles: cleanedVisitedArticles,
+        language
     });
 
     let lastError = null;

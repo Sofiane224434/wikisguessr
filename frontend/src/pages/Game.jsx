@@ -420,6 +420,7 @@ function Game() {
     const resultSubmittedRef = useRef(false);
     const initialLoadKeyRef = useRef('');
     const allowPageNavigationRef = useRef(false);
+    const gameSocketRef = useRef(null);
 
     const [game, setGame] = useState(null);
     const [loadingGame, setLoadingGame] = useState(Boolean(searchParams.get('code') || searchParams.get('previewTitle')));
@@ -439,6 +440,7 @@ function Game() {
     const [knowledgeQuizError, setKnowledgeQuizError] = useState('');
     const [knowledgeQuizAnswers, setKnowledgeQuizAnswers] = useState({});
     const [knowledgeQuizSubmitted, setKnowledgeQuizSubmitted] = useState(false);
+    const [knowledgeQuizAttempt, setKnowledgeQuizAttempt] = useState(0);
     const [participants, setParticipants] = useState([]);
     const [showAbandonConfirm, setShowAbandonConfirm] = useState(false);
     const [abandoned, setAbandoned] = useState(false);
@@ -447,6 +449,8 @@ function Game() {
     const [resultSaved, setResultSaved] = useState(false);
     const [resultSaveError, setResultSaveError] = useState('');
     const [replaying, setReplaying] = useState(false);
+    const [replayReadyCount, setReplayReadyCount] = useState(0);
+    const [replayRequiredCount, setReplayRequiredCount] = useState(0);
 
     const gameCode = searchParams.get('code');
     const previewTitle = searchParams.get('previewTitle');
@@ -482,14 +486,14 @@ function Game() {
         persistGameState(gameCode, nextSnapshot);
     }, [gameCode]);
 
-    const fetchArticlePayload = useCallback(async (title) => {
+    const fetchArticlePayload = useCallback(async (title, wikiLanguage = 'fr') => {
         const normalizedTitle = String(title || '').trim();
         if (!isLikelyPlayableWikiTitle(normalizedTitle)) {
             throw new Error('Titre Wikipedia manquant');
         }
 
         if (!articleCacheRef.current.has(normalizedTitle)) {
-            const promise = fetch(`/api/wiki/mobile-html?title=${encodeURIComponent(normalizedTitle)}`)
+            const promise = fetch(`/api/wiki/mobile-html?title=${encodeURIComponent(normalizedTitle)}&lang=${encodeURIComponent(wikiLanguage)}`)
                 .then(async (response) => {
                     const data = await response.json();
 
@@ -511,7 +515,7 @@ function Game() {
     }, []);
 
     const loadArticle = useCallback(async (title, targetArticle, isInitial = false, options = {}) => {
-        const { fromHistory = false, mode = '', restoreSnapshot = null } = options;
+        const { fromHistory = false, mode = '', restoreSnapshot = null, wikiLanguage = game?.wiki_lang || 'fr' } = options;
         const isChronoGame = String(mode || gameMode).trim().toLowerCase() === 'chrono';
         const requestId = ++requestIdRef.current;
         if (!isChronoGame) {
@@ -521,7 +525,7 @@ function Game() {
         setError(null);
 
         try {
-            const data = await fetchArticlePayload(title);
+            const data = await fetchArticlePayload(title, wikiLanguage);
 
             if (requestId !== requestIdRef.current) {
                 return;
@@ -738,7 +742,7 @@ function Game() {
                 setLoadingArticle(false);
             }
         }
-    }, [articleHistory, chronoRemainingSeconds, chronoScore, clicks, fetchArticlePayload, gameCode, gameMode, knowledgeQuiz, knowledgeQuizAnswers, knowledgeQuizSubmitted, saveCurrentGameState, won]);
+    }, [articleHistory, chronoRemainingSeconds, chronoScore, clicks, fetchArticlePayload, game?.wiki_lang, gameCode, gameMode, knowledgeQuiz, knowledgeQuizAnswers, knowledgeQuizSubmitted, saveCurrentGameState, won]);
 
     const loadInitialArticle = useEffectEvent((...args) => loadArticle(...args));
 
@@ -797,6 +801,7 @@ function Game() {
         gameCode,
         isKnowledgeMode,
         isPreviewMode,
+        knowledgeQuizAttempt,
         won
     ]);
 
@@ -821,13 +826,14 @@ function Game() {
                 if (persistedState?.currentArticle && Array.isArray(persistedState.articleHistory) && persistedState.articleHistory.length > 0) {
                     await loadInitialArticle(persistedState.currentArticle, data.game.target_article, true, {
                         mode: data.game.mode,
+                        wikiLanguage: data.game.wiki_lang,
                         restoreSnapshot: persistedState
                     });
                     gameReadyRef.current = true;
                     return;
                 }
 
-                await loadInitialArticle(data.game.start_article, data.game.target_article, true, { mode: data.game.mode });
+                await loadInitialArticle(data.game.start_article, data.game.target_article, true, { mode: data.game.mode, wikiLanguage: data.game.wiki_lang });
                 gameReadyRef.current = true;
             })
             .catch((err) => {
@@ -885,23 +891,44 @@ function Game() {
             auth: { token },
             transports: import.meta.env.DEV ? ['polling'] : ['websocket', 'polling']
         });
+        gameSocketRef.current = socket;
 
         socket.on('game:participants', ({ code, participants: nextParticipants }) => {
             if (String(code || '').toUpperCase() === String(gameCode).toUpperCase()) {
                 setParticipants(Array.isArray(nextParticipants) ? nextParticipants : []);
             }
         });
+        socket.on('game:replay-status', ({ code, readyCount, requiredCount }) => {
+            if (String(code || '').toUpperCase() !== String(gameCode).toUpperCase()) {
+                return;
+            }
+            setReplayReadyCount(Number(readyCount) || 0);
+            setReplayRequiredCount(Number(requiredCount) || 0);
+        });
+        socket.on('game:replay-started', ({ game: nextGame }) => {
+            if (!nextGame?.code) {
+                return;
+            }
+            allowPageNavigationRef.current = true;
+            clearPersistedGameState(gameCode);
+            navigate(`/game?code=${encodeURIComponent(nextGame.code)}`);
+        });
+        socket.on('game:replay-error', ({ error: replayError }) => {
+            setResultSaveError(replayError || 'Impossible de relancer une partie.');
+            setReplaying(false);
+        });
         socket.emit('game:join', gameCode);
 
         return () => {
             socket.emit('game:leave', gameCode);
             socket.disconnect();
+            gameSocketRef.current = null;
         };
-    }, [gameCode, isPreviewMode]);
+    }, [gameCode, isPreviewMode, navigate]);
 
     const knowledgeResultReady = isKnowledgeMode
         && won
-        && (knowledgeQuizSubmitted || (!knowledgeQuizLoading && Boolean(knowledgeQuizError)));
+        && knowledgeQuizSubmitted;
     const resultReady = abandoned || chronoDefeat || (won && !isKnowledgeMode) || knowledgeResultReady;
 
     // La modale précède la sortie et la sauvegarde termine avant d'activer le bouton Quitter.
@@ -1093,7 +1120,7 @@ function Game() {
 
         event.preventDefault();
         event.stopPropagation();
-        loadArticle(article, game?.target_article || '', false, { mode: game?.mode });
+        loadArticle(article, game?.target_article || '', false, { mode: game?.mode, wikiLanguage: game?.wiki_lang });
     };
 
     const handleQuitGame = () => {
@@ -1134,8 +1161,12 @@ function Game() {
         }
         setReplaying(true);
         setResultSaveError('');
+        if (game?.room_id) {
+            gameSocketRef.current?.emit('game:replay-ready', gameCode);
+            return;
+        }
         try {
-            const response = await gameService.create({ mode: gameMode, solo: true });
+            const response = await gameService.create({ mode: gameMode, solo: true, wikiLanguage: game?.wiki_lang });
             allowPageNavigationRef.current = true;
             clearPersistedGameState(gameCode);
             navigate(`/game?code=${encodeURIComponent(response.game.code)}`);
@@ -1160,6 +1191,12 @@ function Game() {
         setKnowledgeQuizSubmitted(true);
     };
 
+    const handleRetryKnowledgeQuiz = () => {
+        knowledgeQuizRequestedRef.current = false;
+        setKnowledgeQuizError('');
+        setKnowledgeQuizAttempt((attempt) => attempt + 1);
+    };
+
     const handleGoBack = async () => {
         if (articleHistory.length < 2 || loadingArticle || !canInteractWithArticle) {
             return;
@@ -1168,7 +1205,7 @@ function Game() {
         const previousArticle = articleHistory[articleHistory.length - 2];
         setArticleHistory((previous) => previous.slice(0, -1));
         setClicks((previous) => Math.max(0, previous - 1));
-        await loadArticle(previousArticle, game?.target_article || '', false, { fromHistory: true, mode: game?.mode });
+        await loadArticle(previousArticle, game?.target_article || '', false, { fromHistory: true, mode: game?.mode, wikiLanguage: game?.wiki_lang });
     };
 
     if (loadingGame) {
@@ -1224,6 +1261,15 @@ function Game() {
         knowledgeScore,
         won: Boolean(won && !abandoned)
     });
+    const resultTitle = abandoned
+        ? t('game.result_abandoned_title', { defaultValue: 'Partie interrompue' })
+        : chronoDefeat
+            ? t('game.result_defeat_title', { defaultValue: 'Temps écoulé' })
+            : finalPoints < 300
+                ? t('game.result_low_title', { defaultValue: 'Objectif atteint' })
+                : finalPoints < 700
+                    ? t('game.result_good_title', { defaultValue: 'Bon parcours' })
+                    : t('game.result_great_title', { defaultValue: 'Excellent parcours !' });
 
     return (
         <div className="game-shell flex h-screen flex-col text-slate-900">
@@ -1392,7 +1438,14 @@ function Game() {
                                 </div>
                             </div>
                         ) : (
-                            <p className="mt-2 text-sm">{t('game.no_question')}</p>
+                            <div className="mt-2 flex flex-wrap items-center gap-3 text-sm">
+                                <p>{knowledgeQuizError || t('game.no_question')}</p>
+                                {knowledgeQuizError && (
+                                    <button type="button" className="rounded-lg border border-indigo-300 bg-white px-3 py-2 font-semibold text-indigo-800" onClick={handleRetryKnowledgeQuiz}>
+                                        {t('common.retry', { defaultValue: 'Réessayer' })}
+                                    </button>
+                                )}
+                            </div>
                         )}
                     </div>
                 )}
@@ -1446,7 +1499,7 @@ function Game() {
                 <div className="game-modal-backdrop" role="presentation">
                     <section className="game-modal game-result-modal" role="dialog" aria-modal="true" aria-labelledby="result-title">
                         <p className="game-modal-kicker">Résultat</p>
-                        <h2 id="result-title">Bien joué !</h2>
+                        <h2 id="result-title">{resultTitle}</h2>
                         <p className="game-result-status">
                             {abandoned ? 'Partie abandonnée' : chronoDefeat ? 'Temps écoulé' : 'Objectif atteint'}
                         </p>
@@ -1462,7 +1515,9 @@ function Game() {
                                 <button type="button" className="is-secondary" onClick={saveFinalResult} disabled={resultSaving}>Réessayer</button>
                             )}
                             <button type="button" className="is-secondary" onClick={handleReplay} disabled={!resultSaved || resultSaving || replaying}>
-                                {replaying ? 'Relance…' : 'Rejouer'}
+                                {replaying && game?.room_id
+                                    ? `En attente du groupe (${replayReadyCount}/${replayRequiredCount || participants.length})`
+                                    : replaying ? 'Relance…' : 'Rejouer'}
                             </button>
                             <button type="button" onClick={handleFinalizeQuit} disabled={!resultSaved || resultSaving || replaying}>
                                 {resultSaving ? 'Enregistrement…' : resultSaved ? 'Quitter la partie' : 'Préparation…'}

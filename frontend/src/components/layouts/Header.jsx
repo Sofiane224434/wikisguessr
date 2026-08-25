@@ -3,7 +3,7 @@ import LanguageSelect from "../ui/LanguageSelect";
 import WikisGuessrLogo from "../ui/WikisGuessrLogo";
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/Authcontext.jsx';
-import { BookOpen, Globe2, House, LogIn, LogOut, MoreHorizontal, ShoppingBag, Trophy, UserRound, UsersRound, X } from 'lucide-react';
+import { BookOpen, Globe2, House, LogIn, LogOut, MoreHorizontal, ShoppingBag, Trophy, UserPlus, UserRound, UsersRound, X } from 'lucide-react';
 import { createElement, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -73,12 +73,20 @@ function Header() {
                             <LogOut size={18} aria-hidden="true" />
                             <span>{t('nav.logout')}</span>
                         </button>
-                    ) : !isLoginRoute ? (
-                        <button type="button" className="paper-btn site-session-button" onClick={() => navigate('/login')}>
-                            <LogIn size={18} aria-hidden="true" />
-                            <span>{t('nav.login')}</span>
-                        </button>
-                    ) : null}
+                    ) : (
+                        <div className="site-guest-actions">
+                            <button type="button" className="paper-btn site-session-button is-register" onClick={() => navigate('/login?mode=register')}>
+                                <UserPlus size={18} aria-hidden="true" />
+                                <span>{t('nav.register')}</span>
+                            </button>
+                            {!isLoginRoute && (
+                                <button type="button" className="paper-btn site-session-button" onClick={() => navigate('/login')}>
+                                    <LogIn size={18} aria-hidden="true" />
+                                    <span>{t('nav.login')}</span>
+                                </button>
+                            )}
+                        </div>
+                    )}
                     {user && (
                         <button
                             type="button"

@@ -7,7 +7,7 @@ import { useAuth } from '../context/Authcontext.jsx';
 
 function Login() {
     const { t } = useTranslation();
-    const [isRegister, setIsRegister] = useState(false);
+    const [isRegister, setIsRegister] = useState(() => new URLSearchParams(window.location.search).get('mode') === 'register');
     const [isForgotPassword, setIsForgotPassword] = useState(false);
     const [username, setUsername] = useState('');
     const [identifier, setIdentifier] = useState('');
