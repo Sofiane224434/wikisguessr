@@ -79,6 +79,11 @@ WHERE id = ? AND role <> 'admin'
         return this.findById(id);
     },
 
+    async setUserRole(id, role) {
+        await query('UPDATE users SET role = ? WHERE id = ?', [role, id]);
+        return this.findById(id);
+    },
+
     // Créer un utilisateur
     async create({ username, email, password, role = 'user', emailVerified = 0, verificationToken = null, verificationExpiresAt = null }) {
         const hashedPassword = await bcrypt.hash(password, 10);
