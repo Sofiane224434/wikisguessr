@@ -911,7 +911,7 @@ function Game() {
             }
             allowPageNavigationRef.current = true;
             clearPersistedGameState(gameCode);
-            navigate(`/game?code=${encodeURIComponent(nextGame.code)}`);
+            window.location.assign(`/game?code=${encodeURIComponent(nextGame.code)}`);
         });
         socket.on('game:replay-error', ({ error: replayError }) => {
             setResultSaveError(replayError || 'Impossible de relancer une partie.');
@@ -1102,6 +1102,12 @@ function Game() {
             return;
         }
 
+        if (event.target.closest('img, picture, figure')) {
+            event.preventDefault();
+            event.stopPropagation();
+            return;
+        }
+
         if (!canInteractWithArticle) {
             event.preventDefault();
             event.stopPropagation();
@@ -1169,7 +1175,7 @@ function Game() {
             const response = await gameService.create({ mode: gameMode, solo: true, wikiLanguage: game?.wiki_lang });
             allowPageNavigationRef.current = true;
             clearPersistedGameState(gameCode);
-            navigate(`/game?code=${encodeURIComponent(response.game.code)}`);
+            window.location.assign(`/game?code=${encodeURIComponent(response.game.code)}`);
         } catch (replayError) {
             setResultSaveError(replayError?.message || 'Impossible de relancer une partie.');
             setReplaying(false);
@@ -1204,7 +1210,6 @@ function Game() {
 
         const previousArticle = articleHistory[articleHistory.length - 2];
         setArticleHistory((previous) => previous.slice(0, -1));
-        setClicks((previous) => Math.max(0, previous - 1));
         await loadArticle(previousArticle, game?.target_article || '', false, { fromHistory: true, mode: game?.mode, wikiLanguage: game?.wiki_lang });
     };
 

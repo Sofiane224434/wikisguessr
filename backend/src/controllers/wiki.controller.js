@@ -80,20 +80,7 @@ const buildOfflineMobileHtmlPayload = (requestedTitle) => {
             offline: true
         };
     }
-
-    const fallbackKey = normalizeOfflineTitle(dataset.defaultStartArticle);
-    const fallback = dataset.byTitle.get(fallbackKey) || Array.from(dataset.byTitle.values())[0];
-    if (!fallback) {
-        return null;
-    }
-
-    return {
-        title: fallback.title,
-        html: rewriteMobileHtmlLinks(fallback.html),
-        sourceUrl: `offline://demo/${encodeURIComponent(fallback.title)}`,
-        offline: true,
-        requestedTitle: String(requestedTitle || '').trim()
-    };
+    return null;
 };
 
 const fetchMobileHtmlByTitle = async (title, language = 'fr') => {
