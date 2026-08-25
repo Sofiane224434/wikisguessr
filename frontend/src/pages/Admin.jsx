@@ -323,7 +323,7 @@ function Admin() {
                             <p className="mt-3 text-sm text-slate-400">{t('admin.theme')}: {roll.startTheme}</p>
                         </div>
 
-                        <div className="rounded-3xl border border-slate-800 bg-slate-900 p-6 shadow-2xl shadow-fuchsia-950/20 flex flex-col justify-between">
+                        <div className="rounded-3xl border border-slate-800 bg-slate-900 p-6 shadow-2xl shadow-fuchsia-950/20">
                             <div>
                                 <div className="flex items-center justify-between">
                                     <p className="text-xs uppercase tracking-[0.3em] text-slate-400">{t('admin.target')}</p>
@@ -336,17 +336,6 @@ function Admin() {
                                 <p className="mt-3 text-3xl font-bold text-fuchsia-300">{roll.targetArticle}</p>
                                 <p className="mt-3 text-sm text-slate-400">{t('admin.theme')}: {roll.targetTheme}</p>
                             </div>
-                            {adminCheat && (
-                                <a
-                                    href={`https://fr.wikipedia.org/wiki/${encodeURIComponent(roll.targetArticle)}`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="mt-4 inline-flex items-center gap-2 rounded-xl border border-purple-700/60 bg-purple-950/40 px-3.5 py-2 text-xs font-semibold text-purple-300 transition hover:bg-purple-900/60"
-                                >
-                                    <span>⚡ Accéder directement au lien wiki de fin (Wikipedia)</span>
-                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
-                                </a>
-                            )}
                         </div>
                     </div>
                 )}
