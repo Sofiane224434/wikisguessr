@@ -102,7 +102,9 @@ function Admin() {
 
             const siteStateData = await siteService.getState();
             const isOffline = Boolean(siteStateData?.state?.offline);
+            const isCheat = Boolean(siteStateData?.state?.adminCheat);
             setOffline(isOffline);
+            setAdminCheat(isCheat);
 
             if (isOffline) {
                 setRoll(null);
@@ -141,6 +143,21 @@ function Admin() {
             setError(err.message || 'Impossible de changer le mode offline');
         } finally {
             setUpdatingOffline(false);
+        }
+    };
+
+    const handleToggleCheat = async () => {
+        setUpdatingCheat(true);
+        setError(null);
+
+        try {
+            const data = await siteService.setAdminCheatMode(!adminCheat);
+            setAdminCheat(Boolean(data?.state?.adminCheat));
+            setSuccess(data?.state?.adminCheat ? 'Mode triche admin activé' : 'Mode triche admin désactivé');
+        } catch (err) {
+            setError(err.message || 'Impossible de changer le mode triche admin');
+        } finally {
+            setUpdatingCheat(false);
         }
     };
 
@@ -267,11 +284,31 @@ function Admin() {
                                 ? t('admin.disable_offline')
                                 : t('admin.enable_offline')}
                     </button>
+                    <button
+                        type="button"
+                        onClick={handleToggleCheat}
+                        disabled={updatingCheat}
+                        className={`rounded-full px-5 py-3 text-sm font-semibold transition disabled:opacity-60 ${adminCheat
+                            ? 'bg-purple-500 text-white hover:bg-purple-400 shadow-lg shadow-purple-950/40'
+                            : 'bg-slate-900 text-purple-300 border border-purple-800 hover:bg-slate-800'
+                            }`}
+                    >
+                        {updatingCheat
+                            ? t('admin.updating')
+                            : adminCheat
+                                ? t('admin.disable_cheat')
+                                : t('admin.enable_cheat')}
+                    </button>
                 </div>
 
-                <p className="text-xs text-slate-300">
-                    Etat global: <strong className={offline ? 'text-amber-300' : 'text-emerald-300'}>{offline ? 'parcours offline demo pour tous les comptes' : 'online'}</strong>
-                </p>
+                <div className="flex flex-wrap items-center gap-6 text-xs text-slate-300">
+                    <p>
+                        Etat global: <strong className={offline ? 'text-amber-300' : 'text-emerald-300'}>{offline ? 'parcours offline demo pour tous les comptes' : 'online'}</strong>
+                    </p>
+                    <p>
+                        Triche admin (Lien direct cible): <strong className={adminCheat ? 'text-purple-400 font-bold' : 'text-slate-400'}>{adminCheat ? t('admin.cheat_status_active') : t('admin.cheat_status_inactive')}</strong>
+                    </p>
+                </div>
 
                 {loading && <p className="text-slate-300">{t('admin.loading_roll')}</p>}
                 {error && <p className="text-red-300">{error}</p>}
@@ -284,10 +321,30 @@ function Admin() {
                             <p className="mt-3 text-sm text-slate-400">{t('admin.theme')}: {roll.startTheme}</p>
                         </div>
 
-                        <div className="rounded-3xl border border-slate-800 bg-slate-900 p-6 shadow-2xl shadow-fuchsia-950/20">
-                            <p className="text-xs uppercase tracking-[0.3em] text-slate-400">{t('admin.target')}</p>
-                            <p className="mt-3 text-3xl font-bold text-fuchsia-300">{roll.targetArticle}</p>
-                            <p className="mt-3 text-sm text-slate-400">{t('admin.theme')}: {roll.targetTheme}</p>
+                        <div className="rounded-3xl border border-slate-800 bg-slate-900 p-6 shadow-2xl shadow-fuchsia-950/20 flex flex-col justify-between">
+                            <div>
+                                <div className="flex items-center justify-between">
+                                    <p className="text-xs uppercase tracking-[0.3em] text-slate-400">{t('admin.target')}</p>
+                                    {adminCheat && (
+                                        <span className="rounded-full bg-purple-950/90 px-2.5 py-0.5 text-[11px] font-semibold text-purple-300 border border-purple-700">
+                                            ⚡ Triche active
+                                        </span>
+                                    )}
+                                </div>
+                                <p className="mt-3 text-3xl font-bold text-fuchsia-300">{roll.targetArticle}</p>
+                                <p className="mt-3 text-sm text-slate-400">{t('admin.theme')}: {roll.targetTheme}</p>
+                            </div>
+                            {adminCheat && (
+                                <a
+                                    href={`https://fr.wikipedia.org/wiki/${encodeURIComponent(roll.targetArticle)}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="mt-4 inline-flex items-center gap-2 rounded-xl border border-purple-700/60 bg-purple-950/40 px-3.5 py-2 text-xs font-semibold text-purple-300 transition hover:bg-purple-900/60"
+                                >
+                                    <span>⚡ Accéder directement au lien wiki de fin (Wikipedia)</span>
+                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                                </a>
+                            )}
                         </div>
                     </div>
                 )}

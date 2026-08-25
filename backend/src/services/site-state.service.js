@@ -8,6 +8,7 @@ const SITE_STATE_FILE_PATH = path.resolve(__dirname, '../data/site-state.json');
 
 const DEFAULT_SITE_STATE = {
     offline: false,
+    adminCheat: false,
     updatedAt: null,
     updatedBy: null
 };
@@ -19,6 +20,7 @@ const normalizeState = (value) => {
 
     return {
         offline: Boolean(value.offline),
+        adminCheat: Boolean(value.adminCheat),
         updatedAt: value.updatedAt ? String(value.updatedAt) : null,
         updatedBy: value.updatedBy ? String(value.updatedBy) : null
     };
@@ -39,9 +41,11 @@ export const readSiteState = () => {
     }
 };
 
-export const writeSiteState = ({ offline, updatedBy }) => {
+export const writeSiteState = ({ offline, adminCheat, updatedBy }) => {
+    const currentState = readSiteState();
     const nextState = {
-        offline: Boolean(offline),
+        offline: offline !== undefined ? Boolean(offline) : currentState.offline,
+        adminCheat: adminCheat !== undefined ? Boolean(adminCheat) : currentState.adminCheat,
         updatedAt: new Date().toISOString(),
         updatedBy: updatedBy ? String(updatedBy) : null
     };

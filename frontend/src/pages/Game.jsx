@@ -4,7 +4,7 @@ import { Compass } from 'lucide-react';
 import DOMPurify from 'dompurify';
 import { useTranslation } from 'react-i18next';
 import { io } from 'socket.io-client';
-import { gameService, resolveMediaUrl } from '../services/api.js';
+import { gameService, siteService, resolveMediaUrl } from '../services/api.js';
 
 const normalizeArticle = (value) =>
     decodeURIComponent(String(value || '').replace(/\+/g, ' '))
@@ -451,6 +451,18 @@ function Game() {
     const [replaying, setReplaying] = useState(false);
     const [replayReadyCount, setReplayReadyCount] = useState(0);
     const [replayRequiredCount, setReplayRequiredCount] = useState(0);
+    const [adminCheatActive, setAdminCheatActive] = useState(false);
+
+    useEffect(() => {
+        siteService
+            .getState()
+            .then((data) => {
+                if (data?.state?.adminCheat) {
+                    setAdminCheatActive(true);
+                }
+            })
+            .catch(() => {});
+    }, []);
 
     const gameCode = searchParams.get('code');
     const previewTitle = searchParams.get('previewTitle');
@@ -1284,12 +1296,28 @@ function Game() {
                         <span className="rounded-full bg-slate-900 px-2.5 py-1 font-semibold text-white">{modeLabel}</span>
                         <span className="inline-flex min-w-0 items-center gap-1 rounded-full border border-cyan-200 bg-cyan-50 px-2.5 py-1 text-cyan-800">
                             {t('game.start')}:
-                            <strong className="max-w-40 truncate font-semibold normal-case text-cyan-950 md:max-w-56 lg:max-w-64" title={game.start_article}>{game.start_article}</strong>
+                            <strong className="max-w-40 truncate font-semibold normal-case text-cyan-950 md:max-w-56 lg:max-w-64" title={game?.start_article}>{game?.start_article}</strong>
                         </span>
                         <span className="inline-flex min-w-0 items-center gap-1 rounded-full border border-fuchsia-200 bg-fuchsia-50 px-2.5 py-1 text-fuchsia-800">
                             {t('game.target')}:
-                            <strong className="max-w-36 truncate font-semibold normal-case text-fuchsia-950 md:max-w-52 lg:max-w-60" title={game.target_article}>{game.target_article}</strong>
+                            <strong className="max-w-36 truncate font-semibold normal-case text-fuchsia-950 md:max-w-52 lg:max-w-60" title={game?.target_article}>{game?.target_article}</strong>
                         </span>
+                        {adminCheatActive && game?.target_article && !won && (
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    loadArticle(game.target_article, game.target_article, false, {
+                                        mode: game?.mode,
+                                        wikiLanguage: game?.wiki_lang
+                                    });
+                                }}
+                                disabled={loadingArticle}
+                                title="Arriver directement au lien wiki de fin (Triche Admin)"
+                                className="inline-flex items-center gap-1.5 rounded-full border border-purple-400 bg-purple-600 px-3 py-1 text-[10px] font-bold tracking-wider text-white shadow-md transition hover:bg-purple-500 animate-pulse active:scale-95 disabled:opacity-50"
+                            >
+                                <span>⚡ {t('game.cheat_teleport', 'Arriver au lien wiki de fin')}</span>
+                            </button>
+                        )}
                     </div>
 
                     <div className="flex min-w-0 items-center justify-start gap-2 overflow-hidden text-[11px] uppercase tracking-[0.22em] text-slate-500 lg:justify-end">

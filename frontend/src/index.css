@@ -1423,14 +1423,15 @@
   }
   .site-mobile-language-select .language-picker-trigger { background: rgba(255, 252, 247, 0.75) !important; border: 1px solid #a88760 !important; }
   .site-mobile-language-select .language-picker-menu { top: auto; right: 0; bottom: calc(100% + 7px); }
-  .site-main { padding: 0.75rem; }
-  .site-page, .login-container { padding: 1rem !important; border-radius: 4px !important; }
+  .site-main { padding: 0.75rem 0.75rem calc(5.5rem + env(safe-area-inset-bottom, 0px)) 0.75rem; }
+  .site-page, .login-container { padding: 1rem !important; border-radius: 4px !important; margin-bottom: 2rem !important; }
   .site-page h1, .login-container h1 { font-size: 32px !important; }
   .site-page h2 { font-size: 22px !important; }
   .site-page section { padding: 0.85rem !important; }
   .site-stage { background-attachment: scroll; }
   .site-footer { display: none; }
   .lobby-scene { padding-bottom: 0.5rem; }
+  input:not([type='checkbox']):not([type='radio']), select, textarea { font-size: 16px !important; }
 }
 
 /* Lobby bibliothèque */
@@ -2248,7 +2249,7 @@
 
   .wiki-mobile-html table {
     display: block;
-    max-width: 100%;
+    max-width: 100% !important;
     overflow-x: auto;
     border-collapse: collapse;
   }
@@ -2319,5 +2320,29 @@
   .wiki-mobile-html .navbox,
   .wiki-mobile-html .vertical-navbox {
     font-size: 0.875rem;
+  }
+
+  @media (max-width: 768px) {
+    .wiki-mobile-html table.infobox,
+    .wiki-mobile-html table.navbox,
+    .wiki-mobile-html table.ambox,
+    .wiki-mobile-html .infobox,
+    .wiki-mobile-html .vertical-navbox,
+    .wiki-mobile-html .thumb,
+    .wiki-mobile-html .tright,
+    .wiki-mobile-html .tleft {
+      float: none !important;
+      width: 100% !important;
+      max-width: 100% !important;
+      margin: 0.85rem 0 !important;
+      clear: both !important;
+    }
+
+    .wiki-mobile-html img,
+    .wiki-mobile-html figure,
+    .wiki-mobile-html iframe {
+      max-width: 100% !important;
+      height: auto !important;
+    }
   }
 }

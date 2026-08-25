@@ -166,6 +166,10 @@ export const siteService = {
     setOfflineMode: (offline) => fetchAPI('/site-state/offline', {
         method: 'PUT',
         body: JSON.stringify({ offline: Boolean(offline) })
+    }),
+    setAdminCheatMode: (adminCheat) => fetchAPI('/site-state/cheat-mode', {
+        method: 'PUT',
+        body: JSON.stringify({ adminCheat: Boolean(adminCheat) })
     })
 }
 
