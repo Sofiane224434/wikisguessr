@@ -17,3 +17,17 @@ export const updateSiteOfflineMode = (req, res) => {
 
     return res.json({ state });
 };
+
+export const updateSiteCheatMode = (req, res) => {
+    if (!req.user || req.user.role !== 'admin') {
+        return res.status(403).json({ error: 'Acces admin requis' });
+    }
+
+    const adminCheat = Boolean(req.body?.adminCheat);
+    const state = writeSiteState({
+        adminCheat,
+        updatedBy: req.user.username || req.user.email || String(req.user.id || '')
+    });
+
+    return res.json({ state });
+};
