@@ -7,6 +7,7 @@ import { createSharedGame } from './controllers/game.controller.js';
 import GameRoom from './models/game-room.model.js';
 import Game from './models/game.model.js';
 import { getBotParticipants } from './services/bot-simulator.service.js';
+import { normalizeWikiLanguage } from './services/wiki-language.service.js';
 
 export function setupSocket(io) {
     const matchmakingTarget = 8;
