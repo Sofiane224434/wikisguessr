@@ -37,6 +37,7 @@ jobs:
           ADMIN_USERNAME: ${{ secrets.ADMIN_USERNAME }}
           ADMIN_EMAIL: ${{ secrets.ADMIN_EMAIL }}
           ADMIN_PASSWORD_HASH: ${{ secrets.ADMIN_PASSWORD_HASH }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
           set -o pipefail
           log_file="$(mktemp)"
@@ -45,12 +46,14 @@ jobs:
           test -n "$ADMIN_USERNAME"
           test -n "$ADMIN_EMAIL"
           test -n "$ADMIN_PASSWORD_HASH"
+          test -n "$GEMINI_API_KEY"
           brevo_api_key_b64="$(printf '%s' "$BREVO_API_KEY" | base64 -w 0)"
           brevo_sender_email_b64="$(printf '%s' "$BREVO_SENDER_EMAIL" | base64 -w 0)"
           brevo_sender_name_b64="$(printf '%s' "$BREVO_SENDER_NAME" | base64 -w 0)"
           admin_username_b64="$(printf '%s' "$ADMIN_USERNAME" | base64 -w 0)"
           admin_email_b64="$(printf '%s' "$ADMIN_EMAIL" | base64 -w 0)"
           admin_password_hash_b64="$(printf '%s' "$ADMIN_PASSWORD_HASH" | base64 -w 0)"
+          gemini_api_key_b64="$(printf '%s' "$GEMINI_API_KEY" | base64 -w 0)"
 
           set +e
           ssh -i ~/.ssh/id_ed25519 -p "$VPS_PORT" "$VPS_USER@$VPS_HOST" bash -s <<EOF 2>&1 | tee "$log_file"
@@ -97,6 +100,10 @@ jobs:
             set_env_from_base64 BREVO_SENDER_NAME "$brevo_sender_name_b64"
             echo "BREVO_CONFIG=configured"
 
+            phase="configuration Gemini"
+            set_env_from_base64 GEMINI_API_KEY "$gemini_api_key_b64"
+            echo "GEMINI_CONFIG=configured"
+
             phase="build des images"
             echo "==> build des images"
             docker compose -f docker-compose.yml -p "\$PROJECT" pull db || true
@@ -130,6 +137,8 @@ jobs:
               "for (let attempt = 1; attempt <= 30; attempt++) { try { const response = await fetch('http://app/api/site-state'); console.log('APP_PROXY_STATUS=' + response.status); if (response.ok) process.exit(0); } catch {} await new Promise(resolve => setTimeout(resolve, 1000)); } process.exit(1);" </dev/null
             docker compose -f docker-compose.yml -p "\$PROJECT" exec -T api node --input-type=module -e \
               "const headers = { 'api-key': process.env.BREVO_API_KEY, accept: 'application/json' }; const account = await fetch('https://api.brevo.com/v3/account', { headers }); const sendersResponse = await fetch('https://api.brevo.com/v3/senders', { headers }); const data = sendersResponse.ok ? await sendersResponse.json() : {}; const senderActive = (data.senders || []).some(sender => sender.email?.toLowerCase() === process.env.BREVO_SENDER_EMAIL?.toLowerCase() && sender.active); console.log('BREVO_API_STATUS=' + account.status + ' BREVO_SENDER_ACTIVE=' + senderActive); if (!account.ok || !sendersResponse.ok || !senderActive) process.exit(1);" </dev/null
+            docker compose -f docker-compose.yml -p "\$PROJECT" exec -T api node --input-type=module -e \
+              "const configured = Boolean(process.env.GEMINI_API_KEY?.trim()); console.log('GEMINI_CONFIG=' + (configured ? 'configured' : 'missing')); if (!configured) process.exit(1);" </dev/null
 
             phase="verification du port applicatif"
             echo "==> verification du port applicatif"
@@ -171,7 +180,7 @@ jobs:
 
           status=${PIPESTATUS[0]}
           set -e
-          safe_state="$(grep -E 'BREVO_CONFIG=|ADMIN_STATE=|BREVO_API_STATUS=' "$log_file" | tail -n 3 | tr '\n' ' ')"
+          safe_state="$(grep -E 'BREVO_CONFIG=|GEMINI_CONFIG=|ADMIN_STATE=|BREVO_API_STATUS=' "$log_file" | tail -n 5 | tr '\n' ' ')"
           echo "::notice title=Configuration production::$safe_state"
           if [ "$status" -ne 0 ]; then
             diagnostic="$(tail -n 30 "$log_file" | tr '\n' ' ' | cut -c1-4000)"
