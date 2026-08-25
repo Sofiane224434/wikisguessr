@@ -20,6 +20,7 @@ function Shop() {
         }
         return '';
     });
+    const [cancelingSubscription, setCancelingSubscription] = useState(false);
     const [error, setError] = useState('');
     const hasActiveStripeSubscription = Boolean(
         subscription?.billing?.managedByStripe
@@ -64,6 +65,27 @@ function Shop() {
         }
     };
 
+    const handleCancelSubscription = async () => {
+        if (!confirm('Êtes-vous sûr de vouloir annuler le renouvellement automatique de votre abonnement ? Vous conserverez vos avantages jusqu’à la fin de la période en cours, mais aucun montant ne sera prélevé le mois prochain.')) {
+            return;
+        }
+
+        setCancelingSubscription(true);
+        setError('');
+        setMessage('');
+
+        try {
+            const res = await subscriptionService.cancelSubscription();
+            setMessage(res.message || 'Le renouvellement automatique a été annulé avec succès.');
+            const subData = await subscriptionService.getMine();
+            setSubscription(subData.subscription);
+        } catch (requestError) {
+            setError(requestError.message || 'Impossible d’annuler l’abonnement');
+        } finally {
+            setCancelingSubscription(false);
+        }
+    };
+
     return (
         <div className="site-page shop-page paper border-2 shadow-large">
             <header className="shop-heading">
@@ -84,6 +106,9 @@ function Shop() {
                             <div>
                                 <span>{t('shop.your_plan')}</span>
                                 <strong>{subscription.plan.name}{subscription.isAdminIncluded ? ` · ${t('shop.admin_included')}` : ''}</strong>
+                                {subscription.billing?.status === 'canceling' && (
+                                    <span className="text-amber-300 text-xs font-semibold">(Renouvellement annulé)</span>
+                                )}
                             </div>
                             <div>
                                 <Gauge size={20} aria-hidden="true" />
@@ -93,11 +118,23 @@ function Shop() {
                                 <Crown size={20} aria-hidden="true" />
                                 <span>{subscription.plan.knowledgeGamesUnlimited ? t('shop.knowledge_unlimited') : t('shop.knowledge_remaining', { count: subscription.usage.knowledgeGamesRemaining })}</span>
                             </div>
-                            {subscription.billing?.managedByStripe && !subscription.isAdminIncluded && (
-                                <button type="button" className="shop-manage-button" onClick={handleManageBilling}>
-                                    <ExternalLink size={17} aria-hidden="true" /> {t('shop.manage')}
-                                </button>
-                            )}
+                            <div className="flex flex-wrap gap-2 items-center">
+                                {subscription.billing?.managedByStripe && !subscription.isAdminIncluded && (
+                                    <button type="button" className="shop-manage-button" onClick={handleManageBilling}>
+                                        <ExternalLink size={17} aria-hidden="true" /> {t('shop.manage')}
+                                    </button>
+                                )}
+                                {subscription.tier !== 'free' && !subscription.isAdminIncluded && subscription.billing?.status !== 'canceling' && (
+                                    <button
+                                        type="button"
+                                        disabled={cancelingSubscription}
+                                        className="rounded-lg border border-red-700 bg-red-950/80 px-3 py-1.5 text-xs font-semibold text-red-200 transition hover:bg-red-900 disabled:opacity-50"
+                                        onClick={handleCancelSubscription}
+                                    >
+                                        {cancelingSubscription ? 'Annulation...' : 'Annuler le renouvellement'}
+                                    </button>
+                                )}
+                            </div>
                         </section>
                     )}
 

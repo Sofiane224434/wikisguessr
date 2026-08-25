@@ -115,7 +115,8 @@ export const subscriptionService = {
         method: 'POST',
         body: JSON.stringify({ tier })
     }),
-    openPortal: () => fetchAPI('/subscriptions/portal', { method: 'POST' })
+    openPortal: () => fetchAPI('/subscriptions/portal', { method: 'POST' }),
+    cancelSubscription: () => fetchAPI('/subscriptions/cancel', { method: 'POST' })
 }
 
 export const wikiService = {

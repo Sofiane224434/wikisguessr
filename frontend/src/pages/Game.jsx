@@ -35,6 +35,45 @@ const STATE_STORAGE_PREFIX = 'wikisguessr:game:state:';
 const CHRONO_START_SECONDS = 5 * 60;
 const CHRONO_SCORE_DECAY_INTERVAL_SECONDS = 2;
 
+const PRESET_BOTS = [
+    { username: 'Alex_Explorer', avatar_url: 'https://api.dicebear.com/7.x/bottts/svg?seed=Alex_Explorer' },
+    { username: 'Sophie_Wiki', avatar_url: 'https://api.dicebear.com/7.x/bottts/svg?seed=Sophie_Wiki' },
+    { username: 'Lucas_Chrono', avatar_url: 'https://api.dicebear.com/7.x/bottts/svg?seed=Lucas_Chrono' },
+    { username: 'Clara_Guess', avatar_url: 'https://api.dicebear.com/7.x/bottts/svg?seed=Clara_Guess' },
+    { username: 'Hugo_Search', avatar_url: 'https://api.dicebear.com/7.x/bottts/svg?seed=Hugo_Search' },
+    { username: 'Emma_Path', avatar_url: 'https://api.dicebear.com/7.x/bottts/svg?seed=Emma_Path' },
+    { username: 'Nathan_Link', avatar_url: 'https://api.dicebear.com/7.x/bottts/svg?seed=Nathan_Link' },
+    { username: 'Camille_Nav', avatar_url: 'https://api.dicebear.com/7.x/bottts/svg?seed=Camille_Nav' }
+];
+
+const ensureEightParticipantsWithBots = (existingList = [], userUsername = 'Joueur') => {
+    const list = Array.isArray(existingList) && existingList.length > 0
+        ? existingList
+        : [{ user_id: 'current_user', username: userUsername || 'Joueur', progress_status: 'playing' }];
+
+    if (list.length >= 8) {
+        return list;
+    }
+
+    const existingNames = new Set(list.map((p) => String(p.username || '').toLowerCase()));
+    const needed = 8 - list.length;
+    const available = PRESET_BOTS.filter((b) => !existingNames.has(b.username.toLowerCase()));
+
+    const bots = available.slice(0, needed).map((bot, i) => ({
+        user_id: `bot_${i + 1}`,
+        username: bot.username,
+        avatar_url: bot.avatar_url,
+        isBot: true,
+        progress_status: 'playing',
+        clicks: 0,
+        time_seconds: 0,
+        score: 0,
+        won: false
+    }));
+
+    return [...list, ...bots];
+};
+
 const formatClock = (totalSeconds) => {
     const safeSeconds = Math.max(0, Number(totalSeconds) || 0);
     const minutes = String(Math.floor(safeSeconds / 60)).padStart(2, '0');
@@ -1366,25 +1405,29 @@ function Game() {
                     </div>
                 </div>
 
-                {participants.length > 1 && (
-                    <div className="game-participants mx-auto mt-2 flex max-w-6xl gap-2 overflow-x-auto" aria-label="Progression des joueurs">
-                        {participants.map((participant) => {
-                            const avatarUrl = resolveMediaUrl(participant.avatar_url);
-                            const finished = participant.progress_status === 'finished';
-                            return (
-                                <div className={`game-participant${finished ? ' is-finished' : ''}`} key={participant.user_id}>
-                                    <span className="game-participant-avatar">
-                                        {avatarUrl ? <img src={avatarUrl} alt="" /> : String(participant.username || '?').slice(0, 1).toUpperCase()}
-                                    </span>
-                                    <span>
-                                        <strong>{participant.username}</strong>
-                                        <small>{finished ? 'Terminé' : 'En cours'}</small>
-                                    </span>
-                                </div>
-                            );
-                        })}
-                    </div>
-                )}
+                {(() => {
+                    const fullParticipants = ensureEightParticipantsWithBots(participants);
+                    return (
+                        <div className="game-participants mx-auto mt-2 flex max-w-6xl gap-2 overflow-x-auto pb-1" aria-label="Progression des 8 joueurs">
+                            {fullParticipants.map((participant) => {
+                                const avatarUrl = resolveMediaUrl(participant.avatar_url);
+                                const finished = participant.progress_status === 'finished';
+                                const isBotPlayer = Boolean(participant.isBot);
+                                return (
+                                    <div className={`game-participant${finished ? ' is-finished' : ''}${isBotPlayer ? ' is-bot opacity-90' : ''}`} key={participant.user_id}>
+                                        <span className="game-participant-avatar">
+                                            {avatarUrl ? <img src={avatarUrl} alt="" /> : String(participant.username || '?').slice(0, 1).toUpperCase()}
+                                        </span>
+                                        <span className="flex flex-col text-[10px] leading-tight">
+                                            <strong className="truncate max-w-[80px]">{participant.username}</strong>
+                                            <small className="text-slate-500">{isBotPlayer ? '🤖 Bot' : finished ? 'Terminé' : 'En cours'}</small>
+                                        </span>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    );
+                })()}
 
                 {won && (
                     <div className="mx-auto mt-2 max-w-6xl rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-800">
