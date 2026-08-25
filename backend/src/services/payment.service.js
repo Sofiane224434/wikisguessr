@@ -113,6 +113,36 @@ export const createBillingPortalSession = async (userId) => {
     return session.url;
 };
 
+export const cancelSubscriptionSession = async (userId) => {
+    const user = await getUser(userId);
+
+    if (user.role === 'admin') {
+        const error = new Error('L’abonnement administrateur ne peut pas être annulé');
+        error.status = 400;
+        throw error;
+    }
+
+    if (user.stripe_customer_id && process.env.STRIPE_SECRET_KEY && ['active', 'trialing'].includes(user.stripe_subscription_status)) {
+        try {
+            const stripe = getStripe();
+            const subs = await stripe.subscriptions.list({ customer: user.stripe_customer_id, status: 'active', limit: 1 });
+            if (subs.data && subs.data.length > 0) {
+                await stripe.subscriptions.update(subs.data[0].id, { cancel_at_period_end: true });
+            }
+        } catch (stripeErr) {
+            console.warn('Stripe subscription cancel warn:', stripeErr.message);
+        }
+    }
+
+    await query(`
+UPDATE users
+SET stripe_subscription_status = 'canceling'
+WHERE id = ? AND role <> 'admin'
+`, [userId]);
+
+    return { success: true, message: 'Le renouvellement automatique a été annulé. Vous conservez vos avantages jusqu’à la fin de la période.' };
+};
+
 const syncSubscription = async (subscription, forcedUserId = null, forcedTier = null) => {
     const userId = forcedUserId || subscription.metadata?.userId;
     const tier = String(forcedTier || subscription.metadata?.tier || '').toLowerCase();

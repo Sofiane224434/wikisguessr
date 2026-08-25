@@ -3,6 +3,7 @@ import {
     listPlans
 } from '../services/subscription.service.js';
 import {
+    cancelSubscriptionSession,
     createBillingPortalSession,
     createCheckoutSession,
     handleStripeWebhook
@@ -39,6 +40,16 @@ export const billingPortal = async (req, res) => {
     } catch (error) {
         console.error('billingPortal error:', error);
         return res.status(error.status || 500).json({ error: error.message || 'Impossible d’ouvrir la gestion de l’abonnement' });
+    }
+};
+
+export const cancelSubscription = async (req, res) => {
+    try {
+        const result = await cancelSubscriptionSession(req.user.id);
+        return res.json(result);
+    } catch (error) {
+        console.error('cancelSubscription error:', error);
+        return res.status(error.status || 500).json({ error: error.message || 'Impossible d’annuler le renouvellement' });
     }
 };
 

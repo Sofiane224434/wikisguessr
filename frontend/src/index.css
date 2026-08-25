@@ -2345,4 +2345,57 @@
       height: auto !important;
     }
   }
+
+  @media (max-width: 768px) {
+    /* Safe area and mobile navigation spacing */
+    .site-main,
+    .site-page {
+      padding-bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px)) !important;
+    }
+
+    /* iOS auto-zoom prevention */
+    input, select, textarea {
+      font-size: 16px !important;
+    }
+
+    /* Compact Game Toolbar on mobile */
+    .game-toolbar {
+      padding: 0.35rem 0.5rem !important;
+    }
+
+    .game-toolbar span,
+    .game-toolbar button {
+      font-size: 10px !important;
+      padding-top: 0.2rem !important;
+      padding-bottom: 0.2rem !important;
+    }
+
+    .game-participants {
+      margin-top: 0.25rem !important;
+      padding-bottom: 0.25rem !important;
+      gap: 0.35rem !important;
+    }
+
+    .game-participant {
+      padding: 0.25rem 0.4rem !important;
+      gap: 0.35rem !important;
+    }
+
+    .game-participant-avatar {
+      width: 22px !important;
+      height: 22px !important;
+      font-size: 10px !important;
+    }
+
+    /* Admin and Leaderboard responsive table wrappers */
+    .admin-page table,
+    .leaderboard-page table {
+      display: block;
+      width: 100% !important;
+      overflow-x: auto;
+      white-space: nowrap;
+      -webkit-overflow-scrolling: touch;
+    }
+  }
 }
+

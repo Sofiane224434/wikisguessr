@@ -6,7 +6,7 @@ import matchmakingService from './services/matchmaking.service.js';
 import { createSharedGame } from './controllers/game.controller.js';
 import GameRoom from './models/game-room.model.js';
 import Game from './models/game.model.js';
-import { normalizeWikiLanguage } from './services/wiki-language.service.js';
+import { getBotParticipants } from './services/bot-simulator.service.js';
 
 export function setupSocket(io) {
     const matchmakingTarget = 8;
@@ -105,9 +105,11 @@ export function setupSocket(io) {
                     throw new Error('Partie inaccessible');
                 }
                 socket.join(`game:${code}`);
+                const realParticipants = await Game.getParticipants(game.id);
+                const fullParticipants = getBotParticipants(realParticipants, 8);
                 socket.emit('game:participants', {
                     code,
-                    participants: await Game.getParticipants(game.id)
+                    participants: fullParticipants
                 });
             } catch (error) {
                 socket.emit('game:error', { error: error.message });
