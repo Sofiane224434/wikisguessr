@@ -870,6 +870,146 @@ html, body, #root {
 .game-loading strong { font-size: 1.35rem; }
 .game-loading span { color: #d9cbb7; font-size: 0.88rem; }
 
+/* Knowledge Quiz Theme - Antique Explorer Parchment */
+.knowledge-quiz-card {
+  position: relative;
+  background: #fbf6ec;
+  border: 2px solid #bfa077;
+  box-shadow: 0 8px 24px rgba(32, 21, 14, 0.22), inset 0 0 0 1px #dfd0b9;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.knowledge-quiz-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.85rem 1.2rem;
+  background: linear-gradient(135deg, #3d2f24, #2a1f17);
+  color: #faebd7;
+  border-bottom: 2px solid #bfa077;
+}
+
+.knowledge-quiz-header-title {
+  font-family: Georgia, 'Times New Roman', serif;
+  letter-spacing: 0.08em;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.knowledge-question-box {
+  background: #fffefb;
+  border: 1px solid #dccbb2;
+  border-radius: 9px;
+  padding: 1.1rem;
+  box-shadow: 0 2px 8px rgba(50, 35, 20, 0.06);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.knowledge-question-box:hover {
+  border-color: #bfa077;
+  box-shadow: 0 4px 12px rgba(50, 35, 20, 0.1);
+}
+
+.knowledge-question-title {
+  font-family: Georgia, 'Times New Roman', serif;
+  color: #2b1e14;
+  font-size: 1.05rem;
+  line-height: 1.45;
+  font-weight: 600;
+}
+
+.knowledge-choice-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  width: 100%;
+  padding: 0.75rem 0.95rem;
+  text-align: left;
+  font-size: 0.88rem;
+  line-height: 1.35;
+  color: #34271c;
+  background: #f8f3ea;
+  border: 1.5px solid #d5c3ab;
+  border-radius: 7px;
+  cursor: pointer;
+  transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+  user-select: none;
+}
+
+.knowledge-choice-btn:hover:not(:disabled) {
+  background: #ede2cf;
+  border-color: #a48259;
+  color: #1e150f;
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(45, 30, 18, 0.12);
+}
+
+.knowledge-choice-btn.is-selected {
+  background: #315d62 !important;
+  color: #ffffff !important;
+  border-color: #1f3e42 !important;
+  box-shadow: 0 4px 12px rgba(49, 93, 98, 0.35);
+}
+
+.knowledge-choice-btn.is-correct {
+  background: #276749 !important;
+  color: #ffffff !important;
+  border-color: #1c4934 !important;
+  box-shadow: 0 4px 12px rgba(39, 103, 73, 0.35);
+}
+
+.knowledge-choice-btn.is-wrong {
+  background: #9b2c2c !important;
+  color: #ffffff !important;
+  border-color: #742020 !important;
+  box-shadow: 0 4px 12px rgba(155, 44, 44, 0.35);
+}
+
+.knowledge-choice-letter {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  font-weight: 700;
+  font-size: 0.75rem;
+  background: #e2d2be;
+  color: #4a3829;
+  flex-shrink: 0;
+  transition: all 0.18s ease;
+}
+
+.knowledge-choice-btn.is-selected .knowledge-choice-letter {
+  background: rgba(255, 255, 255, 0.25);
+  color: #ffffff;
+}
+
+.knowledge-choice-btn.is-correct .knowledge-choice-letter {
+  background: rgba(255, 255, 255, 0.28);
+  color: #ffffff;
+}
+
+.knowledge-choice-btn.is-wrong .knowledge-choice-letter {
+  background: rgba(255, 255, 255, 0.28);
+  color: #ffffff;
+}
+
+.knowledge-quote-hint {
+  margin-top: 0.65rem;
+  padding: 0.6rem 0.85rem;
+  background: #f3eae0;
+  border-left: 3px solid #8b652b;
+  border-radius: 0 6px 6px 0;
+  font-size: 0.76rem;
+  color: #5a4635;
+}
+
 @media (max-width: 760px) {
   .shop-current-plan, .shop-plan-grid { grid-template-columns: 1fr; }
   .shop-current-plan { gap: 0.65rem; }
