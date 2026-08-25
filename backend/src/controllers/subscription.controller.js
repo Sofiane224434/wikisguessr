@@ -27,9 +27,10 @@ export const getMySubscription = async (req, res) => {
 
 export const checkout = async (req, res) => {
     try {
-        const result = await createCheckoutSession(req.user.id, req.body.tier);
-        if (result?.upgraded) {
-            return res.json({ upgraded: true, message: result.message });
+        const originUrl = req.headers.origin || (req.headers.referer ? new URL(req.headers.referer).origin : null);
+        const result = await createCheckoutSession(req.user.id, req.body.tier, originUrl);
+        if (result?.upgraded || result?.downgraded) {
+            return res.json(result);
         }
         return res.json({ url: result.url || result });
     } catch (error) {
@@ -40,7 +41,8 @@ export const checkout = async (req, res) => {
 
 export const billingPortal = async (req, res) => {
     try {
-        const url = await createBillingPortalSession(req.user.id);
+        const originUrl = req.headers.origin || (req.headers.referer ? new URL(req.headers.referer).origin : null);
+        const url = await createBillingPortalSession(req.user.id, originUrl);
         return res.json({ url });
     } catch (error) {
         console.error('billingPortal error:', error);
