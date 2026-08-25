@@ -330,6 +330,29 @@ WHERE gr.game_id = ?
         return true;
     },
 
+    async processPendingElo(limit = 200) {
+        await Game.ensureTable();
+        const safeLimit = Math.max(1, Math.min(Number(limit) || 200, 500));
+        const games = await query(`
+SELECT g.id
+FROM games g
+JOIN game_results gr ON gr.game_id = g.id
+WHERE g.is_ranked = 1 AND g.elo_processed = 0 AND g.player_count >= 2
+GROUP BY g.id, g.player_count, g.mode, g.created_at
+HAVING COUNT(gr.id) = g.player_count
+    AND (g.mode != 'knowledge' OR SUM(gr.knowledge_score IS NOT NULL) = g.player_count)
+ORDER BY g.created_at ASC, g.id ASC
+LIMIT ${safeLimit}
+`, []);
+        let processed = 0;
+        for (const game of games) {
+            if (await this.processElo(game.id)) {
+                processed += 1;
+            }
+        }
+        return processed;
+    },
+
     async getByUser(userId, limit = 30) {
         await this.ensureTable();
         const limitNum = Math.max(1, Math.min(parseInt(limit) || 30, 1000)); // Clamp between 1 and 1000
