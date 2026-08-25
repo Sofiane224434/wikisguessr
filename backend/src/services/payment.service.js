@@ -5,22 +5,21 @@ import { SUBSCRIPTION_PLANS } from './subscription.service.js';
 const PAID_TIERS = new Set(['silver', 'gold']);
 const ENTITLED_STATUSES = new Set(['active', 'trialing']);
 
-// En développement local, on utilise automatiquement les clés TEST Stripe
+// Résolution intelligente des clés (fallback si une seule est configurée)
 const isTest = process.env.NODE_ENV !== 'production';
 
 const stripeSecretKey = () => isTest
-    ? process.env.STRIPE_SECRET_KEY_TEST
-    : process.env.STRIPE_SECRET_KEY;
+    ? (process.env.STRIPE_SECRET_KEY_TEST || process.env.STRIPE_SECRET_KEY)
+    : (process.env.STRIPE_SECRET_KEY || process.env.STRIPE_SECRET_KEY_TEST);
 
 const stripeWebhookSecret = () => isTest
-    ? process.env.STRIPE_WEBHOOK_SECRET_TEST
-    : process.env.STRIPE_WEBHOOK_SECRET;
+    ? (process.env.STRIPE_WEBHOOK_SECRET_TEST || process.env.STRIPE_WEBHOOK_SECRET)
+    : (process.env.STRIPE_WEBHOOK_SECRET || process.env.STRIPE_WEBHOOK_SECRET_TEST);
 
 const getStripe = () => {
     const key = stripeSecretKey();
     if (!key) {
-        const envVar = isTest ? 'STRIPE_SECRET_KEY_TEST' : 'STRIPE_SECRET_KEY';
-        const error = new Error(`Stripe n'est pas configuré sur le serveur (manque ${envVar})`);
+        const error = new Error('Stripe n\'est pas configuré sur le serveur (STRIPE_SECRET_KEY ou STRIPE_SECRET_KEY_TEST manquant)');
         error.status = 503;
         throw error;
     }
@@ -71,7 +70,7 @@ const getPeriodEnd = (subscription) => (
     || null
 );
 
-export const createCheckoutSession = async (userId, requestedTier) => {
+export const createCheckoutSession = async (userId, requestedTier, originUrl = null) => {
     const tier = String(requestedTier || '').toLowerCase();
     if (!PAID_TIERS.has(tier)) {
         const error = new Error('Abonnement invalide');
@@ -86,7 +85,7 @@ export const createCheckoutSession = async (userId, requestedTier) => {
         throw error;
     }
 
-    const appUrl = process.env.APP_URL || 'http://localhost:5173';
+    const appUrl = originUrl || process.env.APP_URL || 'https://wikisguessr.com';
     const stripe = getStripe();
 
     // Cas 1 : L'utilisateur est déjà en Silver et veut passer à Gold
@@ -140,7 +139,7 @@ export const createCheckoutSession = async (userId, requestedTier) => {
 
             const targetPriceId = isTest ? process.env.STRIPE_SILVER_PRICE_ID_TEST : process.env.STRIPE_SILVER_PRICE_ID;
             let updatePayload = {
-                proration_behavior: 'none', // Pas de remboursement, le tarif Silver s'appliquera au renouvellement
+                proration_behavior: 'none',
                 metadata: { userId: String(user.id), tier: 'silver' }
             };
 
@@ -173,7 +172,7 @@ export const createCheckoutSession = async (userId, requestedTier) => {
         throw error;
     }
 
-    // Cas 3 : Nouvel abonnement mensuel classique
+    // Cas 4 : Nouvel abonnement mensuel classique
     const session = await stripe.checkout.sessions.create({
         mode: 'subscription',
         customer: user.stripe_customer_id || undefined,
@@ -190,7 +189,7 @@ export const createCheckoutSession = async (userId, requestedTier) => {
     return session.url;
 };
 
-export const createBillingPortalSession = async (userId) => {
+export const createBillingPortalSession = async (userId, originUrl = null) => {
     const user = await getUser(userId);
     if (!user.stripe_customer_id) {
         const error = new Error('Aucun abonnement Stripe à gérer');
@@ -198,10 +197,11 @@ export const createBillingPortalSession = async (userId) => {
         throw error;
     }
 
+    const appUrl = originUrl || process.env.APP_URL || 'https://wikisguessr.com';
     const stripe = getStripe();
     const session = await stripe.billingPortal.sessions.create({
         customer: user.stripe_customer_id,
-        return_url: `${process.env.APP_URL || 'http://localhost:5173'}/shop`
+        return_url: `${appUrl}/shop`
     });
     return session.url;
 };
