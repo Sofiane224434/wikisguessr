@@ -19,7 +19,7 @@ class MatchmakingService {
     /**
      * Add player to queue
      */
-    joinQueue(userId, username, avatarUrl, socketId, mode) {
+    joinQueue(userId, username, avatarUrl, socketId, mode, language = 'fr') {
         if (!this.queues[mode]) {
             throw new Error(`Mode invalide: ${mode}`);
         }
@@ -32,6 +32,7 @@ class MatchmakingService {
             username,
             avatarUrl,
             socketId,
+            language,
             joinedAt: Date.now()
         };
 
@@ -60,8 +61,10 @@ class MatchmakingService {
         }
     }
 
-    takePlayers(mode, count = 8) {
-        const players = Object.values(this.queues[mode] || {}).slice(0, count);
+    takePlayers(mode, count = 8, language = 'fr') {
+        const players = Object.values(this.queues[mode] || {})
+            .filter((player) => player.language === language)
+            .slice(0, count);
         players.forEach(({ userId }) => {
             this.leaveQueue(userId, mode);
             this.clearTimeout(userId);
@@ -72,8 +75,8 @@ class MatchmakingService {
     /**
      * Get queue size for a mode
      */
-    getQueueSize(mode) {
-        return Object.keys(this.queues[mode] || {}).length;
+    getQueueSize(mode, language = 'fr') {
+        return Object.values(this.queues[mode] || {}).filter((player) => player.language === language).length;
     }
 
     scheduleSolo(userId, mode, timeoutMs, onTimeout) {
@@ -101,8 +104,8 @@ class MatchmakingService {
         for (const mode of Object.keys(this.queues)) {
             if (this.queues[mode][userId]) {
                 this.clearTimeout(userId);
-                this.leaveQueue(userId, mode);
-                return { mode };
+                const player = this.leaveQueue(userId, mode);
+                return { mode, language: player.language };
             }
         }
         return null;
@@ -111,8 +114,8 @@ class MatchmakingService {
     /**
      * Get all players in queue for a mode
      */
-    getQueuePlayers(mode) {
-        return Object.values(this.queues[mode] || {});
+    getQueuePlayers(mode, language = 'fr') {
+        return Object.values(this.queues[mode] || {}).filter((player) => player.language === language);
     }
 }
 

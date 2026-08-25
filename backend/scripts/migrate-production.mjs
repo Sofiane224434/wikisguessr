@@ -37,7 +37,9 @@ const requiredIndexes = new Map([
 const requiredGameColumns = new Map([
     ['is_ranked', 'TINYINT(1) NOT NULL DEFAULT 1'],
     ['player_count', 'INT NOT NULL DEFAULT 1'],
-    ['room_id', 'INT DEFAULT NULL']
+    ['room_id', 'INT DEFAULT NULL'],
+    ['wiki_lang', "VARCHAR(5) NOT NULL DEFAULT 'fr'"],
+    ['elo_processed', 'TINYINT(1) NOT NULL DEFAULT 0']
 ]);
 
 try {

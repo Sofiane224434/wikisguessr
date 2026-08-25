@@ -6,9 +6,11 @@ import matchmakingService from './services/matchmaking.service.js';
 import { createSharedGame } from './controllers/game.controller.js';
 import GameRoom from './models/game-room.model.js';
 import Game from './models/game.model.js';
+import { normalizeWikiLanguage } from './services/wiki-language.service.js';
 
 export function setupSocket(io) {
     const matchmakingTarget = 8;
+    const replayVotes = new Map();
 
     // Middleware d'authentification JWT
     io.use(async (socket, next) => {
@@ -26,13 +28,14 @@ export function setupSocket(io) {
         }
     });
 
-    const createMatch = async (players, mode) => {
+    const createMatch = async (players, mode, wikiLanguage = 'fr') => {
         const creator = players[0];
         const game = await createSharedGame({
             mode,
             creatorId: creator.userId,
             creatorUsername: creator.username,
-            playerIds: players.map(({ userId: playerId }) => playerId)
+            playerIds: players.map(({ userId: playerId }) => playerId),
+            wikiLanguage
         });
         const payload = {
             game,
@@ -45,8 +48,8 @@ export function setupSocket(io) {
         players.forEach(({ socketId }) => io.sockets.sockets.get(socketId)?.emit('matchmaking:found', payload));
     };
 
-    const emitQueueState = (mode) => {
-        const queuedPlayers = matchmakingService.getQueuePlayers(mode);
+    const emitQueueState = (mode, wikiLanguage = 'fr') => {
+        const queuedPlayers = matchmakingService.getQueuePlayers(mode, wikiLanguage);
         const players = queuedPlayers.map(({ userId: playerId, username: playerUsername, avatarUrl }) => ({
             userId: playerId,
             username: playerUsername,
@@ -62,10 +65,10 @@ export function setupSocket(io) {
         });
     };
 
-    const createQueuedMatch = async (mode) => {
-        const players = matchmakingService.takePlayers(mode, matchmakingTarget);
+    const createQueuedMatch = async (mode, wikiLanguage = 'fr') => {
+        const players = matchmakingService.takePlayers(mode, matchmakingTarget, wikiLanguage);
         try {
-            await createMatch(players, mode);
+            await createMatch(players, mode, wikiLanguage);
         } catch (error) {
             players.forEach(({ socketId }) => {
                 io.sockets.sockets.get(socketId)?.emit('matchmaking:error', { error: error.message });
@@ -116,18 +119,44 @@ export function setupSocket(io) {
             if (code) socket.leave(`game:${code}`);
         });
 
-        socket.on('disconnecting', async () => {
-            const roomIds = [...socket.rooms]
-                .filter((roomName) => roomName.startsWith('room:'))
-                .map((roomName) => Number(roomName.slice(5)))
-                .filter(Number.isInteger);
-            for (const roomId of roomIds) {
-                try {
-                    const result = await GameRoom.leave(userId, roomId);
-                    io.to(`room:${roomId}`).emit(result.closed ? 'room:closed' : 'room:updated', { roomId });
-                } catch (error) {
-                    if (error.status !== 404) console.error('[Room] disconnect cleanup:', error);
+        socket.on('game:replay-ready', async (rawCode) => {
+            const code = String(rawCode || '').trim().toUpperCase();
+            try {
+                const game = await Game.findByCode(code);
+                if (!game || !game.room_id || !(await Game.isParticipant(game.id, userId))) {
+                    throw new Error('Replay de groupe indisponible');
                 }
+
+                const participants = await Game.getParticipants(game.id);
+                const requiredIds = participants.map(({ user_id: participantId }) => Number(participantId));
+                const state = replayVotes.get(code) || { readyIds: new Set(), creating: false };
+                state.readyIds.add(Number(userId));
+                replayVotes.set(code, state);
+
+                io.to(`game:${code}`).emit('game:replay-status', {
+                    code,
+                    readyCount: state.readyIds.size,
+                    requiredCount: requiredIds.length
+                });
+
+                if (state.creating || !requiredIds.every((participantId) => state.readyIds.has(participantId))) {
+                    return;
+                }
+
+                state.creating = true;
+                const nextGame = await createSharedGame({
+                    mode: game.mode,
+                    creatorId: userId,
+                    creatorUsername: username,
+                    playerIds: requiredIds,
+                    roomId: game.room_id,
+                    wikiLanguage: game.wiki_lang
+                });
+                replayVotes.delete(code);
+                io.to(`game:${code}`).emit('game:replay-started', { game: nextGame });
+            } catch (error) {
+                replayVotes.delete(code);
+                socket.emit('game:replay-error', { error: error.message || 'Impossible de relancer la partie' });
             }
         });
 
@@ -156,17 +185,18 @@ export function setupSocket(io) {
             Friend.updateLastSeen(userId).catch(console.error);
             // Cancel any active matchmaking search
             const search = matchmakingService.cancelSearch(userId);
-            if (search?.mode) emitQueueState(search.mode);
+            if (search?.mode) emitQueueState(search.mode, search.language);
         });
 
         // Matchmaking: player joins queue
-        socket.on('matchmaking:start', async ({ mode }) => {
+        socket.on('matchmaking:start', async ({ mode, wikiLanguage: rawWikiLanguage }) => {
             try {
-                matchmakingService.joinQueue(userId, username, avatarUrl, socket.id, mode);
-                const queueSize = matchmakingService.getQueueSize(mode);
-                emitQueueState(mode);
+                const wikiLanguage = normalizeWikiLanguage(rawWikiLanguage);
+                matchmakingService.joinQueue(userId, username, avatarUrl, socket.id, mode, wikiLanguage);
+                const queueSize = matchmakingService.getQueueSize(mode, wikiLanguage);
+                emitQueueState(mode, wikiLanguage);
                 if (queueSize >= matchmakingTarget) {
-                    await createQueuedMatch(mode);
+                    await createQueuedMatch(mode, wikiLanguage);
                     return;
                 }
             } catch (err) {
@@ -177,13 +207,14 @@ export function setupSocket(io) {
             }
         });
 
-        socket.on('matchmaking:start-now', async ({ mode }) => {
+        socket.on('matchmaking:start-now', async ({ mode, wikiLanguage: rawWikiLanguage }) => {
             try {
-                const queuedPlayers = matchmakingService.getQueuePlayers(mode);
+            const wikiLanguage = normalizeWikiLanguage(rawWikiLanguage);
+            const queuedPlayers = matchmakingService.getQueuePlayers(mode, wikiLanguage);
                 if (!queuedPlayers.some((player) => Number(player.userId) === Number(userId))) {
                     throw new Error('Recherche de partie introuvable');
                 }
-                await createQueuedMatch(mode);
+                await createQueuedMatch(mode, wikiLanguage);
             } catch (err) {
                 if (!err.matchmakingNotified) {
                     socket.emit('matchmaking:error', { error: err.message });
@@ -194,7 +225,7 @@ export function setupSocket(io) {
         // Matchmaking: player cancels search
         socket.on('matchmaking:cancel', () => {
             const canceled = matchmakingService.cancelSearch(userId);
-            if (canceled?.mode) emitQueueState(canceled.mode);
+            if (canceled?.mode) emitQueueState(canceled.mode, canceled.language);
             socket.emit('matchmaking:canceled', { canceled: Boolean(canceled) });
         });
     });

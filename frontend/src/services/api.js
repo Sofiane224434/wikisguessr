@@ -189,9 +189,9 @@ export const gameRoomService = {
         method: 'POST',
         body: JSON.stringify({ accept })
     }),
-    startGame: (roomId, mode) => fetchAPI(`/game-rooms/${roomId}/start`, {
+    startGame: (roomId, mode, wikiLanguage) => fetchAPI(`/game-rooms/${roomId}/start`, {
         method: 'POST',
-        body: JSON.stringify({ mode })
+        body: JSON.stringify({ mode, wikiLanguage })
     })
 }
 

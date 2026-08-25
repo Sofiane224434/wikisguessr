@@ -142,7 +142,8 @@ export const startRoomGame = async (req, res) => {
             creatorId: req.user.id,
             creatorUsername: req.user.username,
             playerIds,
-            roomId
+            roomId,
+            wikiLanguage: req.body?.wikiLanguage
         });
         req.app.locals.io?.to(`room:${roomId}`).emit('room:game-started', { game });
         return res.status(201).json({ game });

@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { readSiteState } from '../services/site-state.service.js';
+import { normalizeWikiLanguage } from '../services/wiki-language.service.js';
 
 const WIKI_ORIGIN = 'https://fr.wikipedia.org';
 const WIKI_MOBILE_HTML_ORIGIN = 'https://fr.wikipedia.org/api/rest_v1/page/mobile-html';
@@ -95,8 +96,9 @@ const buildOfflineMobileHtmlPayload = (requestedTitle) => {
     };
 };
 
-const fetchMobileHtmlByTitle = async (title) => {
-    const targetUrl = `${WIKI_MOBILE_HTML_ORIGIN}/${encodeURIComponent(String(title || '').trim().replace(/\s+/g, '_'))}`;
+const fetchMobileHtmlByTitle = async (title, language = 'fr') => {
+    const wikiLanguage = normalizeWikiLanguage(language);
+    const targetUrl = `https://${wikiLanguage}.wikipedia.org/api/rest_v1/page/mobile-html/${encodeURIComponent(String(title || '').trim().replace(/\s+/g, '_'))}`;
     return fetch(targetUrl, {
         redirect: 'follow',
         headers: {
@@ -105,14 +107,15 @@ const fetchMobileHtmlByTitle = async (title) => {
     });
 };
 
-const resolveFallbackTitle = async (title) => {
+const resolveFallbackTitle = async (title, language = 'fr') => {
     const rawTitle = String(title || '').trim();
     if (!rawTitle) {
         return '';
     }
 
     try {
-        const queryUrl = `${WIKI_API_ORIGIN}?action=query&format=json&formatversion=2&redirects=1&prop=pageprops|categories&cllimit=max&titles=${encodeURIComponent(rawTitle)}`;
+        const wikiApiOrigin = `https://${normalizeWikiLanguage(language)}.wikipedia.org/w/api.php`;
+        const queryUrl = `${wikiApiOrigin}?action=query&format=json&formatversion=2&redirects=1&prop=pageprops|categories&cllimit=max&titles=${encodeURIComponent(rawTitle)}`;
         const queryResponse = await fetch(queryUrl, {
             headers: {
                 'User-Agent': 'WikisGuessrBot/1.0 (+https://wikisguessr.azim404.com)'
@@ -131,7 +134,8 @@ const resolveFallbackTitle = async (title) => {
     }
 
     try {
-        const searchUrl = `${WIKI_API_ORIGIN}?action=query&format=json&formatversion=2&list=search&srnamespace=0&srlimit=1&srsearch=${encodeURIComponent(rawTitle)}`;
+        const wikiApiOrigin = `https://${normalizeWikiLanguage(language)}.wikipedia.org/w/api.php`;
+        const searchUrl = `${wikiApiOrigin}?action=query&format=json&formatversion=2&list=search&srnamespace=0&srlimit=1&srsearch=${encodeURIComponent(rawTitle)}`;
         const searchResponse = await fetch(searchUrl, {
             headers: {
                 'User-Agent': 'WikisGuessrBot/1.0 (+https://wikisguessr.azim404.com)'
@@ -219,7 +223,7 @@ const sanitizePath = (path) => {
 
 const toProxyUrl = (wikiPath) => `/api/wiki/page?path=${encodeURIComponent(wikiPath)}`;
 
-const toMobileHtmlProxyUrl = (articleTitle) => `/api/wiki/mobile-html?title=${encodeURIComponent(articleTitle)}`;
+const toMobileHtmlProxyUrl = (articleTitle, language = 'fr') => `/api/wiki/mobile-html?title=${encodeURIComponent(articleTitle)}&lang=${encodeURIComponent(normalizeWikiLanguage(language))}`;
 
 const toDisambiguationRefusalKey = (value) => String(value || '')
     .trim()
@@ -995,11 +999,11 @@ const toArticleTitleFromRelativeHref = (href) => {
 const extractArticleTitleFromUrl = (value) => {
     try {
         const url = new URL(value, WIKI_ORIGIN);
-        if (url.hostname === 'fr.wikipedia.org' && url.pathname.startsWith('/wiki/')) {
+        if (url.hostname.endsWith('.wikipedia.org') && url.pathname.startsWith('/wiki/')) {
             return decodeURIComponent(url.pathname.slice('/wiki/'.length)).replace(/_/g, ' ').trim();
         }
 
-        if (url.hostname === 'fr.wikipedia.org' && url.pathname.startsWith('/api/rest_v1/page/mobile-html/')) {
+        if (url.hostname.endsWith('.wikipedia.org') && url.pathname.startsWith('/api/rest_v1/page/mobile-html/')) {
             return decodeURIComponent(url.pathname.slice('/api/rest_v1/page/mobile-html/'.length)).replace(/_/g, ' ').trim();
         }
 
@@ -1102,8 +1106,10 @@ const rewriteWikiLinks = (html) => {
     return injectTracker(output);
 };
 
-const rewriteMobileHtmlLinks = (html) => {
+const rewriteMobileHtmlLinks = (html, language = 'fr') => {
     let output = html;
+    const wikiLanguage = normalizeWikiLanguage(language);
+    const wikiOrigin = `https://${wikiLanguage}.wikipedia.org`;
 
     output = output.replace(/href="(\.\.\/|\.\/)([^"#?]+)([^"#]*)?"/g, (_match, prefix, slug, queryPart = '') => {
         const articleTitle = toArticleTitleFromRelativeHref(`${prefix}${slug}${queryPart}`);
@@ -1111,18 +1117,18 @@ const rewriteMobileHtmlLinks = (html) => {
             return _match;
         }
 
-        return `href="${toMobileHtmlProxyUrl(articleTitle)}"`;
+        return `href="${toMobileHtmlProxyUrl(articleTitle, wikiLanguage)}"`;
     });
 
     output = output.replace(
-        /href="(https?:\/\/fr\.wikipedia\.org)?(\/wiki\/[^"#?]*)([^"#]*)?"/g,
+        /href="(https?:\/\/[a-z-]+\.wikipedia\.org)?(\/wiki\/[^"#?]*)([^"#]*)?"/g,
         (_match, _host, pathPart, queryPart = '') => {
             const articleTitle = extractArticleTitleFromUrl(`${pathPart}${queryPart}`);
             if (!articleTitle) {
                 return _match;
             }
 
-            return `href="${toMobileHtmlProxyUrl(articleTitle)}"`;
+            return `href="${toMobileHtmlProxyUrl(articleTitle, wikiLanguage)}"`;
         }
     );
 
@@ -1132,7 +1138,7 @@ const rewriteMobileHtmlLinks = (html) => {
             return _match;
         }
 
-        return `href="${toMobileHtmlProxyUrl(articleTitle)}"`;
+        return `href="${toMobileHtmlProxyUrl(articleTitle, wikiLanguage)}"`;
     });
 
     output = output.replace(/(href|src)="\/wiki\/([^"#?]*)([^"#]*)?"/g, (_match, attr, slug, queryPart = '') => {
@@ -1141,7 +1147,7 @@ const rewriteMobileHtmlLinks = (html) => {
             return _match;
         }
 
-        return `${attr}="${toMobileHtmlProxyUrl(articleTitle)}"`;
+        return `${attr}="${toMobileHtmlProxyUrl(articleTitle, wikiLanguage)}"`;
     });
 
     output = output.replace(/(href)="\/w\/index\.php\?title=([^"&]+)([^"]*)"/g, (_match, attr, titlePart, queryPart = '') => {
@@ -1150,11 +1156,11 @@ const rewriteMobileHtmlLinks = (html) => {
             return _match;
         }
 
-        return `${attr}="${toMobileHtmlProxyUrl(articleTitle)}"`;
+        return `${attr}="${toMobileHtmlProxyUrl(articleTitle, wikiLanguage)}"`;
     });
 
     output = output.replace(/(href|src)="\/(?!\/)(?!api\/wiki\/mobile-html(?:[/?#&]|$))([^\"]+)"/g, (_match, attr, pathPart) => {
-        return `${attr}="${WIKI_ORIGIN}/${pathPart}"`;
+        return `${attr}="${wikiOrigin}/${pathPart}"`;
     });
 
     output = output.replace(/(href|src)="\/\/([^\"]+)"/g, (_match, attr, pathPart) => {
@@ -1199,6 +1205,7 @@ export const proxyWikiPage = async (req, res) => {
 export const fetchWikiMobileHtml = async (req, res) => {
     try {
         const title = String(req.query.title || '').trim();
+        const wikiLanguage = normalizeWikiLanguage(req.query.lang);
 
         if (!title) {
             return res.status(400).json({ error: 'Parametre title requis' });
@@ -1214,13 +1221,13 @@ export const fetchWikiMobileHtml = async (req, res) => {
         }
 
         let requestedTitle = title;
-        let response = await fetchMobileHtmlByTitle(requestedTitle);
+        let response = await fetchMobileHtmlByTitle(requestedTitle, wikiLanguage);
 
         if (!response.ok) {
-            const fallbackTitle = await resolveFallbackTitle(title);
+            const fallbackTitle = await resolveFallbackTitle(title, wikiLanguage);
             if (fallbackTitle && fallbackTitle.toLowerCase() !== title.toLowerCase()) {
                 requestedTitle = fallbackTitle;
-                response = await fetchMobileHtmlByTitle(requestedTitle);
+                response = await fetchMobileHtmlByTitle(requestedTitle, wikiLanguage);
             }
         }
 
@@ -1238,7 +1245,8 @@ export const fetchWikiMobileHtml = async (req, res) => {
 
         return res.status(200).json({
             title: resolvedTitle,
-            html: rewriteMobileHtmlLinks(html),
+            html: rewriteMobileHtmlLinks(html, wikiLanguage),
+            language: wikiLanguage,
             sourceUrl: response.url
         });
     } catch (error) {

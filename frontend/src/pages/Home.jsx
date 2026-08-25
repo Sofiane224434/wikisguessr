@@ -110,6 +110,19 @@ function Home() {
                 </div>
             </section>
 
+            <section className="home-ranking" aria-labelledby="ranking-title">
+                <div>
+                    <p>{t('home.ranking_eyebrow', { defaultValue: 'Classement multijoueur' })}</p>
+                    <h2 id="ranking-title">{t('home.ranking_title', { defaultValue: 'Votre Elo reflète vos résultats face aux autres' })}</h2>
+                </div>
+                <p>{t('home.ranking_description', { defaultValue: 'Les parties de groupe classées comparent victoire et score entre tous les joueurs. Battre des adversaires mieux classés rapporte davantage; perdre en coûte. Les classements restent séparés par mode.' })}</p>
+                <button type="button" onClick={() => user ? navigate('/leaderboard') : signIn('/leaderboard')}>
+                    <Trophy size={19} aria-hidden="true" />
+                    {t('nav.leaderboard')}
+                    <ArrowRight size={17} aria-hidden="true" />
+                </button>
+            </section>
+
             <section className="home-modes" aria-labelledby="modes-title">
                 <div className="home-section-heading">
                     <div>
