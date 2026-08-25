@@ -128,7 +128,11 @@ export function setupSocket(io) {
                 }
 
                 const participants = await Game.getParticipants(game.id);
-                const requiredIds = participants.map(({ user_id: participantId }) => Number(participantId));
+                const participantIds = new Set(participants.map(({ user_id: participantId }) => Number(participantId)));
+                const connectedSocketIds = io.sockets.adapter.rooms.get(`game:${code}`) || new Set();
+                const requiredIds = [...new Set([...connectedSocketIds]
+                    .map((socketId) => Number(io.sockets.sockets.get(socketId)?.user?.id))
+                    .filter((participantId) => participantIds.has(participantId)))];
                 const state = replayVotes.get(code) || { readyIds: new Set(), creating: false };
                 state.readyIds.add(Number(userId));
                 replayVotes.set(code, state);
@@ -156,7 +160,7 @@ export function setupSocket(io) {
                 io.to(`game:${code}`).emit('game:replay-started', { game: nextGame });
             } catch (error) {
                 replayVotes.delete(code);
-                socket.emit('game:replay-error', { error: error.message || 'Impossible de relancer la partie' });
+                io.to(`game:${code}`).emit('game:replay-error', { error: error.message || 'Impossible de relancer la partie' });
             }
         });
 
