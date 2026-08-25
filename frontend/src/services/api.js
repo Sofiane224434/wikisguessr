@@ -57,6 +57,10 @@ export const authService = {
         method: 'PATCH',
         body: JSON.stringify({ tier })
     }),
+    setUserRole: (userId, role) => fetchAPI(`/auth/users/${encodeURIComponent(userId)}/role`, {
+        method: 'PATCH',
+        body: JSON.stringify({ role })
+    }),
     verifyEmail: (token) => fetchAPI(`/auth/verify-email?token=${encodeURIComponent(token)}`),
     forgotPassword: (email) => fetchAPI('/auth/forgot-password', {
         method: 'POST',

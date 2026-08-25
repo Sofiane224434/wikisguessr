@@ -74,6 +74,74 @@ const ensureEightParticipantsWithBots = (existingList = [], userUsername = 'Joue
     return [...list, ...bots];
 };
 
+const computeFinalLeaderboard = (participants, currentUserResult, gameMode) => {
+    const list = ensureEightParticipantsWithBots(participants, currentUserResult?.username || 'Vous');
+    const playerWon = Boolean(currentUserResult?.won);
+    const playerScore = Number(currentUserResult?.score) || 0;
+    const playerClicks = Math.max(1, Number(currentUserResult?.clicks) || 1);
+    const playerTime = Math.max(5, Number(currentUserResult?.time_seconds) || 5);
+
+    const ranked = list.map((p, idx) => {
+        const isCurrent = !p.isBot && (
+            p.user_id === currentUserResult?.user_id
+            || p.user_id === 'current_user'
+            || p.username === currentUserResult?.username
+            || idx === 0
+        );
+
+        if (isCurrent) {
+            return {
+                ...p,
+                isCurrent: true,
+                score: playerScore,
+                clicks: playerClicks,
+                time_seconds: playerTime,
+                won: playerWon,
+                status: currentUserResult?.status || (playerWon ? 'finished' : 'abandoned')
+            };
+        }
+
+        const botSeed = ((idx + 1) * 73 + playerClicks * 17) % 100;
+        const botWon = playerWon ? (botSeed > 25) : (botSeed > 65);
+        const botClicks = botWon
+            ? Math.max(2, Math.round(playerClicks * (1.1 + (idx * 0.12))))
+            : Math.max(1, Math.round(playerClicks * 0.6));
+        const botTime = botWon
+            ? Math.max(20, Math.round(playerTime * (1.15 + (idx * 0.1))))
+            : Math.max(10, Math.round(playerTime * 0.7));
+
+        let botScore = 0;
+        if (botWon) {
+            if (gameMode === 'chrono') {
+                botScore = Math.max(50, Math.round(Math.min(playerScore > 0 ? playerScore - (idx * 35) : 350, 480 - (idx * 35))));
+            } else if (gameMode === 'knowledge') {
+                botScore = Math.max(100, Math.round(Math.min(playerScore > 0 ? playerScore - (idx * 50) : 420, 680 - (idx * 55))));
+            } else {
+                botScore = Math.max(50, Math.round(Math.min(playerScore > 0 ? playerScore - (idx * 60) : 550, 780 - (idx * 65))));
+            }
+        }
+
+        return {
+            ...p,
+            isCurrent: false,
+            score: botScore,
+            clicks: botClicks,
+            time_seconds: botTime,
+            won: botWon,
+            status: botWon ? 'finished' : 'defeat'
+        };
+    });
+
+    ranked.sort((a, b) => {
+        if (a.won !== b.won) return a.won ? -1 : 1;
+        if (b.score !== a.score) return b.score - a.score;
+        if (a.time_seconds !== b.time_seconds) return a.time_seconds - b.time_seconds;
+        return a.clicks - b.clicks;
+    });
+
+    return ranked;
+};
+
 const formatClock = (totalSeconds) => {
     const safeSeconds = Math.max(0, Number(totalSeconds) || 0);
     const minutes = String(Math.floor(safeSeconds / 60)).padStart(2, '0');
@@ -491,13 +559,21 @@ function Game() {
     const [replayReadyCount, setReplayReadyCount] = useState(0);
     const [replayRequiredCount, setReplayRequiredCount] = useState(0);
     const [adminCheatActive, setAdminCheatActive] = useState(false);
+    const [abandonQuizPrompt, setAbandonQuizPrompt] = useState(false);
 
     useEffect(() => {
         siteService
             .getState()
             .then((data) => {
                 if (data?.state?.adminCheat) {
-                    setAdminCheatActive(true);
+                    authService
+                        .getProfile()
+                        .then((profile) => {
+                            if (profile?.user?.role === 'admin') {
+                                setAdminCheatActive(true);
+                            }
+                        })
+                        .catch(() => {});
                 }
             })
             .catch(() => {});
@@ -798,7 +874,7 @@ function Game() {
     const loadInitialArticle = useEffectEvent((...args) => loadArticle(...args));
 
     useEffect(() => {
-        if (!won || !isKnowledgeMode || !gameCode || isPreviewMode) {
+        if ((!won && !abandonQuizPrompt) || !isKnowledgeMode || !gameCode || isPreviewMode) {
             return;
         }
 
@@ -924,6 +1000,7 @@ function Game() {
         loadInitialArticle(initialTitle, initialTitle, true, { mode: previewGame.mode })
             .catch((err) => {
                 setError(err.message || 'Impossible de charger la previsualisation');
+                setError('Impossible de charger la previsualisation');
             })
             .finally(() => {
                 gameReadyRef.current = true;
@@ -978,9 +1055,12 @@ function Game() {
     }, [gameCode, isPreviewMode, navigate]);
 
     const knowledgeResultReady = isKnowledgeMode
-        && won
+        && (won || abandoned)
         && knowledgeQuizSubmitted;
-    const resultReady = abandoned || chronoDefeat || (won && !isKnowledgeMode) || knowledgeResultReady;
+    const resultReady = (abandoned && (!isKnowledgeMode || !abandonQuizPrompt || knowledgeQuizSubmitted))
+        || chronoDefeat
+        || (won && !isKnowledgeMode)
+        || knowledgeResultReady;
 
     // La modale précède la sortie et la sauvegarde termine avant d'activer le bouton Quitter.
     useEffect(() => {
@@ -1200,6 +1280,14 @@ function Game() {
             : elapsedSecondsRef.current;
         setElapsedSeconds(elapsedSecondsRef.current);
         setShowAbandonConfirm(false);
+
+        // Si on est en mode connaissance et qu'on n'a pas encore fait le quiz,
+        // on propose d'abord le quiz d'abandon pour marquer des points sur les articles découverts !
+        if (isKnowledgeMode && !won && !knowledgeQuizSubmitted && !abandonQuizPrompt) {
+            setAbandonQuizPrompt(true);
+            return;
+        }
+
         setAbandoned(true);
     };
 
@@ -1246,6 +1334,9 @@ function Game() {
 
     const handleSubmitKnowledgeQuiz = () => {
         setKnowledgeQuizSubmitted(true);
+        if (abandonQuizPrompt) {
+            setAbandoned(true);
+        }
     };
 
     const handleRetryKnowledgeQuiz = () => {
@@ -1315,8 +1406,20 @@ function Game() {
         elapsedSeconds: elapsedSecondsRef.current,
         chronoScore,
         knowledgeScore,
-        won: Boolean(won && !abandoned)
+        won: Boolean(won && !abandoned) || (isKnowledgeMode && knowledgeQuizSubmitted)
     });
+    const finalLeaderboard = useMemo(() => {
+        if (!showResultModal) return [];
+        return computeFinalLeaderboard(participants, {
+            user_id: 'current_user',
+            username: 'Vous',
+            score: finalPoints,
+            clicks,
+            time_seconds: elapsedSecondsRef.current,
+            won: Boolean(won && !abandoned) || (isKnowledgeMode && knowledgeQuizSubmitted),
+            status: abandoned ? 'abandoned' : chronoDefeat ? 'timeout' : (won ? 'finished' : 'defeat')
+        }, gameMode);
+    }, [showResultModal, participants, finalPoints, clicks, won, abandoned, chronoDefeat, isKnowledgeMode, knowledgeQuizSubmitted, gameMode]);
     const resultTitle = abandoned
         ? t('game.result_abandoned_title', { defaultValue: 'Partie interrompue' })
         : chronoDefeat
@@ -1435,9 +1538,30 @@ function Game() {
                     </div>
                 )}
 
-                {won && isKnowledgeMode && (
-                    <div className="mx-auto mt-2 max-w-6xl rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-3 text-indigo-900">
-                        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-700">{t('game.quiz')}</p>
+                {((won && isKnowledgeMode) || (abandonQuizPrompt && isKnowledgeMode && !abandoned)) && (
+                    <div className="mx-auto mt-2 max-w-6xl rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-3 text-indigo-900 shadow-md">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-700">
+                                {abandonQuizPrompt ? "🎯 Quiz d'abandon — Connaissances acquises" : t('game.quiz')}
+                            </p>
+                            {abandonQuizPrompt && !knowledgeQuizSubmitted && (
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setAbandoned(true);
+                                        setAbandonQuizPrompt(false);
+                                    }}
+                                    className="rounded border border-rose-300 bg-rose-100 px-2.5 py-1 text-xs font-semibold text-rose-800 hover:bg-rose-200 transition"
+                                >
+                                    Abandonner définitivement sans quiz
+                                </button>
+                            )}
+                        </div>
+                        {abandonQuizPrompt && (
+                            <p className="mt-1 text-xs text-indigo-800">
+                                Vous avez choisi d’abandonner : répondez au quiz pour tenter de marquer des points sur les articles déjà explorés, ou cliquez sur « Abandonner définitivement ».
+                            </p>
+                        )}
 
                         {knowledgeQuizLoading ? (
                             <p className="mt-2 text-sm">{t('game.quiz_loading')}</p>
@@ -1562,10 +1686,16 @@ function Game() {
                     <section className="game-modal" role="dialog" aria-modal="true" aria-labelledby="abandon-title">
                         <p className="game-modal-kicker">Partie en cours</p>
                         <h2 id="abandon-title">Abandonner la partie ?</h2>
-                        <p>Votre progression actuelle sera enregistrée comme une partie abandonnée.</p>
+                        <p>
+                            {isKnowledgeMode
+                                ? "En mode Connaissance, vous pourrez d'abord tester vos connaissances sur les articles explorés pour marquer des points !"
+                                : "Votre progression actuelle sera enregistrée comme une partie abandonnée."}
+                        </p>
                         <div className="game-modal-actions">
                             <button type="button" className="is-secondary" onClick={() => setShowAbandonConfirm(false)}>Continuer à jouer</button>
-                            <button type="button" className="is-danger" onClick={handleConfirmAbandon}>Abandonner</button>
+                            <button type="button" className="is-danger" onClick={handleConfirmAbandon}>
+                                {isKnowledgeMode ? "Passer au quiz d'abandon" : "Abandonner"}
+                            </button>
                         </div>
                     </section>
                 </div>
@@ -1574,10 +1704,10 @@ function Game() {
             {showResultModal && (
                 <div className="game-modal-backdrop" role="presentation">
                     <section className="game-modal game-result-modal" role="dialog" aria-modal="true" aria-labelledby="result-title">
-                        <p className="game-modal-kicker">Résultat</p>
+                        <p className="game-modal-kicker">Résultat de la partie</p>
                         <h2 id="result-title">{resultTitle}</h2>
                         <p className="game-result-status">
-                            {abandoned ? 'Partie abandonnée' : chronoDefeat ? 'Temps écoulé' : 'Objectif atteint'}
+                            {abandoned ? 'Partie abandonnée' : chronoDefeat ? 'Temps écoulé' : 'Objectif atteint !'}
                         </p>
                         <div className="game-result-stats">
                             <div><strong>{finalPoints}</strong><span>Points</span></div>
@@ -1585,6 +1715,61 @@ function Game() {
                             <div><strong>{formatClock(elapsedSecondsRef.current)}</strong><span>Temps</span></div>
                             {isKnowledgeMode && knowledgeQuizSubmitted && <div><strong>{knowledgeScore}/{knowledgeQuiz.length}</strong><span>Quiz</span></div>}
                         </div>
+
+                        {/* Classement des 8 joueurs de la session */}
+                        <div className="my-4 text-left">
+                            <div className="mb-1.5 flex items-center justify-between">
+                                <p className="text-[11px] font-bold uppercase tracking-wider text-amber-900 flex items-center gap-1">
+                                    <span>🏆</span>
+                                    <span>Classement de la partie</span>
+                                </p>
+                                <span className="text-[10px] text-amber-800/80 font-medium">8 participants</span>
+                            </div>
+                            <div className="max-h-56 overflow-y-auto rounded-lg border border-amber-900/20 bg-white/70 shadow-inner">
+                                <table className="w-full text-xs">
+                                    <thead className="sticky top-0 bg-[#ebe1cf] text-slate-800 border-b border-amber-900/20">
+                                        <tr>
+                                            <th className="py-1 px-2 font-bold text-center w-8">#</th>
+                                            <th className="py-1 px-2 font-bold text-left">Joueur</th>
+                                            <th className="py-1 px-2 font-bold text-center">Score</th>
+                                            <th className="py-1 px-2 font-bold text-center">Clics</th>
+                                            <th className="py-1 px-2 font-bold text-center">Temps</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-amber-900/10">
+                                        {finalLeaderboard.map((player, idx) => {
+                                            const rankIcon = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `${idx + 1}.`;
+                                            return (
+                                                <tr
+                                                    key={player.user_id || idx}
+                                                    className={`transition ${player.isCurrent ? 'bg-amber-200/80 font-semibold text-amber-950' : 'text-slate-800 hover:bg-black/5'}`}
+                                                >
+                                                    <td className="py-1.5 px-2 text-center font-bold">{rankIcon}</td>
+                                                    <td className="py-1.5 px-2">
+                                                        <div className="flex items-center gap-1.5 min-w-0">
+                                                            <span className="w-5 h-5 rounded-full overflow-hidden shrink-0 bg-slate-700 text-[10px] flex items-center justify-center text-white font-bold">
+                                                                {player.avatar_url ? <img src={resolveMediaUrl(player.avatar_url)} alt="" className="w-full h-full object-cover" /> : String(player.username || '?').slice(0, 1).toUpperCase()}
+                                                            </span>
+                                                            <span className="truncate max-w-[100px]">{player.username}</span>
+                                                            {player.isCurrent && (
+                                                                <span className="rounded bg-amber-800 text-white px-1 py-0.2 text-[9px] uppercase font-bold tracking-wider shrink-0">Vous</span>
+                                                            )}
+                                                            {player.isBot && !player.isCurrent && (
+                                                                <span className="text-[10px] opacity-60 shrink-0" title="Bot">🤖</span>
+                                                            )}
+                                                        </div>
+                                                    </td>
+                                                    <td className="py-1.5 px-2 text-center font-bold text-amber-900">{player.score} pts</td>
+                                                    <td className="py-1.5 px-2 text-center">{player.clicks}</td>
+                                                    <td className="py-1.5 px-2 text-center font-mono text-[11px]">{formatClock(player.time_seconds)}</td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
                         {resultSaveError && <p className="game-result-error">{resultSaveError}</p>}
                         <div className="game-modal-actions">
                             {resultSaveError && (

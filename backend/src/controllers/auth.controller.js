@@ -24,13 +24,31 @@ const USERNAME_CHANGE_COOLDOWN_MS = USERNAME_CHANGE_COOLDOWN_DAYS * 24 * 60 * 60
 const USERNAME_PATTERN = /^[\p{L}\p{N}_.-]{3,30}$/u;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-const addUsernameCooldown = (user) => ({
-    ...user,
-    username_change_available_at: user.username_changed_at
+export const isUserSuperAdmin = (user) => {
+    if (!user) return false;
+    return Boolean(
+        user.id === 1
+        || String(user.username || '').toLowerCase() === 'azim'
+        || (process.env.BREVO_SENDER_EMAIL && user.email === process.env.BREVO_SENDER_EMAIL)
+    );
+};
+
+const addUsernameCooldown = (user) => {
+    if (!user) {
+        return user;
+    }
+
+    const availableAt = user.username_changed_at
         ? new Date(new Date(user.username_changed_at).getTime() + USERNAME_CHANGE_COOLDOWN_MS).toISOString()
-        : null,
-    username_change_cooldown_days: USERNAME_CHANGE_COOLDOWN_DAYS
-});
+        : null;
+
+    return {
+        ...user,
+        isSuperAdmin: isUserSuperAdmin(user),
+        canChangeUsername: !availableAt || new Date(availableAt).getTime() <= Date.now(),
+        usernameAvailableAt: availableAt
+    };
+};
 
 const getFirstForwardedValue = (value) => {
     if (!value) {
@@ -551,5 +569,38 @@ export const unbanUser = async (req, res) => {
     } catch (error) {
         console.error('unbanUser error:', error);
         return res.status(500).json({ error: 'Impossible de débannir l\'utilisateur' });
+    }
+};
+
+// PATCH /api/auth/users/:userId/role (Super-Admin uniquement)
+export const setUserRole = async (req, res) => {
+    try {
+        if (!isUserSuperAdmin(req.user)) {
+            return res.status(403).json({ error: 'Seul le Super-Admin principal peut nommer ou rétrograder des administrateurs' });
+        }
+
+        const targetUserId = Number(req.params.userId);
+        const newRole = String(req.body?.role || '').trim().toLowerCase();
+        if (!Number.isInteger(targetUserId) || !['user', 'moderator', 'admin'].includes(newRole)) {
+            return res.status(400).json({ error: 'Rôle invalide (user, moderator, admin)' });
+        }
+
+        if (targetUserId === req.user.id && newRole !== 'admin') {
+            return res.status(400).json({ error: 'Vous ne pouvez pas retirer votre propre statut Super-Admin' });
+        }
+
+        const targetUser = await User.findById(targetUserId);
+        if (!targetUser) {
+            return res.status(404).json({ error: 'Utilisateur introuvable' });
+        }
+
+        const updatedUser = await User.setUserRole(targetUserId, newRole);
+        return res.json({
+            message: `Rôle de ${updatedUser.username} mis à jour : ${newRole}`,
+            user: updatedUser
+        });
+    } catch (error) {
+        console.error('setUserRole error:', error);
+        return res.status(500).json({ error: 'Impossible de modifier le rôle' });
     }
 };

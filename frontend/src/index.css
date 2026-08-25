@@ -837,8 +837,9 @@ html, body, #root {
 .game-modal-actions button.is-danger { color: #fff; background: #8a403a; border-color: #6d302c; }
 .game-modal-actions button:disabled { cursor: wait; opacity: 0.62; }
 .game-result-status { font-weight: 700; }
-.game-result-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.55rem; margin-top: 1rem; }
-.game-result-stats > div { display: grid; gap: 0.2rem; padding: 0.7rem 0.35rem; background: #fffaf2; border: 1px solid #cfb895; }
+.game-result-modal { width: min(100%, 560px); max-height: 92vh; overflow-y: auto; }
+.game-result-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); gap: 0.55rem; margin-top: 1rem; }
+.game-result-stats > div { display: grid; gap: 0.2rem; padding: 0.7rem 0.35rem; background: #fffaf2; border: 1px solid #cfb895; border-radius: 6px; }
 .game-result-stats strong { color: #315d62; font-size: 1.1rem; }
 .game-result-stats span { color: #74634f; font-size: 0.68rem; text-transform: uppercase; }
 .game-result-error { margin-top: 0.85rem; color: #8a2929 !important; font-size: 0.78rem; }

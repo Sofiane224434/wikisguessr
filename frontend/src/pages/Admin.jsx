@@ -23,6 +23,8 @@ function Admin() {
     const [reportDetail, setReportDetail] = useState(null);
     const [updatingReport, setUpdatingReport] = useState(false);
     const [updatingSubscriptionId, setUpdatingSubscriptionId] = useState(null);
+    const [currentUser, setCurrentUser] = useState(null);
+    const [updatingRoleId, setUpdatingRoleId] = useState(null);
 
     const toNumberOrNull = (value) => {
         const parsed = Number(value);
@@ -115,13 +117,17 @@ function Admin() {
                 return;
             }
 
-            const [rollData, usersData] = await Promise.all([
+            const [rollData, usersData, profileData] = await Promise.all([
                 gameService.getRandomRoll(),
-                authService.getUsers()
+                authService.getUsers(),
+                authService.getProfile().catch(() => null)
             ]);
 
             setRoll(rollData.roll);
             setPlayers(Array.isArray(usersData.users) ? usersData.users : []);
+            if (profileData?.user) {
+                setCurrentUser(profileData.user);
+            }
 
             // Charger les signalements
             const repData = await reportService.getAll('pending');
@@ -131,6 +137,21 @@ function Admin() {
             setError(err.message || 'Impossible de charger les donnees admin');
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleSetRole = async (player, newRole) => {
+        setUpdatingRoleId(player.id);
+        setError(null);
+        setSuccess(null);
+        try {
+            const data = await authService.setUserRole(player.id, newRole);
+            setPlayers((prev) => prev.map((p) => p.id === player.id ? { ...p, role: newRole } : p));
+            setSuccess(data?.message || 'Rôle mis à jour');
+        } catch (err) {
+            setError(err.message || 'Impossible de modifier le rôle');
+        } finally {
+            setUpdatingRoleId(null);
         }
     };
 
@@ -365,9 +386,34 @@ function Admin() {
                                             <td className="px-3 py-2">{player.username}</td>
                                             <td className="px-3 py-2 text-slate-300">{player.email}</td>
                                             <td className="px-3 py-2">
-                                                <span className="rounded-full border border-slate-700 bg-slate-950 px-2 py-0.5 text-xs uppercase tracking-[0.08em] text-cyan-300">
-                                                    {player.role}
-                                                </span>
+                                                <div className="flex items-center gap-1.5">
+                                                    <span className={`rounded-full border px-2 py-0.5 text-xs uppercase tracking-[0.08em] ${player.role === 'admin' ? 'border-amber-700 bg-amber-950/60 text-amber-300 font-semibold' : 'border-slate-700 bg-slate-950 text-cyan-300'}`}>
+                                                        {player.role}
+                                                    </span>
+                                                    {currentUser?.isSuperAdmin && player.id !== currentUser.id && (
+                                                        player.role === 'admin' ? (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleSetRole(player, 'user')}
+                                                                disabled={updatingRoleId === player.id}
+                                                                title="Rétrograder en utilisateur simple"
+                                                                className="rounded border border-red-800/60 bg-red-950/40 px-1.5 py-0.5 text-[10px] text-red-300 hover:bg-red-900/60 disabled:opacity-50"
+                                                            >
+                                                                {updatingRoleId === player.id ? '…' : 'Rétrograder'}
+                                                            </button>
+                                                        ) : (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleSetRole(player, 'admin')}
+                                                                disabled={updatingRoleId === player.id}
+                                                                title="Nommer administrateur"
+                                                                className="rounded border border-amber-700/60 bg-amber-950/40 px-1.5 py-0.5 text-[10px] text-amber-300 hover:bg-amber-900/60 disabled:opacity-50"
+                                                            >
+                                                                {updatingRoleId === player.id ? '…' : '+ Admin'}
+                                                            </button>
+                                                        )
+                                                    )}
+                                                </div>
                                             </td>
                                             <td className="px-3 py-2">
                                                 {player.role === 'admin' ? (
