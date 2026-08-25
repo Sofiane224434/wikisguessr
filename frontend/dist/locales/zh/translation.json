@@ -1,4 +1,4 @@
-{
+﻿{
   "nav": {
     "home": "首页",
     "login": "登录",
@@ -163,7 +163,7 @@
     "game_created": "游戏已创建！",
     "room_invitation": "多人游戏小组的邀请",
     "join_inviter_room": "加入 {{username}} 群组吗？",
-    "invitation_code": "组代码：{{code}}"
+    "invitation_code": "组代码：{{code}}","joined_room":"OK","code_copied":"Code copied!","error_create_game":"Unable to create the game","error_start_search":"Unable to start the search","error_enter_code":"Please enter a code","error_join_room":"Unable to join the room","error_enter_id":"Please enter an identifier","error_add_friend":"Unable to add friend","error_handle_request":"Unable to process the request","error_handle_invitation":"Unable to process the invitation","error_leave_room":"Unable to leave the room","error_remove_friend":"Unable to remove friend","error_send_invitation":"Unable to send the invitation"
   },
   "shop": {
     "eyebrow": "探索者通行证",
@@ -243,6 +243,7 @@
     "choose": "选择语言"
   },
   "mode_modal": {
+    "wiki_lang_unsupported":"Wikipedia is not available in your interface language ({{lang}}). The English version of Wikipedia will be used for this game.",
     "rules": "规则",
     "change": "切换模式",
     "launch": "投掷！",
@@ -391,3 +392,4 @@
     "cancel": "取消"
   }
 }
+

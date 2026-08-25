@@ -1,4 +1,4 @@
-{
+﻿{
   "nav": {
     "home": "Página inicial",
     "login": "Iniciar sessão",
@@ -163,7 +163,7 @@
     "game_created": "Jogo criado!",
     "room_invitation": "Convite para um grupo multijogador",
     "join_inviter_room": "Queres juntar-te ao grupo do {{username}}?",
-    "invitation_code": "Código do grupo: {{code}}"
+    "invitation_code": "Código do grupo: {{code}}","joined_room":"OK","code_copied":"Code copied!","error_create_game":"Unable to create the game","error_start_search":"Unable to start the search","error_enter_code":"Please enter a code","error_join_room":"Unable to join the room","error_enter_id":"Please enter an identifier","error_add_friend":"Unable to add friend","error_handle_request":"Unable to process the request","error_handle_invitation":"Unable to process the invitation","error_leave_room":"Unable to leave the room","error_remove_friend":"Unable to remove friend","error_send_invitation":"Unable to send the invitation"
   },
   "shop": {
     "eyebrow": "Passe de explorador",
@@ -243,6 +243,7 @@
     "choose": "Escolher o idioma"
   },
   "mode_modal": {
+    "wiki_lang_unsupported":"Wikipedia is not available in your interface language ({{lang}}). The English version of Wikipedia will be used for this game.",
     "rules": "Regras",
     "change": "Mudar de modo",
     "launch": "Lançar!",
@@ -391,3 +392,4 @@
     "cancel": "Cancelar"
   }
 }
+

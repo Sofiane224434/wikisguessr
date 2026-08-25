@@ -110,7 +110,7 @@ function Lobby() {
         socket.on('matchmaking:found', handleMatchFound);
 
         socket.on('matchmaking:error', ({ error: matchmakingError }) => {
-            setError(matchmakingError || 'Impossible de créer la partie');
+            setError(matchmakingError || t('lobby.error_create_game'));
             setIsSearching(false);
             setLoading(false);
         });
@@ -231,7 +231,7 @@ function Lobby() {
             setIsSearching(true);
             setMatchmakingPlayers([]);
         } catch (err) {
-            setError(err.message || 'Impossible de lancer la recherche');
+            setError(err.message || t('lobby.error_start_search'));
             setLoading(false);
         }
     };
@@ -258,7 +258,7 @@ function Lobby() {
 
     const handleJoinRoom = async () => {
         if (!joinCode.trim()) {
-            setError('Veuillez entrer un code');
+            setError(t('lobby.error_enter_code'));
             return;
         }
 
@@ -268,12 +268,12 @@ function Lobby() {
 
         try {
             const data = await gameRoomService.joinRoom(joinCode);
-            setSuccess('Vous avez rejoint le salon!');
+            setSuccess(t('lobby.joined_room'));
             setJoinCode('');
             setMyRoom(data.room);
             setMembers(data.members || []);
         } catch (err) {
-            setError(err.message || 'Impossible de rejoindre le salon');
+            setError(err.message || t('lobby.error_join_room'));
         } finally {
             setJoiningRoom(false);
         }
@@ -281,7 +281,7 @@ function Lobby() {
 
     const handleAddFriend = async () => {
         if (!addFriendInput.trim()) {
-            setError('Veuillez entrer un identifiant');
+            setError(t('lobby.error_enter_id'));
             return;
         }
 
@@ -294,7 +294,7 @@ function Lobby() {
             setSuccess(t('lobby.friend_request_sent', { username: result.request.username }));
             setAddFriendInput('');
         } catch (err) {
-            setError(err.message || 'Impossible d\'ajouter l\'ami');
+            setError(err.message || t('lobby.error_add_friend'));
         } finally {
             setAddingFriend(false);
         }
@@ -305,7 +305,7 @@ function Lobby() {
             await friendService.respondToRequest(requestId, accept);
             await Promise.all([loadFriendRequests(), loadFriendsWithStatus()]);
         } catch (err) {
-            setError(err.message || 'Impossible de traiter la demande');
+            setError(err.message || t('lobby.error_handle_request'));
         }
     };
 
@@ -315,7 +315,7 @@ function Lobby() {
             await loadRoomInvitations();
             if (accept) await loadMyRoom();
         } catch (err) {
-            setError(err.message || 'Impossible de traiter l\'invitation');
+            setError(err.message || t('lobby.error_handle_invitation'));
         }
     };
 
@@ -327,7 +327,7 @@ function Lobby() {
             setMembers([]);
             setMessages([]);
         } catch (err) {
-            setError(err.message || 'Impossible de quitter le salon');
+            setError(err.message || t('lobby.error_leave_room'));
         }
     };
 
@@ -336,7 +336,7 @@ function Lobby() {
             await friendService.removeFriend(friendId);
             loadFriendsWithStatus();
         } catch {
-            setError('Impossible de supprimer l\'ami');
+            setError(t('lobby.error_remove_friend'));
         }
     };
 
@@ -354,7 +354,7 @@ function Lobby() {
     const copyToClipboard = () => {
         if (myRoom?.code) {
             navigator.clipboard.writeText(myRoom.code);
-            setSuccess('Code copié!');
+            setSuccess(t('lobby.code_copied'));
             setTimeout(() => setSuccess(null), 2000);
         }
     };
@@ -364,7 +364,7 @@ function Lobby() {
             await gameRoomService.inviteFriend(myRoom.id, friend.id);
             setSuccess(t('lobby.room_invite_sent', { username: friend.username }));
         } catch (err) {
-            setError(err.message || 'Impossible d\'envoyer l\'invitation');
+            setError(err.message || t('lobby.error_send_invitation'));
         }
     };
 
