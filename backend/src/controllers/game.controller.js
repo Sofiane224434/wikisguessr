@@ -473,6 +473,7 @@ export const getLeaderboard = async (req, res) => {
         const mode = allowedModes.includes(String(req.query.mode || 'all').trim().toLowerCase())
             ? String(req.query.mode || 'all').trim().toLowerCase()
             : 'all';
+        await GameResult.processPendingElo();
         const rows = await GameResult.getLeaderboard(mode, 20);
         return res.json({ leaderboard: rows, mode });
     } catch (error) {
