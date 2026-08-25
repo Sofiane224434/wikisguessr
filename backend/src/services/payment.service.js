@@ -86,67 +86,50 @@ export const createCheckoutSession = async (userId, requestedTier) => {
         throw error;
     }
 
+    const appUrl = process.env.APP_URL || 'http://localhost:5173';
     const stripe = getStripe();
 
-    // Si l'utilisateur a déjà un abonnement actif et veut changer de formule (ex: Silver -> Gold)
-    if (ENTITLED_STATUSES.has(user.stripe_subscription_status)) {
-        // Déjà sur la même formule
-        if (user.subscription_tier === tier) {
-            const error = new Error('Vous bénéficiez déjà de cette formule');
-            error.status = 400;
-            throw error;
-        }
-
-        // Récupérer l'abonnement Stripe existant pour faire l'upgrade au prorata
-        let subId = user.stripe_subscription_id;
-        if (!subId && user.stripe_customer_id) {
-            const activeSubs = await stripe.subscriptions.list({
-                customer: user.stripe_customer_id,
-                status: 'active',
-                limit: 1
-            });
-            if (activeSubs.data.length > 0) {
-                subId = activeSubs.data[0].id;
-            }
-        }
-
-        if (subId) {
-            const existingSub = await stripe.subscriptions.retrieve(subId);
-            const itemId = existingSub.items?.data?.[0]?.id;
-
-            const targetPriceId = tier === 'silver'
-                ? (isTest ? process.env.STRIPE_SILVER_PRICE_ID_TEST : process.env.STRIPE_SILVER_PRICE_ID)
-                : (isTest ? process.env.STRIPE_GOLD_PRICE_ID_TEST : process.env.STRIPE_GOLD_PRICE_ID);
-
-            let updatePayload = {
-                proration_behavior: 'always_invoice',
-                metadata: { userId: String(user.id), tier }
-            };
-
-            if (targetPriceId) {
-                updatePayload.items = [{ id: itemId, price: targetPriceId }];
-            } else {
-                const plan = SUBSCRIPTION_PLANS[tier];
-                const newPrice = await stripe.prices.create({
-                    unit_amount: plan.priceMonthlyCents,
+    // Cas 1 : L'utilisateur est déjà en Silver et veut passer à Gold
+    // -> Paiement direct Checkout de 2,50 € pour la mise à niveau
+    if (user.subscription_tier === 'silver' && tier === 'gold') {
+        const session = await stripe.checkout.sessions.create({
+            mode: 'payment',
+            customer: user.stripe_customer_id || undefined,
+            customer_email: user.stripe_customer_id ? undefined : user.email,
+            client_reference_id: String(user.id),
+            line_items: [{
+                price_data: {
                     currency: 'eur',
-                    recurring: { interval: 'month' },
-                    product_data: { name: `WikisGuessr ${plan.name}` }
-                });
-                updatePayload.items = [{ id: itemId, price: newPrice.id }];
-            }
+                    unit_amount: 250, // 2,50 €
+                    product_data: {
+                        name: 'Mise à niveau WikisGuessr Gold',
+                        description: 'Complément de 2,50 € pour passer au plan Gold (renouvellement maintenu à la date initiale)'
+                    }
+                },
+                quantity: 1
+            }],
+            metadata: {
+                userId: String(user.id),
+                tier: 'gold',
+                action: 'upgrade',
+                previousSubId: user.stripe_subscription_id || ''
+            },
+            allow_promotion_codes: true,
+            success_url: `${appUrl}/shop?checkout=success`,
+            cancel_url: `${appUrl}/shop?checkout=cancelled`
+        });
 
-            const updatedSub = await stripe.subscriptions.update(subId, updatePayload);
-            await syncSubscription(updatedSub, user.id, tier);
-
-            return {
-                upgraded: true,
-                message: `Votre abonnement a été mis à niveau vers ${SUBSCRIPTION_PLANS[tier].name} ! La différence (2,50 €) a été ajustée au prorata sur votre période en cours.`
-            };
-        }
+        return session.url;
     }
 
-    const appUrl = process.env.APP_URL || 'http://localhost:5173';
+    // Cas 2 : Déjà sur la formule demandée
+    if (ENTITLED_STATUSES.has(user.stripe_subscription_status) && user.subscription_tier === tier) {
+        const error = new Error('Vous bénéficiez déjà de cette formule');
+        error.status = 400;
+        throw error;
+    }
+
+    // Cas 3 : Nouvel abonnement mensuel classique
     const session = await stripe.checkout.sessions.create({
         mode: 'subscription',
         customer: user.stripe_customer_id || undefined,
@@ -188,7 +171,7 @@ export const cancelSubscriptionSession = async (userId) => {
         throw error;
     }
 
-    if (user.stripe_customer_id && process.env.STRIPE_SECRET_KEY && ['active', 'trialing'].includes(user.stripe_subscription_status)) {
+    if (user.stripe_customer_id && ['active', 'trialing'].includes(user.stripe_subscription_status)) {
         try {
             const stripe = getStripe();
             const subs = await stripe.subscriptions.list({ customer: user.stripe_customer_id, status: 'active', limit: 1 });
@@ -207,6 +190,54 @@ WHERE id = ? AND role <> 'admin'
 `, [userId]);
 
     return { success: true, message: 'Le renouvellement automatique a été annulé. Vous conservez vos avantages jusqu’à la fin de la période.' };
+};
+
+const applyUpgradeToExistingSubscription = async (userId, targetTier) => {
+    const user = await getUser(userId);
+    const stripe = getStripe();
+
+    let subId = user.stripe_subscription_id;
+    if (!subId && user.stripe_customer_id) {
+        const activeSubs = await stripe.subscriptions.list({ customer: user.stripe_customer_id, status: 'active', limit: 1 });
+        if (activeSubs.data.length > 0) subId = activeSubs.data[0].id;
+    }
+
+    if (subId) {
+        const existingSub = await stripe.subscriptions.retrieve(subId);
+        const itemId = existingSub.items?.data?.[0]?.id;
+
+        const targetPriceId = targetTier === 'silver'
+            ? (isTest ? process.env.STRIPE_SILVER_PRICE_ID_TEST : process.env.STRIPE_SILVER_PRICE_ID)
+            : (isTest ? process.env.STRIPE_GOLD_PRICE_ID_TEST : process.env.STRIPE_GOLD_PRICE_ID);
+
+        let updatePayload = {
+            proration_behavior: 'none', // Pas de double facturation, le 2.50€ a été payé sur Checkout
+            metadata: { userId: String(userId), tier: targetTier }
+        };
+
+        if (targetPriceId) {
+            updatePayload.items = [{ id: itemId, price: targetPriceId }];
+        } else {
+            const plan = SUBSCRIPTION_PLANS[targetTier];
+            const newPrice = await stripe.prices.create({
+                unit_amount: plan.priceMonthlyCents,
+                currency: 'eur',
+                recurring: { interval: 'month' },
+                product_data: { name: `WikisGuessr ${plan.name}` }
+            });
+            updatePayload.items = [{ id: itemId, price: newPrice.id }];
+        }
+
+        const updatedSub = await stripe.subscriptions.update(subId, updatePayload);
+        await syncSubscription(updatedSub, userId, targetTier);
+    } else {
+        // Mise à jour locale si subId non récupéré
+        await query(`
+UPDATE users
+SET subscription_tier = 'gold'
+WHERE id = ? AND role <> 'admin'
+`, [userId]);
+    }
 };
 
 const syncSubscription = async (subscription, forcedUserId = null, forcedTier = null) => {
@@ -251,6 +282,19 @@ export const syncUserStripeStatus = async (userId) => {
             }
         }
 
+        // Vérifier les sessions de paiement récentes (pour gérer l'upgrade 2.50€)
+        const sessions = await stripe.checkout.sessions.list({ limit: 8 });
+        const upgradeSession = sessions.data.find(s =>
+            (s.client_reference_id === String(userId) || s.metadata?.userId === String(userId) || s.customer_email === user.email)
+            && s.payment_status === 'paid'
+            && s.metadata?.action === 'upgrade'
+        );
+
+        if (upgradeSession) {
+            await applyUpgradeToExistingSubscription(userId, upgradeSession.metadata?.tier || 'gold');
+            return;
+        }
+
         if (customerId) {
             const subs = await stripe.subscriptions.list({
                 customer: customerId,
@@ -266,7 +310,6 @@ export const syncUserStripeStatus = async (userId) => {
             }
         }
 
-        const sessions = await stripe.checkout.sessions.list({ limit: 8 });
         const userSession = sessions.data.find(s =>
             (s.client_reference_id === String(userId) || s.metadata?.userId === String(userId) || s.customer_email === user.email)
             && s.status === 'complete'
@@ -296,7 +339,9 @@ export const handleStripeWebhook = async (rawBody, signature) => {
 
     if (event.type === 'checkout.session.completed') {
         const session = event.data.object;
-        if (session.mode === 'subscription' && session.subscription) {
+        if (session.metadata?.action === 'upgrade') {
+            await applyUpgradeToExistingSubscription(session.metadata?.userId, session.metadata?.tier || 'gold');
+        } else if (session.mode === 'subscription' && session.subscription) {
             const subscription = await stripe.subscriptions.retrieve(session.subscription);
             await syncSubscription(subscription, session.metadata?.userId, session.metadata?.tier);
         }
