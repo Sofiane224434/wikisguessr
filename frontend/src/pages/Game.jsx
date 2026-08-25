@@ -1539,114 +1539,156 @@ function Game() {
                 )}
 
                 {((won && isKnowledgeMode) || (abandonQuizPrompt && isKnowledgeMode && !abandoned)) && (
-                    <div className="mx-auto mt-2 max-w-6xl rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-3 text-indigo-900 shadow-md">
-                        <div className="flex flex-wrap items-center justify-between gap-2">
-                            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-700">
-                                {abandonQuizPrompt ? "🎯 Quiz d'abandon — Connaissances acquises" : t('game.quiz')}
-                            </p>
-                            {abandonQuizPrompt && !knowledgeQuizSubmitted && (
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        setAbandoned(true);
-                                        setAbandonQuizPrompt(false);
-                                    }}
-                                    className="rounded border border-rose-300 bg-rose-100 px-2.5 py-1 text-xs font-semibold text-rose-800 hover:bg-rose-200 transition"
-                                >
-                                    Abandonner définitivement sans quiz
-                                </button>
-                            )}
-                        </div>
-                        {abandonQuizPrompt && (
-                            <p className="mt-1 text-xs text-indigo-800">
-                                Vous avez choisi d’abandonner : répondez au quiz pour tenter de marquer des points sur les articles déjà explorés, ou cliquez sur « Abandonner définitivement ».
-                            </p>
-                        )}
-
-                        {knowledgeQuizLoading ? (
-                            <p className="mt-2 text-sm">{t('game.quiz_loading')}</p>
-                        ) : knowledgeQuizError ? (
-                            <p className="mt-2 text-sm text-rose-700">{knowledgeQuizError}</p>
-                        ) : knowledgeQuiz.length > 0 ? (
-                            <div className="mt-3 space-y-3">
-                                {knowledgeQuiz.map((item, questionIndex) => {
-                                    const selectedAnswer = knowledgeQuizAnswers[questionIndex];
-                                    const isAnswered = Number.isInteger(selectedAnswer);
-
-                                    return (
-                                        <div key={`${questionIndex}-${item.question}`} className="rounded-lg border border-indigo-200 bg-white p-3">
-                                            <p className="text-sm font-semibold text-slate-900">{questionIndex + 1}. {item.question}</p>
-                                            <div className="mt-2 grid gap-2 md:grid-cols-2">
-                                                {item.choices.map((choice, choiceIndex) => {
-                                                    const isSelected = selectedAnswer === choiceIndex;
-                                                    const isRightChoice = item.answerIndex === choiceIndex;
-                                                    const showCorrection = knowledgeQuizSubmitted;
-
-                                                    let buttonClass = 'border-slate-200 bg-white text-slate-800';
-                                                    if (isSelected) {
-                                                        buttonClass = 'border-indigo-300 bg-indigo-50 text-indigo-900';
-                                                    }
-
-                                                    if (showCorrection && isRightChoice) {
-                                                        buttonClass = 'border-emerald-300 bg-emerald-50 text-emerald-900';
-                                                    } else if (showCorrection && isSelected && !isRightChoice) {
-                                                        buttonClass = 'border-rose-300 bg-rose-50 text-rose-900';
-                                                    }
-
-                                                    return (
-                                                        <button
-                                                            key={`${questionIndex}-${choiceIndex}`}
-                                                            type="button"
-                                                            className={`rounded-md border px-3 py-2 text-left text-sm transition ${buttonClass}`}
-                                                            onClick={() => handleSelectKnowledgeAnswer(questionIndex, choiceIndex)}
-                                                            disabled={knowledgeQuizSubmitted}
-                                                        >
-                                                            {choice}
-                                                        </button>
-                                                    );
-                                                })}
-                                            </div>
-                                            {knowledgeQuizSubmitted && (
-                                                <div className="mt-2 space-y-1">
-                                                    <p className="text-xs text-slate-600">
-                                                        {isAnswered && selectedAnswer === item.answerIndex ? t('game.correct') : t('game.correct_answer', { answer: item.choices[item.answerIndex] })}
-                                                    </p>
-                                                    {item.sourceQuote && (
-                                                        <p className="text-xs italic text-slate-500">
-                                                            {t('game.source_hint', { quote: `"${item.sourceQuote}"` })}{item.sourceTitle ? ` (${item.sourceTitle})` : ''}
-                                                        </p>
-                                                    )}
-                                                </div>
-                                            )}
-                                        </div>
-                                    );
-                                })}
-
-                                <div className="flex flex-wrap items-center gap-3">
+                    <div className="knowledge-quiz-card mx-auto mt-3 max-w-6xl shadow-xl">
+                        {/* En-tête du Quiz */}
+                        <div className="knowledge-quiz-header">
+                            <div className="flex items-center gap-2">
+                                <span className="text-base">📜</span>
+                                <h3 className="knowledge-quiz-header-title text-sm sm:text-base">
+                                    {abandonQuizPrompt ? "Quiz d'abandon — Connaissances acquises" : "Épreuve des Savoirs — Quiz Connaissance"}
+                                </h3>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <span className="rounded-full bg-black/30 border border-amber-500/40 px-2.5 py-0.5 text-xs text-amber-200 font-medium">
+                                    {knowledgeAnsweredCount}/{knowledgeQuiz.length} répondues
+                                </span>
+                                {abandonQuizPrompt && !knowledgeQuizSubmitted && (
                                     <button
                                         type="button"
-                                        onClick={handleSubmitKnowledgeQuiz}
-                                        disabled={!knowledgeAllAnswered || knowledgeQuizSubmitted}
-                                        className="rounded-lg border border-indigo-300 bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition enabled:hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                        onClick={() => {
+                                            setAbandoned(true);
+                                            setAbandonQuizPrompt(false);
+                                        }}
+                                        className="rounded-full border border-red-400/60 bg-red-900/50 px-3 py-1 text-xs font-semibold text-red-200 hover:bg-red-800/80 transition"
                                     >
-                                        {t('game.validate_quiz')}
-                                    </button>
-                                    <p className="text-sm text-slate-700">
-                                        {t('game.answers', { answered: knowledgeAnsweredCount, total: knowledgeQuiz.length })}
-                                        {knowledgeQuizSubmitted ? ` | ${t('game.score', { score: knowledgeScore, total: knowledgeQuiz.length })}` : ''}
-                                    </p>
-                                </div>
-                            </div>
-                        ) : (
-                            <div className="mt-2 flex flex-wrap items-center gap-3 text-sm">
-                                <p>{knowledgeQuizError || t('game.no_question')}</p>
-                                {knowledgeQuizError && (
-                                    <button type="button" className="rounded-lg border border-indigo-300 bg-white px-3 py-2 font-semibold text-indigo-800" onClick={handleRetryKnowledgeQuiz}>
-                                        {t('common.retry', { defaultValue: 'Réessayer' })}
+                                        Abandon direct sans quiz
                                     </button>
                                 )}
                             </div>
-                        )}
+                        </div>
+
+                        <div className="p-4 sm:p-5 space-y-4">
+                            {abandonQuizPrompt && (
+                                <div className="rounded-lg border border-amber-800/30 bg-[#f4ebd9] p-3 text-xs text-[#4a3928] leading-relaxed">
+                                    💡 <strong>Vous avez choisi d’abandonner l’exploration :</strong> répondez à ce quiz pour tester votre mémoire sur les articles visités et marquer des points bonus sur votre score final !
+                                </div>
+                            )}
+
+                            {knowledgeQuizLoading ? (
+                                <div className="py-8 text-center text-[#5a4635] flex flex-col items-center gap-2">
+                                    <Compass className="animate-spin text-amber-700" size={32} />
+                                    <p className="font-serif text-sm font-medium">{t('game.quiz_loading', { defaultValue: 'Génération du quiz depuis vos lectures Wikipedia…' })}</p>
+                                </div>
+                            ) : knowledgeQuizError ? (
+                                <div className="rounded-lg border border-rose-300 bg-rose-50 p-4 text-center text-sm text-rose-800 space-y-2">
+                                    <p>{knowledgeQuizError}</p>
+                                    <button
+                                        type="button"
+                                        className="rounded-full border border-rose-400 bg-white px-4 py-1.5 text-xs font-bold text-rose-900 hover:bg-rose-100"
+                                        onClick={handleRetryKnowledgeQuiz}
+                                    >
+                                        {t('common.retry', { defaultValue: 'Réessayer la génération' })}
+                                    </button>
+                                </div>
+                            ) : knowledgeQuiz.length > 0 ? (
+                                <div className="space-y-4">
+                                    {knowledgeQuiz.map((item, questionIndex) => {
+                                        const selectedAnswer = knowledgeQuizAnswers[questionIndex];
+                                        const isAnswered = Number.isInteger(selectedAnswer);
+
+                                        return (
+                                            <div key={`${questionIndex}-${item.question}`} className="knowledge-question-box">
+                                                <div className="flex items-start gap-2.5 mb-3">
+                                                    <span className="inline-flex shrink-0 items-center justify-center w-6 h-6 rounded-full bg-[#8b652b] text-white font-bold text-xs shadow-sm">
+                                                        {questionIndex + 1}
+                                                    </span>
+                                                    <p className="knowledge-question-title">{item.question}</p>
+                                                </div>
+
+                                                <div className="grid gap-2.5 sm:grid-cols-2">
+                                                    {item.choices.map((choice, choiceIndex) => {
+                                                        const choiceLetters = ['A', 'B', 'C', 'D'];
+                                                        const isSelected = selectedAnswer === choiceIndex;
+                                                        const isRightChoice = item.answerIndex === choiceIndex;
+                                                        const showCorrection = knowledgeQuizSubmitted;
+
+                                                        let stateClass = '';
+                                                        if (showCorrection) {
+                                                            if (isRightChoice) {
+                                                                stateClass = 'is-correct';
+                                                            } else if (isSelected && !isRightChoice) {
+                                                                stateClass = 'is-wrong';
+                                                            }
+                                                        } else if (isSelected) {
+                                                            stateClass = 'is-selected';
+                                                        }
+
+                                                        return (
+                                                            <button
+                                                                key={`${questionIndex}-${choiceIndex}`}
+                                                                type="button"
+                                                                className={`knowledge-choice-btn ${stateClass}`}
+                                                                onClick={() => handleSelectKnowledgeAnswer(questionIndex, choiceIndex)}
+                                                                disabled={knowledgeQuizSubmitted}
+                                                            >
+                                                                <span className="knowledge-choice-letter">
+                                                                    {choiceLetters[choiceIndex] || choiceIndex + 1}
+                                                                </span>
+                                                                <span className="flex-1">{choice}</span>
+                                                            </button>
+                                                        );
+                                                    })}
+                                                </div>
+
+                                                {knowledgeQuizSubmitted && (
+                                                    <div className="mt-3 space-y-1.5">
+                                                        <p className={`text-xs font-semibold ${isAnswered && selectedAnswer === item.answerIndex ? 'text-emerald-800' : 'text-rose-800'}`}>
+                                                            {isAnswered && selectedAnswer === item.answerIndex
+                                                                ? `✓ ${t('game.correct', { defaultValue: 'Excellente réponse !' })}`
+                                                                : `✗ ${t('game.correct_answer', { answer: item.choices[item.answerIndex] })}`}
+                                                        </p>
+                                                        {item.sourceQuote && (
+                                                            <div className="knowledge-quote-hint">
+                                                                <p className="italic">
+                                                                    « {item.sourceQuote} » {item.sourceTitle ? `— Extrait de l’article ${item.sourceTitle}` : ''}
+                                                                </p>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+
+                                    {/* Barre de validation du quiz */}
+                                    <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-[#dccbb2]">
+                                        <div className="flex items-center gap-2 text-sm text-[#493928]">
+                                            <span className="font-semibold">{knowledgeAnsweredCount}/{knowledgeQuiz.length} questions répondues</span>
+                                            {knowledgeQuizSubmitted && (
+                                                <span className="rounded-full bg-emerald-800 text-white px-2.5 py-0.5 text-xs font-bold shadow-sm">
+                                                    Score : {knowledgeScore}/{knowledgeQuiz.length} (+{knowledgeScore * 100} pts)
+                                                </span>
+                                            )}
+                                        </div>
+
+                                        {!knowledgeQuizSubmitted && (
+                                            <button
+                                                type="button"
+                                                onClick={handleSubmitKnowledgeQuiz}
+                                                disabled={!knowledgeAllAnswered || knowledgeQuizSubmitted}
+                                                className="rounded-full bg-[#315d62] hover:bg-[#24474b] border border-[#1f3e42] px-6 py-2.5 text-sm font-bold text-white shadow-md transition disabled:opacity-40 disabled:cursor-not-allowed active:scale-95"
+                                            >
+                                                {t('game.validate_quiz', { defaultValue: 'Valider mes réponses' })}
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="py-4 text-center text-sm text-[#5a4635]">
+                                    <p>{knowledgeQuizError || t('game.no_question', { defaultValue: 'Aucune question disponible.' })}</p>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 )}
 
