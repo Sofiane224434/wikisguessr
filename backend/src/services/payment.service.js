@@ -93,6 +93,7 @@ export const createCheckoutSession = async (userId, requestedTier, originUrl = n
     if (user.subscription_tier === 'silver' && tier === 'gold') {
         const session = await stripe.checkout.sessions.create({
             mode: 'payment',
+            payment_method_types: ['card'],
             customer: user.stripe_customer_id || undefined,
             customer_email: user.stripe_customer_id ? undefined : user.email,
             client_reference_id: String(user.id),
@@ -175,6 +176,7 @@ export const createCheckoutSession = async (userId, requestedTier, originUrl = n
     // Cas 4 : Nouvel abonnement mensuel classique
     const session = await stripe.checkout.sessions.create({
         mode: 'subscription',
+        payment_method_types: ['card'],
         customer: user.stripe_customer_id || undefined,
         customer_email: user.stripe_customer_id ? undefined : user.email,
         client_reference_id: String(user.id),
