@@ -38,13 +38,18 @@ function Shop() {
     }, []);
 
     const handleSubscribe = async (tier) => {
+        if (tier === 'free') {
+            await handleCancelSubscription();
+            return;
+        }
+
         setPendingTier(tier);
         setError('');
         setMessage('');
         try {
             const data = await subscriptionService.checkout(tier);
-            if (data.upgraded) {
-                setMessage(data.message || 'Votre abonnement a été mis à niveau avec succès !');
+            if (data.upgraded || data.downgraded) {
+                setMessage(data.message || 'Votre abonnement a été mis à jour avec succès !');
                 const subData = await subscriptionService.getMine();
                 setSubscription(subData.subscription);
                 setPendingTier(null);
@@ -149,6 +154,41 @@ function Shop() {
                         {plans.map((plan) => {
                             const isCurrent = subscription?.tier === plan.id;
                             const isPaid = plan.priceMonthlyCents > 0;
+                            const hasActiveSub = subscription?.tier && subscription.tier !== 'free' && !subscription.isAdminIncluded;
+
+                            let btnLabel = '';
+                            let btnDisabled = false;
+
+                            if (isCurrent) {
+                                btnLabel = t('shop.current');
+                                btnDisabled = true;
+                            } else if (subscription?.isAdminIncluded) {
+                                btnLabel = t('shop.admin_included');
+                                btnDisabled = true;
+                            } else if (pendingTier === plan.id || (plan.id === 'free' && cancelingSubscription)) {
+                                btnLabel = t('shop.opening');
+                                btnDisabled = true;
+                            } else if (subscription?.tier === 'silver' && plan.id === 'gold') {
+                                btnLabel = 'Passer à Gold (+2,50 €)';
+                            } else if (subscription?.tier === 'gold' && plan.id === 'silver') {
+                                btnLabel = 'Passer à Silver au prochain renouvellement (2,50 €)';
+                            } else if (plan.id === 'free') {
+                                if (hasActiveSub) {
+                                    btnLabel = subscription.billing?.status === 'canceling' ? 'Renouvellement déjà annulé' : 'Revenir à Free (Annuler renouvellement)';
+                                    btnDisabled = subscription.billing?.status === 'canceling';
+                                } else {
+                                    btnLabel = t('shop.included');
+                                    btnDisabled = true;
+                                }
+                            } else if (isPaid && hasActiveStripeSubscription) {
+                                btnLabel = t('shop.change_stripe');
+                            } else if (isPaid) {
+                                btnLabel = t('shop.choose', { plan: plan.name });
+                            } else {
+                                btnLabel = t('shop.included');
+                                btnDisabled = true;
+                            }
+
                             return (
                                 <article key={plan.id} className={`shop-plan is-${plan.id}${isCurrent ? ' is-current' : ''}`}>
                                     <div className="shop-plan-title">
@@ -166,20 +206,10 @@ function Shop() {
                                     </ul>
                                     <button
                                         type="button"
-                                        disabled={!isPaid || isCurrent || subscription?.isAdminIncluded || pendingTier !== null}
+                                        disabled={btnDisabled}
                                         onClick={() => handleSubscribe(plan.id)}
                                     >
-                                        {isCurrent
-                                            ? t('shop.current')
-                                            : subscription?.isAdminIncluded
-                                                ? t('shop.admin_included')
-                                            : pendingTier === plan.id
-                                                ? t('shop.opening')
-                                            : subscription?.tier === 'silver' && plan.id === 'gold'
-                                                ? 'Passer à Gold (+2,50 €)'
-                                            : isPaid && hasActiveStripeSubscription
-                                                ? t('shop.change_stripe')
-                                                : isPaid ? t('shop.choose', { plan: plan.name }) : t('shop.included')}
+                                        {btnLabel}
                                     </button>
                                 </article>
                             );

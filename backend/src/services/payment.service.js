@@ -122,7 +122,51 @@ export const createCheckoutSession = async (userId, requestedTier) => {
         return session.url;
     }
 
-    // Cas 2 : Déjà sur la formule demandée
+    // Cas 2 : L'utilisateur est en Gold et veut repasser en Silver au prochain renouvellement
+    if (user.subscription_tier === 'gold' && tier === 'silver') {
+        let subId = user.stripe_subscription_id;
+        if (!subId && user.stripe_customer_id) {
+            const activeSubs = await stripe.subscriptions.list({
+                customer: user.stripe_customer_id,
+                status: 'active',
+                limit: 1
+            });
+            if (activeSubs.data.length > 0) subId = activeSubs.data[0].id;
+        }
+
+        if (subId) {
+            const existingSub = await stripe.subscriptions.retrieve(subId);
+            const itemId = existingSub.items?.data?.[0]?.id;
+
+            const targetPriceId = isTest ? process.env.STRIPE_SILVER_PRICE_ID_TEST : process.env.STRIPE_SILVER_PRICE_ID;
+            let updatePayload = {
+                proration_behavior: 'none', // Pas de remboursement, le tarif Silver s'appliquera au renouvellement
+                metadata: { userId: String(user.id), tier: 'silver' }
+            };
+
+            if (targetPriceId) {
+                updatePayload.items = [{ id: itemId, price: targetPriceId }];
+            } else {
+                const plan = SUBSCRIPTION_PLANS.silver;
+                const newPrice = await stripe.prices.create({
+                    unit_amount: plan.priceMonthlyCents,
+                    currency: 'eur',
+                    recurring: { interval: 'month' },
+                    product_data: { name: `WikisGuessr ${plan.name}` }
+                });
+                updatePayload.items = [{ id: itemId, price: newPrice.id }];
+            }
+
+            await stripe.subscriptions.update(subId, updatePayload);
+
+            return {
+                downgraded: true,
+                message: 'Votre abonnement a été mis à jour : le tarif passera à 2,50 €/mois lors de votre prochain renouvellement. Vous conservez tous vos avantages Gold jusqu’à cette date.'
+            };
+        }
+    }
+
+    // Cas 3 : Déjà sur la formule demandée
     if (ENTITLED_STATUSES.has(user.stripe_subscription_status) && user.subscription_tier === tier) {
         const error = new Error('Vous bénéficiez déjà de cette formule');
         error.status = 400;
