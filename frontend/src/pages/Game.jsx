@@ -1408,9 +1408,8 @@ function Game() {
         knowledgeScore,
         won: Boolean(won && !abandoned) || (isKnowledgeMode && knowledgeQuizSubmitted)
     });
-    const finalLeaderboard = useMemo(() => {
-        if (!showResultModal) return [];
-        return computeFinalLeaderboard(participants, {
+    const finalLeaderboard = showResultModal
+        ? computeFinalLeaderboard(participants, {
             user_id: 'current_user',
             username: 'Vous',
             score: finalPoints,
@@ -1418,8 +1417,8 @@ function Game() {
             time_seconds: elapsedSecondsRef.current,
             won: Boolean(won && !abandoned) || (isKnowledgeMode && knowledgeQuizSubmitted),
             status: abandoned ? 'abandoned' : chronoDefeat ? 'timeout' : (won ? 'finished' : 'defeat')
-        }, gameMode);
-    }, [showResultModal, participants, finalPoints, clicks, won, abandoned, chronoDefeat, isKnowledgeMode, knowledgeQuizSubmitted, gameMode]);
+        }, gameMode)
+        : [];
     const resultTitle = abandoned
         ? t('game.result_abandoned_title', { defaultValue: 'Partie interrompue' })
         : chronoDefeat
