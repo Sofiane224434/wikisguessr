@@ -6,7 +6,8 @@ import {
     cancelSubscriptionSession,
     createBillingPortalSession,
     createCheckoutSession,
-    handleStripeWebhook
+    handleStripeWebhook,
+    syncUserStripeStatus
 } from '../services/payment.service.js';
 
 export const getPlans = (_req, res) => {
@@ -15,6 +16,7 @@ export const getPlans = (_req, res) => {
 
 export const getMySubscription = async (req, res) => {
     try {
+        await syncUserStripeStatus(req.user.id);
         const subscription = await getSubscriptionStatus(req.user.id);
         return res.json({ subscription });
     } catch (error) {
@@ -25,8 +27,11 @@ export const getMySubscription = async (req, res) => {
 
 export const checkout = async (req, res) => {
     try {
-        const url = await createCheckoutSession(req.user.id, req.body.tier);
-        return res.json({ url });
+        const result = await createCheckoutSession(req.user.id, req.body.tier);
+        if (result?.upgraded) {
+            return res.json({ upgraded: true, message: result.message });
+        }
+        return res.json({ url: result.url || result });
     } catch (error) {
         console.error('checkout error:', error);
         return res.status(error.status || 500).json({ error: error.message || 'Impossible de démarrer le paiement' });

@@ -38,17 +38,21 @@ function Shop() {
     }, []);
 
     const handleSubscribe = async (tier) => {
-        if (hasActiveStripeSubscription) {
-            await handleManageBilling();
-            return;
-        }
-
         setPendingTier(tier);
         setError('');
         setMessage('');
         try {
             const data = await subscriptionService.checkout(tier);
-            window.location.assign(data.url);
+            if (data.upgraded) {
+                setMessage(data.message || 'Votre abonnement a été mis à niveau avec succès !');
+                const subData = await subscriptionService.getMine();
+                setSubscription(subData.subscription);
+                setPendingTier(null);
+                return;
+            }
+            if (data.url) {
+                window.location.assign(data.url);
+            }
         } catch (requestError) {
             setError(requestError.message || 'Impossible de démarrer le paiement');
             setPendingTier(null);
@@ -171,9 +175,11 @@ function Shop() {
                                                 ? t('shop.admin_included')
                                             : pendingTier === plan.id
                                                 ? t('shop.opening')
-                                                : isPaid && hasActiveStripeSubscription
-                                                    ? t('shop.change_stripe')
-                                                    : isPaid ? t('shop.choose', { plan: plan.name }) : t('shop.included')}
+                                            : subscription?.tier === 'silver' && plan.id === 'gold'
+                                                ? 'Passer à Gold (+2,50 €)'
+                                            : isPaid && hasActiveStripeSubscription
+                                                ? t('shop.change_stripe')
+                                                : isPaid ? t('shop.choose', { plan: plan.name }) : t('shop.included')}
                                     </button>
                                 </article>
                             );
