@@ -174,6 +174,12 @@ WHERE id = ?
         return this.findById(id);
     },
 
+    // Supprimer un utilisateur (Conformité RGPD)
+    async deleteUser(id) {
+        await query('DELETE FROM users WHERE id = ?', [id]);
+        return true;
+    },
+
     // Vérifier le mot de passe
     async verifyPassword(plainPassword, hashedPassword) {
         return bcrypt.compare(plainPassword, hashedPassword);

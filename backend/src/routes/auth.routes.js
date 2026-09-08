@@ -14,7 +14,8 @@ import {
 	setUserSubscription,
 	setUserRole,
 	banUser,
-	unbanUser
+	unbanUser,
+	deleteAccount
 } from '../controllers/auth.controller.js';
 import authMiddleware from '../middlewares/auth.middleware.js';
 import { avatarUpload } from '../middlewares/avatar.middleware.js';
@@ -35,6 +36,7 @@ router.post('/reset-password', resetPassword);
 // Routes protégées
 router.get('/me', authMiddleware, getProfile);
 router.patch('/profile', authMiddleware, updateProfile);
+router.delete('/profile', authMiddleware, deleteAccount);
 router.post('/profile/avatar', authMiddleware, avatarUpload, updateAvatar);
 router.delete('/profile/avatar', authMiddleware, deleteAvatar);
 router.get('/users', authMiddleware, getUsers);
