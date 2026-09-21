@@ -1393,8 +1393,10 @@ function Game() {
             return;
         }
 
-        if (resultReady) {
-            setShowResultModal(true);
+        if (resultReady || isGameFinished || won || chronoDefeat || abandoned) {
+            allowPageNavigationRef.current = true;
+            clearPersistedGameState(gameCode);
+            navigate('/lobby');
             return;
         }
 
@@ -1418,10 +1420,16 @@ function Game() {
         setAbandoned(true);
     };
 
+    const handleDirectAbandonAndQuit = () => {
+        setShowAbandonConfirm(false);
+        saveFinalResult().catch(() => {});
+        allowPageNavigationRef.current = true;
+        clearPersistedGameState(gameCode);
+        navigate('/lobby');
+    };
+
     const handleFinalizeQuit = () => {
-        if (!resultSaved) {
-            return;
-        }
+        saveFinalResult().catch(() => {});
         allowPageNavigationRef.current = true;
         clearPersistedGameState(gameCode);
         navigate('/lobby');
@@ -1950,16 +1958,21 @@ function Game() {
                 <div className="game-modal-backdrop" role="presentation">
                     <section className="game-modal" role="dialog" aria-modal="true" aria-labelledby="abandon-title">
                         <p className="game-modal-kicker">Partie en cours</p>
-                        <h2 id="abandon-title">Abandonner la partie ?</h2>
+                        <h2 id="abandon-title">Quitter la partie ?</h2>
                         <p>
                             {isKnowledgeMode
-                                ? "En mode Connaissance, vous pourrez d'abord tester vos connaissances sur les articles explorés pour marquer des points !"
+                                ? "En mode Connaissance, vous pouvez tester vos connaissances sur vos lectures ou quitter directement le salon."
                                 : "Votre progression actuelle sera enregistrée comme une partie abandonnée."}
                         </p>
-                        <div className="game-modal-actions">
+                        <div className="game-modal-actions flex-wrap">
                             <button type="button" className="is-secondary" onClick={() => setShowAbandonConfirm(false)}>Continuer à jouer</button>
-                            <button type="button" className="is-danger" onClick={handleConfirmAbandon}>
-                                {isKnowledgeMode ? "Passer au quiz d'abandon" : "Abandonner"}
+                            {isKnowledgeMode && !knowledgeQuizSubmitted && (
+                                <button type="button" className="is-secondary" onClick={handleConfirmAbandon}>
+                                    Passer au quiz
+                                </button>
+                            )}
+                            <button type="button" className="is-danger" onClick={handleDirectAbandonAndQuit}>
+                                Quitter la partie
                             </button>
                         </div>
                     </section>
