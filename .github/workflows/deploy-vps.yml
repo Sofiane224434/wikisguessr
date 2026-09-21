@@ -1,0 +1,160 @@
+name: Deploy to VPS
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-vps
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.VPS_SSH_KEY }}" | base64 -d > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -p ${{ secrets.VPS_PORT }} -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Deploy via SSH
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_APP_DIR: ${{ vars.VPS_APP_DIR }}
+          VPS_COMPOSE_PROJECT: ${{ vars.VPS_COMPOSE_PROJECT }}
+        run: |
+          set -o pipefail
+          log_file="$(mktemp)"
+
+          set +e
+          ssh -i ~/.ssh/id_ed25519 -p "$VPS_PORT" "$VPS_USER@$VPS_HOST" bash -s <<EOF 2>&1 | tee "$log_file"
+            set -Eeuo pipefail
+            exec 9>/tmp/wikisguessr-deploy.lock
+            flock 9
+            phase="initialisation"
+            trap 'status=\$?; echo "DEPLOY_FAILURE phase=\$phase line=\$LINENO status=\$status"; exit \$status' ERR
+
+            APP_DIR="$VPS_APP_DIR"
+            PROJECT="$VPS_COMPOSE_PROJECT"
+
+            if [ ! -d "\$APP_DIR/.git" ]; then
+              echo "Cloning repository into \$APP_DIR"
+              mkdir -p "\$APP_DIR"
+              git clone https://github.com/${{ github.repository }}.git "\$APP_DIR"
+            fi
+
+            cd "\$APP_DIR"
+
+            phase="mise a jour Git"
+            echo "==> git fetch + reset"
+            git fetch --all --prune
+            git reset --hard origin/main
+            git clean -fd -e .env -e backend/.env -e frontend/.env
+
+            if [ ! -f .env ]; then
+              echo "ERREUR: .env manquant dans \$APP_DIR. Copier .env.example et renseigner les secrets."
+              exit 1
+            fi
+
+            phase="build des images"
+            echo "==> build des images"
+            docker compose -f docker-compose.yml -p "\$PROJECT" pull db || true
+            docker compose -f docker-compose.yml -p "\$PROJECT" build
+
+            phase="demarrage de MySQL"
+            echo "==> demarrage de MySQL"
+            docker compose -f docker-compose.yml -p "\$PROJECT" up -d db
+
+            phase="migration de la base"
+            echo "==> migration de la base"
+            docker compose -f docker-compose.yml -p "\$PROJECT" run -T --rm api npm run migrate:production </dev/null
+
+            phase="demarrage de la stack"
+            echo "==> demarrage de la stack"
+            docker rm -f wikisguessr-api wikisguessr-app 2>/dev/null || true
+            docker compose -f docker-compose.yml -p "\$PROJECT" up -d --build --no-deps api app
+            docker compose -f docker-compose.yml -p "\$PROJECT" up -d --remove-orphans
+
+            phase="verification de l API"
+            echo "==> verification de l API"
+            docker compose -f docker-compose.yml -p "\$PROJECT" exec -T api node --input-type=module -e \
+              "for (let attempt = 1; attempt <= 30; attempt++) { try { const response = await fetch('http://127.0.0.1:5000/api/site-state'); console.log('API_HEALTH_STATUS=' + response.status); if (response.ok) process.exit(0); } catch {} await new Promise(resolve => setTimeout(resolve, 1000)); } process.exit(1);" </dev/null
+            docker compose -f docker-compose.yml -p "\$PROJECT" exec -T api node --input-type=module -e \
+              "for (let attempt = 1; attempt <= 30; attempt++) { try { const response = await fetch('http://app/api/site-state'); console.log('APP_PROXY_STATUS=' + response.status); if (response.ok) process.exit(0); } catch {} await new Promise(resolve => setTimeout(resolve, 1000)); } process.exit(1);" </dev/null
+
+            phase="verification du port applicatif"
+            echo "==> verification du port applicatif"
+            docker inspect wikisguessr-app --format 'APP_STATE={{.State.Status}} APP_PORTS={{json .NetworkSettings.Ports}} APP_BINDINGS={{json .HostConfig.PortBindings}}'
+            curl --fail --silent --show-error http://127.0.0.1:3010/api/site-state > /dev/null
+
+            phase="configuration du proxy public"
+            echo "==> configuration du proxy public"
+            sudo -n install -m 0644 deploy/nginx/wikisguessr.azim404.com.conf \
+              /etc/nginx/sites-available/wikisguessr.azim404.com
+            canonical_config="/etc/nginx/sites-available/wikisguessr.azim404.com"
+            for enabled_config in /etc/nginx/sites-enabled/* /etc/nginx/conf.d/*.conf; do
+              [ -e "\$enabled_config" ] || [ -L "\$enabled_config" ] || continue
+              if sudo -n grep -qE 'server_name[[:space:]]+wikisguessr\.azim404\.com' "\$enabled_config"; then
+                resolved_config="\$(readlink -f "\$enabled_config")"
+                if [ "\$resolved_config" != "\$canonical_config" ]; then
+                  sudo -n rm -f "\$enabled_config"
+                fi
+              fi
+            done
+            sudo -n rm -f \
+              /etc/nginx/sites-enabled/wikisguessr.azim404.com \
+              /etc/nginx/sites-enabled/wikisguessr.azim404.com.conf
+            sudo -n ln -sfn /etc/nginx/sites-available/wikisguessr.azim404.com \
+              /etc/nginx/sites-enabled/wikisguessr.azim404.com.conf
+            sudo -n nginx -t
+            sudo -n systemctl reload nginx
+
+            phase="verification HTTPS publique"
+            echo "==> verification HTTPS publique"
+            curl --fail --silent --show-error https://wikisguessr.azim404.com/api/site-state > /dev/null
+
+            echo "==> docker compose ps"
+            docker compose -f docker-compose.yml -p "\$PROJECT" ps
+
+            echo "==> nettoyage images orphelines"
+            docker image prune -f
+          EOF
+
+          status=${PIPESTATUS[0]}
+          set -e
+          if [ "$status" -ne 0 ]; then
+            diagnostic="$(tail -n 30 "$log_file" | tr '\n' ' ' | cut -c1-4000)"
+            echo "::error title=Echec du deploiement::$diagnostic"
+            {
+              echo "### Echec du deploiement"
+              echo '```text'
+              tail -n 80 "$log_file"
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+          exit "$status"
+
+      - name: Verify public endpoint
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+        run: |
+          if curl --fail --silent --show-error "https://wikisguessr.azim404.com/api/site-state?deployment=${{ github.sha }}"; then
+            exit 0
+          fi
+
+          diagnostic="$(ssh -i ~/.ssh/id_ed25519 -p "$VPS_PORT" "$VPS_USER@$VPS_HOST" \
+            "echo LOCAL_APP; curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3010/api/site-state; echo; echo API; docker inspect wikisguessr-api --format 'state={{.State.Status}} exit={{.State.ExitCode}} restarts={{.RestartCount}}'; docker logs --tail 20 wikisguessr-api 2>&1; echo APP; docker inspect wikisguessr-app --format 'state={{.State.Status}} ports={{json .NetworkSettings.Ports}} bindings={{json .HostConfig.PortBindings}}'; docker logs --tail 20 wikisguessr-app 2>&1; echo SOCKETS; sudo -n ss -ltnp | grep -E ':443|:3010'" \
+            | tr '\n' ' ' | cut -c1-4000)"
+          echo "::error title=Diagnostic du proxy public::$diagnostic"
+          exit 1
