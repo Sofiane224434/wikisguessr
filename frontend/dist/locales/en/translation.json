@@ -231,7 +231,14 @@
     "add_photo": "Add a photo",
     "delete_photo": "Delete",
     "photo_help": "JPEG, PNG, or WebP · Maximum 5 MB",
-    "processing": "Processing..."
+    "processing": "Processing...",
+    "danger_zone": "Danger Zone",
+    "delete_account_warning": "Deleting your account is permanent. All your games, scores, statistics, and associated personal data will be erased in compliance with GDPR.",
+    "delete_account_button": "Delete My Account",
+    "confirm_delete_title": "Confirm Account Deletion",
+    "confirm_delete_message": "Are you absolutely sure you want to permanently delete your WikisGuessr account? This action cannot be undone.",
+    "confirm_delete_password": "Enter your password to confirm:",
+    "confirm_delete_final": "Permanently Delete"
   },
   "leaderboard": {
     "title": "Rankings",

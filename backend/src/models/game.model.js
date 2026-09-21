@@ -402,7 +402,7 @@ LIMIT ${limitNum}
         if (mode === 'knowledge') {
             const sql = `
 SELECT u.username,
-       ROUND(AVG(gr.knowledge_score * 100 + 500 - (gr.clicks * 50) - (gr.time_seconds / 4)), 2) AS avg_score,
+       ROUND(AVG(GREATEST(0, COALESCE(gr.score, gr.knowledge_score * 100 + 500 - (gr.clicks * 50) - (gr.time_seconds / 4)))), 2) AS avg_score,
        u.elo
 FROM game_results gr
 JOIN users u ON u.id = gr.user_id
@@ -419,7 +419,7 @@ LIMIT ${limitNum}
         if (mode === 'normal') {
             const sql = `
 SELECT u.username,
-       ROUND(AVG(1000 - (gr.clicks * 100) - (gr.time_seconds / 2)), 2) AS avg_score,
+       ROUND(AVG(GREATEST(0, COALESCE(gr.score, 1000 - (gr.clicks * 100) - (gr.time_seconds / 2)))), 2) AS avg_score,
        u.elo
 FROM game_results gr
 JOIN users u ON u.id = gr.user_id

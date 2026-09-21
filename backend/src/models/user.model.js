@@ -176,6 +176,15 @@ WHERE id = ?
 
     // Supprimer un utilisateur (Conformité RGPD)
     async deleteUser(id) {
+        await query('DELETE FROM room_messages WHERE user_id = ?', [id]).catch(() => {});
+        await query('DELETE FROM game_room_members WHERE user_id = ?', [id]).catch(() => {});
+        await query('DELETE FROM game_room_invitations WHERE sender_id = ? OR receiver_id = ?', [id, id]).catch(() => {});
+        await query('DELETE FROM friendships WHERE user_id = ? OR friend_id = ?', [id, id]).catch(() => {});
+        await query('DELETE FROM friend_requests WHERE sender_id = ? OR receiver_id = ?', [id, id]).catch(() => {});
+        await query('DELETE FROM reports WHERE reporter_id = ? OR reported_id = ?', [id, id]).catch(() => {});
+        await query('DELETE FROM user_daily_game_usage WHERE user_id = ?', [id]).catch(() => {});
+        await query('DELETE FROM game_players WHERE user_id = ?', [id]).catch(() => {});
+        await query('DELETE FROM game_results WHERE user_id = ?', [id]).catch(() => {});
         await query('DELETE FROM users WHERE id = ?', [id]);
         return true;
     },

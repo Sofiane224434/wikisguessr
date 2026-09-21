@@ -3,6 +3,8 @@
     "@pdf-lib/fontkit": "^1.1.1",
     "concurrently": "^9.2.1",
     "deepl-node": "^1.24.0",
+    "pptxgenjs": "^4.0.1",
+    "prismjs": "^1.30.0",
     "puppeteer-core": "^25.9.0"
   },
   "scripts": {

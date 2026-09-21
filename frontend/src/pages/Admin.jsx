@@ -370,7 +370,7 @@ function Admin() {
 
                         <div className="max-h-80 overflow-auto rounded-xl border border-slate-800">
                             <table className="w-full border-collapse text-sm">
-                                <thead className="sticky top-0 bg-slate-950/95 text-left text-slate-300">
+                                <thead className="sticky top-0 z-10 bg-slate-950 text-left text-slate-300 shadow-sm">
                                     <tr>
                                         <th className="px-3 py-2 font-semibold">{t('admin.username')}</th>
                                         <th className="px-3 py-2 font-semibold">Email</th>
@@ -521,7 +521,7 @@ function Admin() {
                         {Array.isArray(quizUsage.recentCalls) && quizUsage.recentCalls.length > 0 && (
                             <div className="mt-4 max-h-64 overflow-auto rounded-xl border border-slate-800">
                                 <table className="w-full border-collapse text-xs">
-                                    <thead className="sticky top-0 bg-slate-950/95 text-left text-slate-300">
+                                    <thead className="sticky top-0 z-10 bg-slate-950 text-left text-slate-300 shadow-sm">
                                         <tr>
                                             <th className="px-3 py-2 font-semibold">Date</th>
                                             <th className="px-3 py-2 font-semibold">Statut</th>
@@ -580,7 +580,7 @@ function Admin() {
                 ) : (
                     <div className="max-h-80 overflow-auto rounded-xl border border-slate-800">
                         <table className="w-full border-collapse text-sm">
-                            <thead className="sticky top-0 bg-slate-950/95 text-left text-slate-300">
+                            <thead className="sticky top-0 z-10 bg-slate-950 text-left text-slate-300 shadow-sm">
                                 <tr>
                                     <th className="px-3 py-2 font-semibold">Date</th>
                                     <th className="px-3 py-2 font-semibold">Rapporteur</th>
