@@ -1568,7 +1568,7 @@ function Game() {
                                     {finishedCount}/{fullParticipants.length} ont terminé
                                 </span>
                             </div>
-                            <div className="game-participants flex gap-2 overflow-x-auto pb-1" aria-label="Progression des 8 joueurs">
+                            <div className="game-participants grid grid-cols-4 sm:grid-cols-8 gap-1" aria-label="Progression des 8 joueurs">
                                 {fullParticipants.map((participant, pIdx) => {
                                     const avatarUrl = resolveMediaUrl(participant.avatar_url);
                                     const finished = participant.progress_status === 'finished' || participant.won;
@@ -1590,13 +1590,17 @@ function Game() {
                                             });
 
                                     return (
-                                        <div className={`game-participant relative group${finished ? ' is-finished' : ''}${isBotPlayer ? ' is-bot opacity-90' : ''}${isCurrent ? ' border-amber-500 ring-1 ring-amber-400' : ''}`} key={participant.user_id || pIdx}>
+                                        <div
+                                            className={`game-participant${finished ? ' is-finished' : ''}${isBotPlayer ? ' is-bot' : ''}${isCurrent ? ' is-current' : ''}`}
+                                            key={participant.user_id || pIdx}
+                                            title={`${participant.username} — ${Math.round(pScore)} pts (${finished ? 'Terminé' : 'En cours'})`}
+                                        >
                                             <span className="game-participant-avatar">
                                                 {avatarUrl ? <img src={avatarUrl} alt="" /> : String(participant.username || '?').slice(0, 1).toUpperCase()}
                                             </span>
-                                            <span className="flex flex-col text-[10px] leading-tight min-w-0">
-                                                <div className="flex items-center justify-between gap-1">
-                                                    <strong className="truncate max-w-[68px]">{participant.username} {isCurrent && '(Vous)'}</strong>
+                                            <div className="game-participant-info min-w-0 flex-1">
+                                                <div className="flex items-center justify-between gap-0.5 leading-none">
+                                                    <strong className="truncate">{participant.username}</strong>
                                                     {!isCurrent && (
                                                         <button
                                                             type="button"
@@ -1604,17 +1608,21 @@ function Game() {
                                                                 e.stopPropagation();
                                                                 setReportTarget({ id: participant.user_id || `bot-${pIdx}`, username: participant.username, isBot: isBotPlayer });
                                                             }}
-                                                            className="text-slate-400 hover:text-red-600 transition p-0.5 rounded"
+                                                            className="game-report-btn text-slate-400 hover:text-red-600 transition shrink-0"
                                                             title={`Signaler ${participant.username}`}
                                                             aria-label={`Signaler ${participant.username}`}
                                                         >
-                                                            <Flag size={11} />
+                                                            <Flag size={9} />
                                                         </button>
                                                     )}
                                                 </div>
-                                                <span className="font-bold text-amber-900">{Math.round(pScore)} pts</span>
-                                                <small className="text-slate-500">{isBotPlayer ? '🤖 Bot' : finished ? '✓ Terminé' : '⚡ En cours'}</small>
-                                            </span>
+                                                <div className="flex items-center justify-between gap-0.5 text-[9px] leading-none mt-0.5">
+                                                    <span className="font-bold text-amber-900 truncate">{Math.round(pScore)}p</span>
+                                                    <span className={`text-[8px] font-medium shrink-0 ${finished ? 'text-emerald-700' : 'text-slate-500'}`}>
+                                                        {finished ? '✓' : isBotPlayer ? 'bot' : 'jeu'}
+                                                    </span>
+                                                </div>
+                                            </div>
                                         </div>
                                     );
                                 })}
