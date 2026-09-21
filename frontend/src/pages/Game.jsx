@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Compass, Flag } from 'lucide-react';
+import { ArrowLeft, Compass, Flag, LogOut, Zap } from 'lucide-react';
 import DOMPurify from 'dompurify';
 import { useTranslation } from 'react-i18next';
 import { io } from 'socket.io-client';
@@ -1498,11 +1498,9 @@ function Game() {
                             disabled={articleHistory.length < 2 || loadingArticle}
                             aria-label={t('game.back_article')}
                             title={t('game.back')}
-                            className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-slate-300 bg-white text-slate-700 shadow-sm transition enabled:hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40"
+                            className="game-icon-btn is-back"
                         >
-                            <svg viewBox="0 0 24 24" aria-hidden="true" className="h-4 w-4 m-auto">
-                                <path d="M15 18l-6-6 6-6" fill="none" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round" strokeLinejoin="round" />
-                            </svg>
+                            <ArrowLeft size={15} />
                         </button>
                         <span className="rounded-full bg-slate-900 px-2.5 py-1 font-semibold text-white shadow-sm">{modeLabel}</span>
                         <span className="inline-flex min-w-0 max-w-[44vw] sm:max-w-56 lg:max-w-64 items-center gap-1 rounded-full border border-cyan-200 bg-cyan-50 px-2.5 py-1 text-cyan-800 shadow-sm">
@@ -1519,9 +1517,10 @@ function Game() {
                                 onClick={handleAdminCheat}
                                 disabled={loadingArticle}
                                 title="Arriver directement au lien wiki de fin (Triche Admin)"
-                                className="inline-flex items-center gap-1 rounded-full border border-purple-300 bg-purple-100 px-2.5 py-1 text-[11px] font-semibold normal-case text-purple-900 shadow-sm transition hover:bg-purple-200 active:scale-95 disabled:opacity-50"
+                                className="game-cheat-badge"
                             >
-                                <span>⚡ Triche</span>
+                                <Zap size={12} className="shrink-0 text-purple-700" />
+                                <span>Triche</span>
                             </button>
                         )}
                     </div>
@@ -1546,13 +1545,9 @@ function Game() {
                             onClick={handleQuitGame}
                             aria-label={t('game.quit_game')}
                             title={t('game.quit')}
-                            className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-rose-200 bg-rose-50 text-rose-700 shadow-sm transition hover:bg-rose-100 hover:text-rose-800"
+                            className="game-icon-btn is-quit"
                         >
-                            <svg viewBox="0 0 24 24" aria-hidden="true" className="h-4 w-4 m-auto">
-                                <path d="M7 3h10a1 1 0 011 1v16a1 1 0 01-1 1H7a1 1 0 01-1-1V4a1 1 0 011-1z" fill="none" stroke="currentColor" strokeWidth="1.8" />
-                                <path d="M10 3v18" fill="none" stroke="currentColor" strokeWidth="1.8" />
-                                <circle cx="13.5" cy="12" r="1" fill="currentColor" />
-                            </svg>
+                            <LogOut size={15} />
                         </button>
                     </div>
                 </div>

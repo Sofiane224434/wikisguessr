@@ -831,17 +831,67 @@ html, body, #root {
 .game-toolbar [class*='amber-'] { color: #75541e !important; background: #eee1c5 !important; border-color: #c3a263 !important; }
 .game-toolbar [class*='violet-'] { color: #584563 !important; background: #e8e0e9 !important; border-color: #aa96af !important; }
 .game-toolbar [class*='rose-'] { color: #7c3834 !important; background: #f1ded9 !important; border-color: #b87970 !important; }
-.game-toolbar button {
+.game-icon-btn {
   display: inline-flex !important;
+  width: 26px !important;
+  height: 26px !important;
+  min-width: 26px !important;
+  min-height: 26px !important;
   align-items: center !important;
   justify-content: center !important;
+  padding: 0 !important;
+  margin: 0 !important;
   border-radius: 4px !important;
-  box-shadow: none !important;
-  text-align: center !important;
+  border: 1px solid #c8b7a0 !important;
+  background: #ffffff !important;
+  color: #4a3828 !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08) !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
 }
-.game-toolbar button svg {
+.game-icon-btn:hover:not(:disabled) {
+  background: #f7efe4 !important;
+  color: #24190e !important;
+}
+.game-icon-btn:disabled {
+  opacity: 0.35 !important;
+  cursor: not-allowed !important;
+}
+.game-icon-btn.is-quit {
+  border-color: #e5b3ac !important;
+  background: #fdf2f0 !important;
+  color: #a83226 !important;
+}
+.game-icon-btn.is-quit:hover {
+  background: #fbe5e2 !important;
+  color: #8c2015 !important;
+}
+.game-icon-btn svg {
   display: block !important;
   margin: auto !important;
+  flex-shrink: 0 !important;
+}
+
+.game-cheat-badge {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 0.25rem !important;
+  padding: 0.2rem 0.55rem !important;
+  font-size: 0.68rem !important;
+  font-weight: 700 !important;
+  line-height: 1 !important;
+  height: auto !important;
+  min-height: unset !important;
+  color: #6b21a8 !important;
+  background: #f3e8ff !important;
+  border: 1px solid #d8b4fe !important;
+  border-radius: 4px !important;
+  box-shadow: none !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+}
+.game-cheat-badge:hover:not(:disabled) {
+  background: #e9d5ff !important;
 }
 .game-participants { width: 100%; overflow: visible; }
 .game-participant { display: flex !important; align-items: center; gap: 0.35rem; min-width: 0 !important; width: 100%; padding: 0.22rem 0.4rem !important; color: #5c4b37; background: #f4ebde; border: 1px solid #d4c3ad; border-radius: 5px !important; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04); transition: all 0.15s ease; }
