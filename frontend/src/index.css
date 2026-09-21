@@ -831,7 +831,18 @@ html, body, #root {
 .game-toolbar [class*='amber-'] { color: #75541e !important; background: #eee1c5 !important; border-color: #c3a263 !important; }
 .game-toolbar [class*='violet-'] { color: #584563 !important; background: #e8e0e9 !important; border-color: #aa96af !important; }
 .game-toolbar [class*='rose-'] { color: #7c3834 !important; background: #f1ded9 !important; border-color: #b87970 !important; }
-.game-toolbar button { border-radius: 4px !important; box-shadow: none !important; }
+.game-toolbar button {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 4px !important;
+  box-shadow: none !important;
+  text-align: center !important;
+}
+.game-toolbar button svg {
+  display: block !important;
+  margin: auto !important;
+}
 .game-participants { width: 100%; overflow: visible; }
 .game-participant { display: flex !important; align-items: center; gap: 0.35rem; min-width: 0 !important; width: 100%; padding: 0.22rem 0.4rem !important; color: #5c4b37; background: #f4ebde; border: 1px solid #d4c3ad; border-radius: 5px !important; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04); transition: all 0.15s ease; }
 .game-participant.is-current { background: #fdf6ec !important; border-color: #c99c53 !important; box-shadow: 0 0 0 1px #d8a858 !important; }

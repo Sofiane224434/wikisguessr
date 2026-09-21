@@ -1490,8 +1490,20 @@ function Game() {
         <div className="game-shell flex h-screen flex-col text-slate-900">
             <div className="game-toolbar px-3 py-2">
                 <div className="mx-auto grid max-w-6xl grid-cols-1 gap-2 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
-                    {/* Gauche : Mode + Départ + Cible */}
+                    {/* Gauche : Bouton Retour + Mode + Départ + Cible + Triche */}
                     <div className="flex min-w-0 flex-wrap items-center gap-1.5 sm:gap-2 text-[11px] uppercase tracking-[0.2em] text-slate-500">
+                        <button
+                            type="button"
+                            onClick={handleGoBack}
+                            disabled={articleHistory.length < 2 || loadingArticle}
+                            aria-label={t('game.back_article')}
+                            title={t('game.back')}
+                            className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-slate-300 bg-white text-slate-700 shadow-sm transition enabled:hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                            <svg viewBox="0 0 24 24" aria-hidden="true" className="h-4 w-4 m-auto">
+                                <path d="M15 18l-6-6 6-6" fill="none" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                        </button>
                         <span className="rounded-full bg-slate-900 px-2.5 py-1 font-semibold text-white shadow-sm">{modeLabel}</span>
                         <span className="inline-flex min-w-0 max-w-[44vw] sm:max-w-56 lg:max-w-64 items-center gap-1 rounded-full border border-cyan-200 bg-cyan-50 px-2.5 py-1 text-cyan-800 shadow-sm">
                             <span className="shrink-0">{t('game.start')}:</span>
@@ -1507,14 +1519,14 @@ function Game() {
                                 onClick={handleAdminCheat}
                                 disabled={loadingArticle}
                                 title="Arriver directement au lien wiki de fin (Triche Admin)"
-                                className="inline-flex items-center gap-1.5 rounded-full border border-purple-400 bg-purple-600 px-3 py-1 text-[10px] font-bold tracking-wider text-white shadow-md transition hover:bg-purple-500 animate-pulse active:scale-95 disabled:opacity-50"
+                                className="inline-flex items-center gap-1 rounded-full border border-purple-300 bg-purple-100 px-2.5 py-1 text-[11px] font-semibold normal-case text-purple-900 shadow-sm transition hover:bg-purple-200 active:scale-95 disabled:opacity-50"
                             >
                                 <span>⚡ Triche</span>
                             </button>
                         )}
                     </div>
 
-                    {/* Droite : Article courant + Clics + Temps + Points + Boutons */}
+                    {/* Droite : Article courant + Clics + Temps + Points + Bouton Quitter */}
                     <div className="flex min-w-0 flex-wrap items-center justify-start gap-1.5 sm:gap-2 text-[11px] uppercase tracking-[0.2em] text-slate-500 lg:justify-end">
                         <span className="inline-flex min-w-0 max-w-[40vw] sm:max-w-48 lg:max-w-56 items-center gap-1 rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-blue-800 shadow-sm">
                             <span className="shrink-0">{t('game.article')}:</span>
@@ -1531,24 +1543,12 @@ function Game() {
                         </span>
                         <button
                             type="button"
-                            onClick={handleGoBack}
-                            disabled={articleHistory.length < 2 || loadingArticle}
-                            aria-label={t('game.back_article')}
-                            title={t('game.back')}
-                            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-700 shadow-sm transition enabled:hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
-                        >
-                            <svg viewBox="0 0 24 24" aria-hidden="true" className="h-4 w-4">
-                                <path d="M15 18l-6-6 6-6" fill="none" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round" strokeLinejoin="round" />
-                            </svg>
-                        </button>
-                        <button
-                            type="button"
                             onClick={handleQuitGame}
                             aria-label={t('game.quit_game')}
                             title={t('game.quit')}
-                            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-rose-200 bg-rose-50 text-rose-700 shadow-sm transition hover:bg-rose-100 hover:text-rose-800"
+                            className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-rose-200 bg-rose-50 text-rose-700 shadow-sm transition hover:bg-rose-100 hover:text-rose-800"
                         >
-                            <svg viewBox="0 0 24 24" aria-hidden="true" className="h-4 w-4">
+                            <svg viewBox="0 0 24 24" aria-hidden="true" className="h-4 w-4 m-auto">
                                 <path d="M7 3h10a1 1 0 011 1v16a1 1 0 01-1 1H7a1 1 0 01-1-1V4a1 1 0 011-1z" fill="none" stroke="currentColor" strokeWidth="1.8" />
                                 <path d="M10 3v18" fill="none" stroke="currentColor" strokeWidth="1.8" />
                                 <circle cx="13.5" cy="12" r="1" fill="currentColor" />
@@ -1559,15 +1559,8 @@ function Game() {
 
                 {(() => {
                     const fullParticipants = ensureEightParticipantsWithBots(participants, 'Vous');
-                    const finishedCount = fullParticipants.filter(p => p.progress_status === 'finished' || p.won).length;
                     return (
                         <div className="mx-auto mt-2 max-w-6xl">
-                            <div className="mb-1 flex items-center justify-between text-[10px] font-semibold text-slate-600 px-0.5">
-                                <span>👥 Progression & Scores en direct ({fullParticipants.length} joueurs)</span>
-                                <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[9px] text-slate-700">
-                                    {finishedCount}/{fullParticipants.length} ont terminé
-                                </span>
-                            </div>
                             <div className="game-participants grid grid-cols-4 sm:grid-cols-8 gap-1" aria-label="Progression des 8 joueurs">
                                 {fullParticipants.map((participant, pIdx) => {
                                     const avatarUrl = resolveMediaUrl(participant.avatar_url);
@@ -1617,7 +1610,7 @@ function Game() {
                                                     )}
                                                 </div>
                                                 <div className="flex items-center justify-between gap-0.5 text-[9px] leading-none mt-0.5">
-                                                    <span className="font-bold text-amber-900 truncate">{Math.round(pScore)}p</span>
+                                                    <span className="font-bold text-amber-900 truncate">{Math.round(pScore)} pts</span>
                                                     <span className={`text-[8px] font-medium shrink-0 ${finished ? 'text-emerald-700' : 'text-slate-500'}`}>
                                                         {finished ? '✓' : isBotPlayer ? 'bot' : 'jeu'}
                                                     </span>
