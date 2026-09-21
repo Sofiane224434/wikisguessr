@@ -604,3 +604,28 @@ export const setUserRole = async (req, res) => {
         return res.status(500).json({ error: 'Impossible de modifier le rôle' });
     }
 };
+
+// DELETE /api/auth/profile ou /api/auth/account (Conformité RGPD - Droit à l'oubli)
+export const deleteAccount = async (req, res) => {
+    try {
+        const userId = req.user?.id;
+        if (!userId) {
+            return res.status(401).json({ error: 'Non authentifié' });
+        }
+
+        // Vérifier mot de passe si fourni pour confirmation supplémentaire
+        const { currentPassword } = req.body || {};
+        if (currentPassword) {
+            const currentUser = await User.findPrivateById(userId);
+            if (!currentUser || !(await User.verifyPassword(currentPassword, currentUser.password))) {
+                return res.status(401).json({ error: 'Mot de passe incorrect' });
+            }
+        }
+
+        await User.deleteUser(userId);
+        return res.json({ message: 'Compte et données associées supprimés avec succès (RGPD).' });
+    } catch (error) {
+        console.error('deleteAccount error:', error);
+        return res.status(500).json({ error: 'Impossible de supprimer le compte' });
+    }
+};

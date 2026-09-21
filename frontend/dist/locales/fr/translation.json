@@ -206,7 +206,14 @@
     "add_photo": "Ajouter une photo",
     "delete_photo": "Supprimer",
     "photo_help": "JPEG, PNG ou WebP · 5 Mo maximum",
-    "processing": "Traitement..."
+    "processing": "Traitement...",
+    "danger_zone": "Zone de danger",
+    "delete_account_warning": "La suppression de votre compte est irréversible. Toutes vos parties, scores, statistiques et données personnelles associées seront définitivement effacées conformément au RGPD.",
+    "delete_account_button": "Supprimer mon compte",
+    "confirm_delete_title": "Confirmer la suppression",
+    "confirm_delete_message": "Êtes-vous absolument certain de vouloir supprimer définitivement votre compte WikisGuessr ? Cette action est irréversible.",
+    "confirm_delete_password": "Entrez votre mot de passe pour confirmer :",
+    "confirm_delete_final": "Supprimer définitivement"
   },
   "leaderboard": {
     "title": "Classement",

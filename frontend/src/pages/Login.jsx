@@ -17,7 +17,13 @@ function Login() {
     const [confirmNewPassword, setConfirmNewPassword] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
-    const [successMessage, setSuccessMessage] = useState(null);
+    const [successMessage, setSuccessMessage] = useState(() => {
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('deleted') === 'true') {
+            return 'Votre compte et toutes vos données associées ont été supprimés avec succès (RGPD).';
+        }
+        return null;
+    });
     const location = useLocation();
     const navigate = useNavigate();
     const { login } = useAuth();
@@ -35,6 +41,16 @@ function Login() {
             : fromPath && fromPath !== '/login'
                 ? fromPath
                 : '/';
+    useEffect(() => {
+        const mode = new URLSearchParams(location.search).get('mode');
+        if (mode === 'register') {
+            setIsRegister(true);
+            setIsForgotPassword(false);
+            setError(null);
+        } else if (mode === 'login' || (!mode && !resetTokenFromUrl)) {
+            setIsRegister(false);
+        }
+    }, [location.search, resetTokenFromUrl]);
 
     useEffect(() => {
         if (!tokenFromUrl || lastHandledTokenRef.current === tokenFromUrl) {

@@ -52,6 +52,10 @@ export const authService = {
         return fetchAPI('/auth/profile/avatar', { method: 'POST', body });
     },
     deleteAvatar: () => fetchAPI('/auth/profile/avatar', { method: 'DELETE' }),
+    deleteAccount: (currentPassword) => fetchAPI('/auth/profile', {
+        method: 'DELETE',
+        body: JSON.stringify({ currentPassword })
+    }),
     getUsers: () => fetchAPI('/auth/users'),
     setUserSubscription: (userId, tier) => fetchAPI(`/auth/users/${encodeURIComponent(userId)}/subscription`, {
         method: 'PATCH',

@@ -5,6 +5,7 @@ import DOMPurify from 'dompurify';
 import { useTranslation } from 'react-i18next';
 import { io } from 'socket.io-client';
 import { gameService, siteService, resolveMediaUrl } from '../services/api.js';
+import { useAuth } from '../context/Authcontext.jsx';
 
 const normalizeArticle = (value) =>
     decodeURIComponent(String(value || '').replace(/\+/g, ' '))
@@ -74,10 +75,38 @@ const ensureEightParticipantsWithBots = (existingList = [], userUsername = 'Joue
     return [...list, ...bots];
 };
 
+const formatClock = (totalSeconds) => {
+    const safeSeconds = Math.max(0, Number(totalSeconds) || 0);
+    const minutes = String(Math.floor(safeSeconds / 60)).padStart(2, '0');
+    const seconds = String(safeSeconds % 60).padStart(2, '0');
+    return `${minutes}:${seconds}`;
+};
+
+const calculateGamePoints = ({ mode, clicks, elapsedSeconds, chronoScore, knowledgeScore, won }) => {
+    const safeClicks = Math.max(1, Number(clicks) || 1);
+    const safeSeconds = Math.max(0, Number(elapsedSeconds) || 0);
+
+    if (mode === 'chrono') {
+        return won ? Math.max(0, Math.round(Number(chronoScore) || 0)) : 0;
+    }
+    if (mode === 'knowledge') {
+        const quizScore = Math.max(0, Number(knowledgeScore) || 0);
+        const quizPts = quizScore * 100;
+        if (!won) {
+            return quizPts; // Points acquis sur le quiz d'abandon
+        }
+        return Math.max(0, Math.round(quizPts + 500 - (safeClicks * 50) - (safeSeconds / 4)));
+    }
+    if (!won) {
+        return 0;
+    }
+    return Math.max(0, Math.round(1000 - (safeClicks * 100) - (safeSeconds / 2)));
+};
+
 const computeFinalLeaderboard = (participants, currentUserResult, gameMode) => {
     const list = ensureEightParticipantsWithBots(participants, currentUserResult?.username || 'Vous');
     const playerWon = Boolean(currentUserResult?.won);
-    const playerScore = Number(currentUserResult?.score) || 0;
+    const playerScore = Math.max(0, Number(currentUserResult?.score) || 0);
     const playerClicks = Math.max(1, Number(currentUserResult?.clicks) || 1);
     const playerTime = Math.max(5, Number(currentUserResult?.time_seconds) || 5);
 
@@ -102,23 +131,30 @@ const computeFinalLeaderboard = (participants, currentUserResult, gameMode) => {
         }
 
         const botSeed = ((idx + 1) * 73 + playerClicks * 17) % 100;
-        const botWon = playerWon ? (botSeed > 25) : (botSeed > 65);
+        const botWon = playerWon ? (botSeed > 30) : (botSeed > 65);
         const botClicks = botWon
-            ? Math.max(2, Math.round(playerClicks * (1.1 + (idx * 0.12))))
+            ? (playerWon ? Math.max(playerClicks + idx + 1, Math.round(playerClicks * (1.15 + (idx * 0.08)))) : Math.max(4, 4 + idx * 2))
             : Math.max(1, Math.round(playerClicks * 0.6));
         const botTime = botWon
-            ? Math.max(20, Math.round(playerTime * (1.15 + (idx * 0.1))))
+            ? (playerWon ? Math.max(playerTime + (idx + 1) * 4, Math.round(playerTime * (1.18 + (idx * 0.06)))) : Math.max(30, 45 + idx * 10))
             : Math.max(10, Math.round(playerTime * 0.7));
 
         let botScore = 0;
         if (botWon) {
-            if (gameMode === 'chrono') {
-                botScore = Math.max(50, Math.round(Math.min(playerScore > 0 ? playerScore - (idx * 35) : 350, 480 - (idx * 35))));
-            } else if (gameMode === 'knowledge') {
-                botScore = Math.max(100, Math.round(Math.min(playerScore > 0 ? playerScore - (idx * 50) : 420, 680 - (idx * 55))));
-            } else {
-                botScore = Math.max(50, Math.round(Math.min(playerScore > 0 ? playerScore - (idx * 60) : 550, 780 - (idx * 65))));
+            let baseScore = calculateGamePoints({
+                mode: gameMode,
+                clicks: botClicks,
+                elapsedSeconds: botTime,
+                chronoScore: Math.max(20, 220 - (idx * 25)),
+                knowledgeScore: Math.max(1, 4 - (idx % 3)),
+                won: true
+            });
+
+            // Si le joueur a gagné, le bot vainqueur reste logiquement placé derrière lui
+            if (playerWon && playerScore > 0 && baseScore >= playerScore) {
+                baseScore = Math.max(0, playerScore - ((idx + 1) * 25));
             }
+            botScore = Math.max(0, baseScore);
         }
 
         return {
@@ -140,26 +176,6 @@ const computeFinalLeaderboard = (participants, currentUserResult, gameMode) => {
     });
 
     return ranked;
-};
-
-const formatClock = (totalSeconds) => {
-    const safeSeconds = Math.max(0, Number(totalSeconds) || 0);
-    const minutes = String(Math.floor(safeSeconds / 60)).padStart(2, '0');
-    const seconds = String(safeSeconds % 60).padStart(2, '0');
-    return `${minutes}:${seconds}`;
-};
-
-const calculateGamePoints = ({ mode, clicks, elapsedSeconds, chronoScore, knowledgeScore, won }) => {
-    if (!won) {
-        return 0;
-    }
-    if (mode === 'chrono') {
-        return Math.max(0, Math.round(chronoScore));
-    }
-    if (mode === 'knowledge') {
-        return Math.max(0, Math.round((knowledgeScore * 100) + 500 - (clicks * 50) - (elapsedSeconds / 4)));
-    }
-    return Math.max(0, Math.round(1000 - (clicks * 100) - (elapsedSeconds / 2)));
 };
 
 const MODE_LABELS = {
@@ -512,7 +528,9 @@ function Game() {
     const { t } = useTranslation();
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
+    const { user } = useAuth();
     const contentRef = useRef(null);
+    const quizRef = useRef(null);
     const requestIdRef = useRef(0);
     const articleCacheRef = useRef(new Map());
     const startedAtRef = useRef(null);
@@ -562,22 +580,20 @@ function Game() {
     const [abandonQuizPrompt, setAbandonQuizPrompt] = useState(false);
 
     useEffect(() => {
+        if (user?.role === 'admin') {
+            setAdminCheatActive(true);
+            return;
+        }
+
         siteService
             .getState()
             .then((data) => {
-                if (data?.state?.adminCheat) {
-                    authService
-                        .getProfile()
-                        .then((profile) => {
-                            if (profile?.user?.role === 'admin') {
-                                setAdminCheatActive(true);
-                            }
-                        })
-                        .catch(() => {});
+                if (data?.state?.adminCheat && user?.role === 'admin') {
+                    setAdminCheatActive(true);
                 }
             })
             .catch(() => {});
-    }, []);
+    }, [user?.role]);
 
     const gameCode = searchParams.get('code');
     const previewTitle = searchParams.get('previewTitle');
@@ -923,6 +939,7 @@ function Game() {
                 setKnowledgeQuizLoading(false);
             });
     }, [
+        abandonQuizPrompt,
         articleHistory,
         clicks,
         gameCode,
@@ -931,6 +948,12 @@ function Game() {
         knowledgeQuizAttempt,
         won
     ]);
+
+    useEffect(() => {
+        if (((won && isKnowledgeMode) || (abandonQuizPrompt && isKnowledgeMode && !abandoned)) && quizRef.current) {
+            quizRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    }, [won, abandonQuizPrompt, isKnowledgeMode, abandoned, knowledgeQuizLoading, knowledgeQuiz.length]);
 
     useEffect(() => {
         if (!gameCode) {
@@ -1345,6 +1368,27 @@ function Game() {
         setKnowledgeQuizAttempt((attempt) => attempt + 1);
     };
 
+    const handleAdminCheat = async () => {
+        if (!game?.target_article || loadingArticle || won) {
+            return;
+        }
+        try {
+            await loadArticle(game.target_article, game.target_article, false, {
+                mode: game?.mode,
+                wikiLanguage: game?.wiki_lang
+            });
+        } catch {
+            setCurrentArticle(game.target_article);
+        } finally {
+            const finalElapsedSeconds = startedAtRef.current
+                ? Math.max(elapsedSecondsRef.current, Math.floor((Date.now() - startedAtRef.current) / 1000))
+                : elapsedSecondsRef.current;
+            elapsedSecondsRef.current = finalElapsedSeconds;
+            setElapsedSeconds(finalElapsedSeconds);
+            setWon(true);
+        }
+    };
+
     const handleGoBack = async () => {
         if (articleHistory.length < 2 || loadingArticle || !canInteractWithArticle) {
             return;
@@ -1447,12 +1491,7 @@ function Game() {
                         {adminCheatActive && game?.target_article && !won && (
                             <button
                                 type="button"
-                                onClick={() => {
-                                    loadArticle(game.target_article, game.target_article, false, {
-                                        mode: game?.mode,
-                                        wikiLanguage: game?.wiki_lang
-                                    });
-                                }}
+                                onClick={handleAdminCheat}
                                 disabled={loadingArticle}
                                 title="Arriver directement au lien wiki de fin (Triche Admin)"
                                 className="inline-flex items-center gap-1.5 rounded-full border border-purple-400 bg-purple-600 px-3 py-1 text-[10px] font-bold tracking-wider text-white shadow-md transition hover:bg-purple-500 animate-pulse active:scale-95 disabled:opacity-50"
@@ -1538,7 +1577,7 @@ function Game() {
                 )}
 
                 {((won && isKnowledgeMode) || (abandonQuizPrompt && isKnowledgeMode && !abandoned)) && (
-                    <div className="knowledge-quiz-card mx-auto mt-3 max-w-6xl shadow-xl">
+                    <div ref={quizRef} className="knowledge-quiz-card mx-auto mt-3 max-w-6xl shadow-xl">
                         {/* En-tête du Quiz */}
                         <div className="knowledge-quiz-header">
                             <div className="flex items-center gap-2">

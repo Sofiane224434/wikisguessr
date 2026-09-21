@@ -351,7 +351,7 @@ export const generateKnowledgeQuizForGame = async (req, res) => {
         });
         const quizArticles = intermediateVisitedArticles.length > 0
             ? intermediateVisitedArticles
-            : visitedArticles;
+            : (visitedArticles.length > 0 ? visitedArticles : [{ title: game.start_article, snippet: '' }]);
 
         const quiz = await generateKnowledgeQuiz({
             startArticle: game.start_article,

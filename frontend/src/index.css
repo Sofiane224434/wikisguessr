@@ -305,9 +305,9 @@ html, body, #root {
 .login-form > button { width: 100%; min-height: 44px; margin: 0.3rem 0 0 !important; }
 .login-secondary-action { display: flex !important; width: fit-content !important; align-items: center; gap: 0.35rem; margin: 0.75rem auto 0 !important; padding: 0.25rem !important; color: #315f64 !important; background: transparent !important; border: 0 !important; box-shadow: none !important; font-size: 0.88rem; text-decoration: underline; }
 
-.site-header.is-public .site-header-inner { grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); }
+.site-header.is-public .site-header-inner { grid-template-columns: auto minmax(0, 1fr) auto; }
 .site-header.is-public .site-brand { justify-self: start; }
-.site-header.is-public .site-header-tools { grid-column: 2; justify-self: center; }
+.site-header.is-public .site-header-tools { grid-column: 3; justify-self: end; }
 
 .site-page h1,
 .site-page h2,

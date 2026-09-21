@@ -479,10 +479,19 @@ export const generateKnowledgeQuiz = async ({
     const safeQuestionCount = Number.isInteger(questionCount)
         ? Math.max(1, Math.min(questionCount, DEFAULT_QUESTION_COUNT))
         : DEFAULT_QUESTION_COUNT;
-    const cleanedVisitedArticles = dedupeVisitedArticles(visitedArticles).slice(0, 8);
+    let cleanedVisitedArticles = dedupeVisitedArticles(visitedArticles).slice(0, 8);
 
     if (!cleanedVisitedArticles.length) {
-        throw new KnowledgeQuizError('Aucun article intermediaire exploitable', {
+        if (startArticle) {
+            cleanedVisitedArticles.push({ title: startArticle, snippet: `Article de depart : ${startArticle}` });
+        }
+        if (targetArticle && targetArticle !== startArticle) {
+            cleanedVisitedArticles.push({ title: targetArticle, snippet: `Article cible : ${targetArticle}` });
+        }
+    }
+
+    if (!cleanedVisitedArticles.length) {
+        throw new KnowledgeQuizError('Aucun article exploitable pour le quiz', {
             code: 'KNOWLEDGE_CONTEXT_EMPTY',
             status: 400
         });
