@@ -2117,23 +2117,13 @@ function Game() {
                     </div>
                 </div>
 
-                {/* Pied de page du volet : rétraction pour voir réponses + actions rejouer/quitter */}
-                <div className="game-drawer-footer border-t border-amber-900/15 p-3 bg-amber-50/70 space-y-2">
-                    {resultSaveError && <p className="text-xs text-rose-700 text-center">{resultSaveError}</p>}
-                    
-                    <button
-                        type="button"
-                        onClick={() => setShowLeaderboardDrawer(false)}
-                        className="w-full rounded-md border border-amber-800/30 bg-white/90 py-1.5 px-3 text-xs font-semibold text-amber-950 shadow-xs hover:bg-amber-100 transition flex items-center justify-center gap-1.5"
-                    >
-                        <span>← Masquer & consulter mes réponses</span>
-                    </button>
-
-                    {isGameFinished && (
-                        <div className="grid grid-cols-2 gap-2 pt-1">
+                {isGameFinished && (
+                    <div className="game-drawer-footer border-t border-amber-900/15 p-3 bg-amber-50/70 space-y-2">
+                        {resultSaveError && <p className="text-xs text-rose-700 text-center">{resultSaveError}</p>}
+                        <div className="grid grid-cols-2 gap-2">
                             <button
                                 type="button"
-                                className="rounded-md border border-amber-800/40 bg-amber-100 py-2 text-xs font-bold text-amber-950 shadow-xs hover:bg-amber-200 transition disabled:opacity-50"
+                                className="rounded-md border border-amber-800/40 bg-amber-100 py-1.5 text-xs font-bold text-amber-950 shadow-xs hover:bg-amber-200 transition disabled:opacity-50"
                                 onClick={handleReplay}
                                 disabled={!resultSaved || resultSaving || replaying}
                             >
@@ -2143,15 +2133,15 @@ function Game() {
                             </button>
                             <button
                                 type="button"
-                                className="rounded-md bg-[#315d62] py-2 text-xs font-bold text-white shadow-xs hover:bg-[#24474b] transition disabled:opacity-50"
+                                className="rounded-md bg-[#315d62] py-1.5 text-xs font-bold text-white shadow-xs hover:bg-[#24474b] transition disabled:opacity-50"
                                 onClick={handleFinalizeQuit}
                                 disabled={!resultSaved || resultSaving || replaying}
                             >
                                 {resultSaving ? 'Enregistrement…' : 'Quitter'}
                             </button>
                         </div>
-                    )}
-                </div>
+                    </div>
+                )}
             </aside>
 
             {reportTarget && (
