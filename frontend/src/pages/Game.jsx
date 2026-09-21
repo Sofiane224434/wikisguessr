@@ -182,6 +182,7 @@ const computeLiveLeaderboard = ({
                 time_seconds: playerTime,
                 won: playerWon,
                 ratio: userRatioStr,
+                abandoned: Boolean(abandoned),
                 status: isFinal
                     ? (abandoned ? 'abandoned' : chronoDefeat ? 'timeout' : (playerWon ? 'finished' : 'defeat'))
                     : (playerWon ? 'finished' : 'playing')
@@ -192,20 +193,27 @@ const computeLiveLeaderboard = ({
         const botWon = isFinal
             ? (playerWon ? (botSeed > 30) : (botSeed > 65))
             : (idx === 1 && playerClicks > 10);
+        const botAbandoned = isFinal && !botWon;
 
+        const isEarlyAbandon = botAbandoned && (idx >= 5 || idx === 7);
         const botClicks = isFinal
             ? (botWon
                 ? (playerWon ? Math.max(playerClicks + idx + 1, Math.round(playerClicks * (1.15 + (idx * 0.08)))) : Math.max(4, 4 + idx * 2))
-                : Math.max(1, Math.round(playerClicks * 0.6)))
+                : (isEarlyAbandon ? 1 : Math.max(2, Math.min(4, Math.round(playerClicks * 0.5)))))
             : Math.max(1, Math.max(0, playerClicks - (idx % 2)) + (idx % 3));
 
         const botTime = isFinal
             ? (botWon
                 ? (playerWon ? Math.max(playerTime + (idx + 1) * 4, Math.round(playerTime * (1.18 + (idx * 0.06)))) : Math.max(30, 45 + idx * 10))
-                : Math.max(10, Math.round(playerTime * 0.7)))
+                : (isEarlyAbandon ? Math.max(8, Math.round(playerTime * 0.25)) : Math.max(15, Math.round(playerTime * 0.6))))
             : Math.max(5, playerTime + (idx * 3) - 2);
 
-        const botKnowledgeCorrect = Math.max(0, Math.min(5, Math.floor(4 - (idx % 3) + (botWon ? 1 : 0))));
+        const botKnowledgeCorrect = isFinal
+            ? (botWon
+                ? Math.max(1, Math.min(totalQuestions, Math.floor(4 - (idx % 3) + 1)))
+                : (isEarlyAbandon ? 0 : Math.max(0, idx % 2)))
+            : Math.max(0, Math.min(totalQuestions, Math.floor(4 - (idx % 3))));
+
         const botKnowledgeTotal = totalQuestions;
         const botPct = Math.round((botKnowledgeCorrect / botKnowledgeTotal) * 100);
         const botRatioStr = isKnowledgeMode ? `${botKnowledgeCorrect}/${botKnowledgeTotal} (${botPct}%)` : null;
@@ -226,6 +234,8 @@ const computeLiveLeaderboard = ({
                     baseScore = Math.max(0, playerScore - ((idx + 1) * 25));
                 }
                 botScore = Math.max(0, baseScore);
+            } else {
+                botScore = isKnowledgeMode ? botKnowledgeCorrect * 100 : 0;
             }
         } else {
             botScore = (p.score !== undefined && p.score !== null)
@@ -248,7 +258,8 @@ const computeLiveLeaderboard = ({
             time_seconds: botTime,
             won: botWon,
             ratio: botRatioStr,
-            status: isFinal ? (botWon ? 'finished' : 'defeat') : (botWon ? 'finished' : 'playing')
+            abandoned: botAbandoned,
+            status: isFinal ? (botWon ? 'finished' : 'abandoned') : (botWon ? 'finished' : 'playing')
         };
     });
 
@@ -1642,12 +1653,12 @@ function Game() {
                         )}
                         <button
                             type="button"
-                            onClick={() => setShowLeaderboardDrawer(true)}
-                            className="game-toolbar-leaderboard-btn"
-                            title="Classement de la partie en direct"
+                            onClick={() => setShowLeaderboardDrawer((prev) => !prev)}
+                            className="game-icon-btn is-trophy"
+                            title="Classement de la partie (8 joueurs)"
+                            aria-label="Classement de la partie"
                         >
-                            <Trophy size={13} className="shrink-0 text-amber-800" />
-                            <span>Classement</span>
+                            <Trophy size={15} />
                         </button>
                         <button
                             type="button"
@@ -1729,8 +1740,9 @@ function Game() {
                 })()}
 
                 {won && (
-                    <div className="mx-auto mt-2 max-w-6xl rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-800">
-                        {isChronoMode ? t('game.won_points', { points: chronoScore }) : t('game.won_time', { time: displayedTime })}
+                    <div className="mx-auto mt-1 max-w-6xl px-1 text-xs sm:text-sm font-medium text-emerald-900 flex items-center gap-1.5">
+                        <span className="text-sm">🎯</span>
+                        <span>{isChronoMode ? t('game.won_points', { points: chronoScore }) : t('game.won_time', { time: displayedTime })}</span>
                     </div>
                 )}
 
@@ -1770,20 +1782,17 @@ function Game() {
                                 </div>
                             )}
 
-                            {/* Ratio des réponses en direct lorsque le quiz est validé */}
+                            {/* Ratio des réponses sans encadré lourd lorsque le quiz est validé */}
                             {knowledgeQuizSubmitted && totalQuizQuestions > 0 && (
-                                <div className="rounded-xl border border-emerald-600/30 bg-emerald-50/90 p-3 shadow-sm flex flex-wrap items-center justify-between gap-3">
-                                    <div className="flex items-center gap-2.5">
-                                        <span className="text-2xl">🎯</span>
-                                        <div>
-                                            <h4 className="text-xs font-bold uppercase tracking-wider text-emerald-950">Ratio de réussite au Quiz</h4>
-                                            <p className="text-xs text-emerald-800 font-medium">
-                                                <strong>{correctAnswersCount} / {totalQuizQuestions}</strong> bonnes réponses ({quizSuccessRatio}%) · <strong>{wrongAnswersCount}</strong> mauvaise{wrongAnswersCount > 1 ? 's' : ''}
-                                            </p>
-                                        </div>
+                                <div className="py-1 px-1 flex flex-wrap items-center justify-between gap-2 text-xs sm:text-sm text-emerald-950 font-medium">
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-base">🎯</span>
+                                        <span>
+                                            <strong>{correctAnswersCount} / {totalQuizQuestions}</strong> bonnes réponses ({quizSuccessRatio}%) · <strong>{wrongAnswersCount}</strong> mauvaise{wrongAnswersCount > 1 ? 's' : ''}
+                                        </span>
                                     </div>
-                                    <span className="rounded-full bg-emerald-800 text-white px-3 py-1 text-xs font-bold shadow-sm">
-                                        +{correctAnswersCount * 100} points
+                                    <span className="font-bold text-emerald-900 bg-emerald-100/80 px-2.5 py-0.5 rounded-full text-xs">
+                                        +{correctAnswersCount * 100} pts
                                     </span>
                                 </div>
                             )}
@@ -2004,6 +2013,17 @@ function Game() {
                 role="dialog"
                 aria-labelledby="drawer-leaderboard-title"
             >
+                {/* Side toggle button de rétractation avec icône Trophée */}
+                <button
+                    type="button"
+                    onClick={() => setShowLeaderboardDrawer((prev) => !prev)}
+                    className="game-drawer-toggle-tab"
+                    title={showLeaderboardDrawer ? "Rétracter le classement" : "Ouvrir le classement"}
+                    aria-label="Rétracter le volet du classement"
+                >
+                    <Trophy size={17} />
+                </button>
+
                 <div className="game-drawer-header">
                     <div className="flex items-center gap-2">
                         <Trophy size={18} className="text-amber-800 shrink-0" />
@@ -2025,11 +2045,11 @@ function Game() {
                         <button
                             type="button"
                             onClick={() => setShowLeaderboardDrawer(false)}
-                            className="game-icon-btn is-quit"
-                            title="Masquer le volet pour consulter vos réponses"
-                            aria-label="Fermer le classement"
+                            className="game-icon-btn is-trophy"
+                            title="Rétracter le classement"
+                            aria-label="Rétracter le classement"
                         >
-                            <X size={15} />
+                            <Trophy size={14} />
                         </button>
                     </div>
                 </div>
@@ -2068,11 +2088,16 @@ function Game() {
                                                             String(player.username || '?').slice(0, 1).toUpperCase()
                                                         )}
                                                     </span>
-                                                    <span className="truncate max-w-[80px] sm:max-w-[100px]">{player.username}</span>
+                                                    <span className="truncate max-w-[70px] sm:max-w-[95px]">{player.username}</span>
                                                     {player.isCurrent && (
                                                         <span className="rounded bg-amber-800 text-white px-1 py-0.2 text-[8px] uppercase font-bold tracking-wider shrink-0">Vous</span>
                                                     )}
-                                                    {player.isBot && !player.isCurrent && (
+                                                    {player.abandoned && (
+                                                        <span className="text-[9px] text-rose-700/90 font-semibold italic shrink-0" title="A abandonné la partie">
+                                                            (Abandon)
+                                                        </span>
+                                                    )}
+                                                    {player.isBot && !player.isCurrent && !player.abandoned && (
                                                         <span className="text-[10px] opacity-60 shrink-0" title="Bot">🤖</span>
                                                     )}
                                                 </div>

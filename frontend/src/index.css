@@ -919,27 +919,40 @@ html, body, #root {
 .game-result-stats > div { display: grid; gap: 0.2rem; padding: 0.7rem 0.35rem; background: #fffaf2; border: 1px solid #cfb895; border-radius: 6px; }
 .game-result-stats strong { color: #315d62; font-size: 1.1rem; }
 .game-result-stats span { color: #74634f; font-size: 0.68rem; text-transform: uppercase; }
-.game-toolbar-leaderboard-btn {
-  display: inline-flex !important;
-  align-items: center !important;
-  gap: 0.28rem !important;
-  padding: 0.2rem 0.55rem !important;
-  font-size: 0.68rem !important;
-  font-weight: 700 !important;
-  line-height: 1 !important;
-  height: auto !important;
-  min-height: unset !important;
-  color: #6a4714 !important;
-  background: #fdf3df !important;
-  border: 1px solid #d4b57b !important;
-  border-radius: 4px !important;
-  box-shadow: none !important;
-  cursor: pointer !important;
-  transition: all 0.15s ease !important;
+.game-icon-btn.is-trophy {
+  color: #784e18;
+  background: #fdf3df;
+  border-color: #d4b57b;
 }
-.game-toolbar-leaderboard-btn:hover {
-  background: #f7e6c4 !important;
-  border-color: #bfa065 !important;
+.game-icon-btn.is-trophy:hover {
+  background: #f7e6c4;
+  border-color: #bfa065;
+  color: #55330a;
+}
+
+.game-drawer-toggle-tab {
+  position: absolute;
+  left: -40px;
+  top: 16px;
+  width: 40px;
+  height: 40px;
+  background: #ebe0cf;
+  border: 1px solid #b28f63;
+  border-right: none;
+  border-radius: 8px 0 0 8px;
+  box-shadow: -4px 3px 12px rgba(0, 0, 0, 0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #784e18;
+  transition: all 0.18s ease;
+  z-index: 80;
+}
+.game-drawer-toggle-tab:hover {
+  background: #fcefdc;
+  color: #55330a;
+  transform: translateX(-2px);
 }
 
 .game-drawer-backdrop {
