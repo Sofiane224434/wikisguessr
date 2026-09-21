@@ -159,8 +159,10 @@ const computeLiveLeaderboard = ({
     const playerClicks = Math.max(0, Number(clicks) || 0);
     const playerTime = Math.max(1, Number(elapsedSeconds) || 1);
 
+    const totalQuestions = knowledgeTotal || 5;
+    const userPct = totalQuestions > 0 ? Math.round((knowledgeScore / totalQuestions) * 100) : 0;
     const userRatioStr = isKnowledgeMode
-        ? (knowledgeTotal > 0 ? `${knowledgeScore}/${knowledgeTotal}` : `${knowledgeScore}/5`)
+        ? `${knowledgeScore}/${totalQuestions} (${userPct}%)`
         : null;
 
     const ranked = list.map((p, idx) => {
@@ -204,7 +206,9 @@ const computeLiveLeaderboard = ({
             : Math.max(5, playerTime + (idx * 3) - 2);
 
         const botKnowledgeCorrect = Math.max(0, Math.min(5, Math.floor(4 - (idx % 3) + (botWon ? 1 : 0))));
-        const botKnowledgeTotal = knowledgeTotal || 5;
+        const botKnowledgeTotal = totalQuestions;
+        const botPct = Math.round((botKnowledgeCorrect / botKnowledgeTotal) * 100);
+        const botRatioStr = isKnowledgeMode ? `${botKnowledgeCorrect}/${botKnowledgeTotal} (${botPct}%)` : null;
 
         let botScore = 0;
         if (isFinal) {
@@ -243,7 +247,7 @@ const computeLiveLeaderboard = ({
             clicks: botClicks,
             time_seconds: botTime,
             won: botWon,
-            ratio: isKnowledgeMode ? `${botKnowledgeCorrect}/${botKnowledgeTotal}` : null,
+            ratio: botRatioStr,
             status: isFinal ? (botWon ? 'finished' : 'defeat') : (botWon ? 'finished' : 'playing')
         };
     });
@@ -1168,13 +1172,19 @@ function Game() {
         || (won && !isKnowledgeMode)
         || knowledgeResultReady;
 
-    // La modale précède la sortie et la sauvegarde termine avant d'activer le bouton Quitter.
+    // La modale s'affiche brièvement pour célébrer le résultat puis ouvre automatiquement le volet du classement.
     useEffect(() => {
         if (!resultReady) {
             return;
         }
 
         setShowResultModal(true);
+        const timer = setTimeout(() => {
+            setShowResultModal(false);
+            setShowLeaderboardDrawer(true);
+        }, 2400);
+
+        return () => clearTimeout(timer);
     }, [resultReady]);
 
     const saveFinalResult = useCallback(async () => {
@@ -1948,8 +1958,24 @@ function Game() {
             )}
 
             {showResultModal && (
-                <div className="game-modal-backdrop" role="presentation">
-                    <section className="game-modal game-result-modal" role="dialog" aria-modal="true" aria-labelledby="result-title">
+                <div
+                    className="game-modal-backdrop"
+                    role="presentation"
+                    onClick={() => {
+                        setShowResultModal(false);
+                        setShowLeaderboardDrawer(true);
+                    }}
+                >
+                    <section
+                        className="game-modal game-result-modal text-center cursor-pointer"
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby="result-title"
+                        onClick={() => {
+                            setShowResultModal(false);
+                            setShowLeaderboardDrawer(true);
+                        }}
+                    >
                         <p className="game-modal-kicker">Résultat de la partie</p>
                         <h2 id="result-title">{resultTitle}</h2>
                         <p className="game-result-status">
@@ -1959,51 +1985,10 @@ function Game() {
                             <div><strong>{Math.round(finalPoints)}</strong><span>Points</span></div>
                             <div><strong>{clicks}</strong><span>Clics</span></div>
                             <div><strong>{formatClock(elapsedSecondsRef.current)}</strong><span>Temps</span></div>
-                            {isKnowledgeMode && knowledgeQuizSubmitted && (
-                                <div><strong>{correctAnswersCount}/{totalQuizQuestions}</strong><span>Quiz ({quizSuccessRatio}%)</span></div>
-                            )}
                         </div>
-
-                        {/* Ratio Quiz si mode connaissance */}
-                        {isKnowledgeMode && knowledgeQuizSubmitted && (
-                            <div className="my-3 rounded-lg border border-amber-900/20 bg-amber-50/90 p-2.5 text-left text-xs text-amber-950">
-                                <div className="flex items-center justify-between font-bold">
-                                    <span className="flex items-center gap-1.5">
-                                        <span>🎯</span>
-                                        <span>Ratio : {correctAnswersCount} / {totalQuizQuestions} ({quizSuccessRatio}%)</span>
-                                    </span>
-                                    <span className="text-[11px] text-amber-800">
-                                        {correctAnswersCount} bonne{correctAnswersCount > 1 ? 's' : ''} · {wrongAnswersCount} erreur{wrongAnswersCount > 1 ? 's' : ''}
-                                    </span>
-                                </div>
-                            </div>
-                        )}
-
-                        <div className="my-4 text-center">
-                            <button
-                                type="button"
-                                onClick={() => setShowLeaderboardDrawer(true)}
-                                className="inline-flex items-center gap-2 rounded-md border border-amber-800/30 bg-amber-100/90 px-3.5 py-2 text-xs font-bold text-amber-950 shadow-xs hover:bg-amber-200 transition"
-                            >
-                                <Trophy size={14} className="text-amber-800" />
-                                <span>Voir le classement de la partie (8 joueurs)</span>
-                            </button>
-                        </div>
-
-                        {resultSaveError && <p className="game-result-error">{resultSaveError}</p>}
-                        <div className="game-modal-actions">
-                            {resultSaveError && (
-                                <button type="button" className="is-secondary" onClick={saveFinalResult} disabled={resultSaving}>Réessayer</button>
-                            )}
-                            <button type="button" className="is-secondary" onClick={handleReplay} disabled={!resultSaved || resultSaving || replaying}>
-                                {replaying && game?.room_id
-                                    ? `En attente du groupe (${replayReadyCount}/${replayRequiredCount || participants.length})`
-                                    : replaying ? 'Relance…' : 'Rejouer'}
-                            </button>
-                            <button type="button" onClick={handleFinalizeQuit} disabled={!resultSaved || resultSaving || replaying}>
-                                {resultSaving ? 'Enregistrement…' : resultSaved ? 'Quitter la partie' : 'Préparation…'}
-                            </button>
-                        </div>
+                        <p className="mt-2 text-xs text-slate-500 animate-pulse">
+                            Affichage du classement des scores en cours…
+                        </p>
                     </section>
                 </div>
             )}
@@ -2041,7 +2026,7 @@ function Game() {
                             type="button"
                             onClick={() => setShowLeaderboardDrawer(false)}
                             className="game-icon-btn is-quit"
-                            title="Fermer"
+                            title="Masquer le volet pour consulter vos réponses"
                             aria-label="Fermer le classement"
                         >
                             <X size={15} />
@@ -2049,24 +2034,7 @@ function Game() {
                     </div>
                 </div>
 
-                <div className="game-drawer-body">
-                    {isKnowledgeMode && (
-                        <div className="mb-3 rounded-lg border border-amber-900/20 bg-amber-50/90 p-2.5 text-xs text-amber-950 shadow-xs">
-                            <div className="flex items-center justify-between font-bold">
-                                <span className="flex items-center gap-1">
-                                    <span>🎯</span> Votre Ratio :
-                                </span>
-                                <span>
-                                    {correctAnswersCount} / {totalQuizQuestions || 5} ({quizSuccessRatio}%)
-                                </span>
-                            </div>
-                            <div className="mt-1 flex items-center justify-between text-[11px] text-amber-800">
-                                <span>Bonnes réponses : {correctAnswersCount}</span>
-                                <span>Erreurs : {wrongAnswersCount}</span>
-                            </div>
-                        </div>
-                    )}
-
+                <div className="game-drawer-body flex-1 overflow-y-auto min-h-0">
                     <div className="overflow-hidden rounded-lg border border-amber-900/20 bg-white/85 shadow-xs">
                         <table className="w-full text-xs">
                             <thead className="bg-[#ebe1cf] text-slate-800 border-b border-amber-900/20">
@@ -2110,7 +2078,7 @@ function Game() {
                                                 </div>
                                             </td>
                                             {isKnowledgeMode && (
-                                                <td className="py-2 px-1 text-center font-semibold text-amber-900 text-[11px]">
+                                                <td className="py-2 px-1 text-center font-semibold text-amber-900 text-[11px] whitespace-nowrap">
                                                     {player.ratio || '-'}
                                                 </td>
                                             )}
@@ -2126,13 +2094,13 @@ function Game() {
                                                     <button
                                                         type="button"
                                                         onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            setReportTarget({
-                                                                id: player.user_id || `bot-${idx}`,
-                                                                username: player.username,
-                                                                isBot: player.isBot
-                                                            });
-                                                        }}
+                                                             e.stopPropagation();
+                                                             setReportTarget({
+                                                                 id: player.user_id || `bot-${idx}`,
+                                                                 username: player.username,
+                                                                 isBot: player.isBot
+                                                             });
+                                                         }}
                                                         className="inline-flex h-5 w-5 items-center justify-center text-slate-400 hover:text-red-600 transition rounded hover:bg-red-50"
                                                         title={`Signaler ${player.username}`}
                                                         aria-label={`Signaler ${player.username}`}
@@ -2147,6 +2115,42 @@ function Game() {
                             </tbody>
                         </table>
                     </div>
+                </div>
+
+                {/* Pied de page du volet : rétraction pour voir réponses + actions rejouer/quitter */}
+                <div className="game-drawer-footer border-t border-amber-900/15 p-3 bg-amber-50/70 space-y-2">
+                    {resultSaveError && <p className="text-xs text-rose-700 text-center">{resultSaveError}</p>}
+                    
+                    <button
+                        type="button"
+                        onClick={() => setShowLeaderboardDrawer(false)}
+                        className="w-full rounded-md border border-amber-800/30 bg-white/90 py-1.5 px-3 text-xs font-semibold text-amber-950 shadow-xs hover:bg-amber-100 transition flex items-center justify-center gap-1.5"
+                    >
+                        <span>← Masquer & consulter mes réponses</span>
+                    </button>
+
+                    {isGameFinished && (
+                        <div className="grid grid-cols-2 gap-2 pt-1">
+                            <button
+                                type="button"
+                                className="rounded-md border border-amber-800/40 bg-amber-100 py-2 text-xs font-bold text-amber-950 shadow-xs hover:bg-amber-200 transition disabled:opacity-50"
+                                onClick={handleReplay}
+                                disabled={!resultSaved || resultSaving || replaying}
+                            >
+                                {replaying && game?.room_id
+                                    ? `En attente (${replayReadyCount}/${replayRequiredCount || participants.length})`
+                                    : replaying ? 'Relance…' : 'Rejouer'}
+                            </button>
+                            <button
+                                type="button"
+                                className="rounded-md bg-[#315d62] py-2 text-xs font-bold text-white shadow-xs hover:bg-[#24474b] transition disabled:opacity-50"
+                                onClick={handleFinalizeQuit}
+                                disabled={!resultSaved || resultSaving || replaying}
+                            >
+                                {resultSaving ? 'Enregistrement…' : 'Quitter'}
+                            </button>
+                        </div>
+                    )}
                 </div>
             </aside>
 
