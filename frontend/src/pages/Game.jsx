@@ -1661,15 +1661,6 @@ function Game() {
                         )}
                         <button
                             type="button"
-                            onClick={() => setShowLeaderboardDrawer((prev) => !prev)}
-                            className="game-icon-btn is-trophy"
-                            title="Classement de la partie (8 joueurs)"
-                            aria-label="Classement de la partie"
-                        >
-                            <Trophy size={15} />
-                        </button>
-                        <button
-                            type="button"
                             onClick={handleQuitGame}
                             aria-label={t('game.quit_game')}
                             title={t('game.quit')}
@@ -2026,15 +2017,18 @@ function Game() {
                 role="dialog"
                 aria-labelledby="drawer-leaderboard-title"
             >
-                {/* Side toggle button de rétractation avec icône Trophée */}
+                {/* Side toggle button centré et proéminent avec Trophée */}
                 <button
                     type="button"
                     onClick={() => setShowLeaderboardDrawer((prev) => !prev)}
                     className="game-drawer-toggle-tab"
-                    title={showLeaderboardDrawer ? "Rétracter le classement" : "Ouvrir le classement"}
-                    aria-label="Rétracter le volet du classement"
+                    title={showLeaderboardDrawer ? "Rétracter le classement" : "Ouvrir le classement des scores"}
+                    aria-label={showLeaderboardDrawer ? "Rétracter le classement" : "Ouvrir le classement"}
                 >
-                    <Trophy size={17} />
+                    <Trophy size={20} className="shrink-0 text-amber-800" />
+                    <span className="text-[10px] font-bold text-amber-900 leading-none">
+                        {showLeaderboardDrawer ? '▶' : '◀'}
+                    </span>
                 </button>
 
                 <div className="game-drawer-header">
@@ -2055,15 +2049,6 @@ function Game() {
                                 En direct
                             </span>
                         )}
-                        <button
-                            type="button"
-                            onClick={() => setShowLeaderboardDrawer(false)}
-                            className="game-icon-btn is-trophy"
-                            title="Rétracter le classement"
-                            aria-label="Rétracter le classement"
-                        >
-                            <Trophy size={14} />
-                        </button>
                     </div>
                 </div>
 
