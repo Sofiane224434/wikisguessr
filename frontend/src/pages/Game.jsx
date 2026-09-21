@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useEffectEvent, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Compass, Flag, LogOut, Trophy, X, Zap } from 'lucide-react';
 import DOMPurify from 'dompurify';
@@ -1546,25 +1546,23 @@ function Game() {
 
     const finalPoints = liveScore;
     const isGameFinished = Boolean(showResultModal || won || abandoned || chronoDefeat);
-    const liveLeaderboard = useMemo(() => {
-        return computeLiveLeaderboard({
-            participants,
-            currentUser: user || { id: 'current_user', username: 'Vous' },
-            userScore: liveScore,
-            clicks,
-            elapsedSeconds: elapsedSecondsRef.current || elapsedSeconds,
-            chronoScore,
-            knowledgeScore,
-            knowledgeTotal: totalQuizQuestions,
-            isKnowledgeMode,
-            isChronoMode,
-            won: Boolean(won && !abandoned) || (isKnowledgeMode && knowledgeQuizSubmitted),
-            abandoned,
-            chronoDefeat,
-            isFinal: isGameFinished,
-            gameMode
-        });
-    }, [participants, user, liveScore, clicks, elapsedSeconds, chronoScore, knowledgeScore, totalQuizQuestions, isKnowledgeMode, isChronoMode, won, abandoned, chronoDefeat, isGameFinished, gameMode, knowledgeQuizSubmitted]);
+    const liveLeaderboard = computeLiveLeaderboard({
+        participants,
+        currentUser: user || { id: 'current_user', username: 'Vous' },
+        userScore: liveScore,
+        clicks,
+        elapsedSeconds: elapsedSecondsRef.current || elapsedSeconds,
+        chronoScore,
+        knowledgeScore,
+        knowledgeTotal: totalQuizQuestions,
+        isKnowledgeMode,
+        isChronoMode,
+        won: Boolean(won && !abandoned) || (isKnowledgeMode && knowledgeQuizSubmitted),
+        abandoned,
+        chronoDefeat,
+        isFinal: isGameFinished,
+        gameMode
+    });
 
     const resultTitle = abandoned
         ? t('game.result_abandoned_title', { defaultValue: 'Partie interrompue' })
