@@ -1537,9 +1537,11 @@ function Game() {
                         <span className="rounded-full border border-violet-200 bg-violet-50 px-2.5 py-1 text-violet-800 shadow-sm whitespace-nowrap">
                             {isChronoMode ? t('game.remaining_time') : t('game.time')}: <strong ref={timerDisplayRef} className="font-semibold text-violet-950">{displayedTime}</strong>
                         </span>
-                        <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-emerald-800 shadow-sm whitespace-nowrap">
-                            Score direct: <strong className="font-semibold text-emerald-950">{Math.round(liveScore)} pts</strong>
-                        </span>
+                        {isChronoMode && (
+                            <span className="rounded-full border border-rose-200 bg-rose-50 px-2.5 py-1 text-rose-800 shadow-sm whitespace-nowrap">
+                                {t('game.points')}: <strong className="font-semibold text-rose-950">{chronoScore}</strong>
+                            </span>
+                        )}
                         <button
                             type="button"
                             onClick={handleQuitGame}
