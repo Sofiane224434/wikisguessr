@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, Compass, Flag, LogOut, Zap } from 'lucide-react';
+import { ArrowLeft, Compass, Flag, LogOut, Trophy, X, Zap } from 'lucide-react';
 import DOMPurify from 'dompurify';
 import { useTranslation } from 'react-i18next';
 import { io } from 'socket.io-client';
@@ -58,22 +58,44 @@ const ensureEightParticipantsWithBots = (existingList = [], userUsername = 'Joue
     }
 
     const existingNames = new Set(list.map((p) => String(p.username || '').toLowerCase()));
-    const needed = 8 - list.length;
-    const available = PRESET_BOTS.filter((b) => !existingNames.has(b.username.toLowerCase()));
+    const result = [...list];
 
-    const bots = available.slice(0, needed).map((bot, i) => ({
-        user_id: `bot_${i + 1}`,
-        username: bot.username,
-        avatar_url: bot.avatar_url,
-        isBot: true,
-        progress_status: 'playing',
-        clicks: 0,
-        time_seconds: 0,
-        score: 0,
-        won: false
-    }));
+    for (const bot of PRESET_BOTS) {
+        if (result.length >= 8) {
+            break;
+        }
 
-    return [...list, ...bots];
+        if (!existingNames.has(bot.username.toLowerCase())) {
+            result.push({
+                user_id: `bot-${result.length}`,
+                username: bot.username,
+                avatar_url: bot.avatar_url,
+                isBot: true,
+                progress_status: 'playing',
+                score: null,
+                clicks: null,
+                time_seconds: null
+            });
+            existingNames.add(bot.username.toLowerCase());
+        }
+    }
+
+    let fillerIndex = 1;
+    while (result.length < 8) {
+        result.push({
+            user_id: `bot-fill-${fillerIndex}`,
+            username: `Explorateur_${fillerIndex}`,
+            avatar_url: `https://api.dicebear.com/7.x/bottts/svg?seed=Explorer_${fillerIndex}`,
+            isBot: true,
+            progress_status: 'playing',
+            score: null,
+            clicks: null,
+            time_seconds: null
+        });
+        fillerIndex += 1;
+    }
+
+    return result;
 };
 
 const formatClock = (totalSeconds) => {
@@ -84,38 +106,68 @@ const formatClock = (totalSeconds) => {
 };
 
 const calculateGamePoints = ({ mode, clicks, elapsedSeconds, chronoScore, knowledgeScore, won }) => {
-    const safeClicks = Math.max(1, Number(clicks) || 1);
-    const safeSeconds = Math.max(0, Number(elapsedSeconds) || 0);
+    const rawMode = String(mode || 'normal').toLowerCase();
+    const safeClicks = Math.max(0, Number(clicks) || 0);
+    const safeTime = Math.max(0, Number(elapsedSeconds) || 0);
+    const isWon = Boolean(won);
 
-    if (mode === 'chrono') {
-        return won ? Math.max(0, Math.round(Number(chronoScore) || 0)) : 0;
+    if (rawMode === 'chrono') {
+        return isWon ? Math.max(0, Number(chronoScore) || 0) : 0;
     }
-    if (mode === 'knowledge') {
-        const quizScore = Math.max(0, Number(knowledgeScore) || 0);
-        const quizPts = quizScore * 100;
-        if (!won) {
-            return quizPts; // Points acquis sur le quiz d'abandon
+
+    if (rawMode === 'knowledge') {
+        const correctAnswers = Math.max(0, Number(knowledgeScore) || 0);
+        const quizPoints = correctAnswers * 100;
+        if (!isWon) {
+            return quizPoints;
         }
-        return Math.max(0, Math.round(quizPts + 500 - (safeClicks * 50) - (safeSeconds / 4)));
+        const speedBonus = Math.max(0, 300 - (safeTime * 2));
+        const clickBonus = Math.max(0, 200 - (safeClicks * 15));
+        return Math.max(0, 500 + quizPoints + speedBonus + clickBonus);
     }
-    if (!won) {
+
+    if (!isWon) {
         return 0;
     }
-    return Math.max(0, Math.round(1000 - (safeClicks * 100) - (safeSeconds / 2)));
+
+    const clickPenalty = Math.max(0, safeClicks - 1) * 35;
+    const timePenalty = Math.floor(safeTime / 5) * 8;
+    const base = 1000 - clickPenalty - timePenalty;
+    return Math.max(10, base);
 };
 
-const computeFinalLeaderboard = (participants, currentUserResult, gameMode) => {
-    const list = ensureEightParticipantsWithBots(participants, currentUserResult?.username || 'Vous');
-    const playerWon = Boolean(currentUserResult?.won);
-    const playerScore = Math.max(0, Number(currentUserResult?.score) || 0);
-    const playerClicks = Math.max(1, Number(currentUserResult?.clicks) || 1);
-    const playerTime = Math.max(5, Number(currentUserResult?.time_seconds) || 5);
+const computeLiveLeaderboard = ({
+    participants = [],
+    currentUser,
+    userScore = 0,
+    clicks = 0,
+    elapsedSeconds = 0,
+    chronoScore = 0,
+    knowledgeScore = 0,
+    knowledgeTotal = 0,
+    isKnowledgeMode = false,
+    isChronoMode = false,
+    won = false,
+    abandoned = false,
+    chronoDefeat = false,
+    isFinal = false,
+    gameMode = 'normal'
+}) => {
+    const list = ensureEightParticipantsWithBots(participants, currentUser?.username || 'Vous');
+    const playerWon = Boolean(won && !abandoned) || (isKnowledgeMode && isFinal && !abandoned);
+    const playerScore = Math.max(0, Number(userScore) || 0);
+    const playerClicks = Math.max(0, Number(clicks) || 0);
+    const playerTime = Math.max(1, Number(elapsedSeconds) || 1);
+
+    const userRatioStr = isKnowledgeMode
+        ? (knowledgeTotal > 0 ? `${knowledgeScore}/${knowledgeTotal}` : `${knowledgeScore}/5`)
+        : null;
 
     const ranked = list.map((p, idx) => {
         const isCurrent = !p.isBot && (
-            p.user_id === currentUserResult?.user_id
+            p.user_id === currentUser?.id
             || p.user_id === 'current_user'
-            || p.username === currentUserResult?.username
+            || p.username === currentUser?.username
             || idx === 0
         );
 
@@ -127,45 +179,72 @@ const computeFinalLeaderboard = (participants, currentUserResult, gameMode) => {
                 clicks: playerClicks,
                 time_seconds: playerTime,
                 won: playerWon,
-                status: currentUserResult?.status || (playerWon ? 'finished' : 'abandoned')
+                ratio: userRatioStr,
+                status: isFinal
+                    ? (abandoned ? 'abandoned' : chronoDefeat ? 'timeout' : (playerWon ? 'finished' : 'defeat'))
+                    : (playerWon ? 'finished' : 'playing')
             };
         }
 
         const botSeed = ((idx + 1) * 73 + playerClicks * 17) % 100;
-        const botWon = playerWon ? (botSeed > 30) : (botSeed > 65);
-        const botClicks = botWon
-            ? (playerWon ? Math.max(playerClicks + idx + 1, Math.round(playerClicks * (1.15 + (idx * 0.08)))) : Math.max(4, 4 + idx * 2))
-            : Math.max(1, Math.round(playerClicks * 0.6));
-        const botTime = botWon
-            ? (playerWon ? Math.max(playerTime + (idx + 1) * 4, Math.round(playerTime * (1.18 + (idx * 0.06)))) : Math.max(30, 45 + idx * 10))
-            : Math.max(10, Math.round(playerTime * 0.7));
+        const botWon = isFinal
+            ? (playerWon ? (botSeed > 30) : (botSeed > 65))
+            : (idx === 1 && playerClicks > 10);
+
+        const botClicks = isFinal
+            ? (botWon
+                ? (playerWon ? Math.max(playerClicks + idx + 1, Math.round(playerClicks * (1.15 + (idx * 0.08)))) : Math.max(4, 4 + idx * 2))
+                : Math.max(1, Math.round(playerClicks * 0.6)))
+            : Math.max(1, Math.max(0, playerClicks - (idx % 2)) + (idx % 3));
+
+        const botTime = isFinal
+            ? (botWon
+                ? (playerWon ? Math.max(playerTime + (idx + 1) * 4, Math.round(playerTime * (1.18 + (idx * 0.06)))) : Math.max(30, 45 + idx * 10))
+                : Math.max(10, Math.round(playerTime * 0.7)))
+            : Math.max(5, playerTime + (idx * 3) - 2);
+
+        const botKnowledgeCorrect = Math.max(0, Math.min(5, Math.floor(4 - (idx % 3) + (botWon ? 1 : 0))));
+        const botKnowledgeTotal = knowledgeTotal || 5;
 
         let botScore = 0;
-        if (botWon) {
-            let baseScore = calculateGamePoints({
-                mode: gameMode,
-                clicks: botClicks,
-                elapsedSeconds: botTime,
-                chronoScore: Math.max(20, 220 - (idx * 25)),
-                knowledgeScore: Math.max(1, 4 - (idx % 3)),
-                won: true
-            });
+        if (isFinal) {
+            if (botWon) {
+                let baseScore = calculateGamePoints({
+                    mode: gameMode,
+                    clicks: botClicks,
+                    elapsedSeconds: botTime,
+                    chronoScore: Math.max(20, 220 - (idx * 25)),
+                    knowledgeScore: botKnowledgeCorrect,
+                    won: true
+                });
 
-            // Si le joueur a gagné, le bot vainqueur reste logiquement placé derrière lui
-            if (playerWon && playerScore > 0 && baseScore >= playerScore) {
-                baseScore = Math.max(0, playerScore - ((idx + 1) * 25));
+                if (playerWon && playerScore > 0 && baseScore >= playerScore) {
+                    baseScore = Math.max(0, playerScore - ((idx + 1) * 25));
+                }
+                botScore = Math.max(0, baseScore);
             }
-            botScore = Math.max(0, baseScore);
+        } else {
+            botScore = (p.score !== undefined && p.score !== null)
+                ? Number(p.score)
+                : calculateGamePoints({
+                    mode: gameMode,
+                    clicks: botClicks,
+                    elapsedSeconds: botTime,
+                    chronoScore: Math.max(0, 250 - (idx * 25)),
+                    knowledgeScore: botKnowledgeCorrect,
+                    won: botWon
+                });
         }
 
         return {
             ...p,
             isCurrent: false,
-            score: botScore,
+            score: Math.round(botScore),
             clicks: botClicks,
             time_seconds: botTime,
             won: botWon,
-            status: botWon ? 'finished' : 'defeat'
+            ratio: isKnowledgeMode ? `${botKnowledgeCorrect}/${botKnowledgeTotal}` : null,
+            status: isFinal ? (botWon ? 'finished' : 'defeat') : (botWon ? 'finished' : 'playing')
         };
     });
 
@@ -580,6 +659,7 @@ function Game() {
     const [adminCheatActive, setAdminCheatActive] = useState(false);
     const [abandonQuizPrompt, setAbandonQuizPrompt] = useState(false);
     const [showQuizDetails, setShowQuizDetails] = useState(false);
+    const [showLeaderboardDrawer, setShowLeaderboardDrawer] = useState(false);
     const [reportTarget, setReportTarget] = useState(null);
 
     useEffect(() => {
@@ -1465,17 +1545,27 @@ function Game() {
         });
 
     const finalPoints = liveScore;
-    const finalLeaderboard = showResultModal
-        ? computeFinalLeaderboard(participants, {
-            user_id: 'current_user',
-            username: 'Vous',
-            score: finalPoints,
+    const isGameFinished = Boolean(showResultModal || won || abandoned || chronoDefeat);
+    const liveLeaderboard = useMemo(() => {
+        return computeLiveLeaderboard({
+            participants,
+            currentUser: user || { id: 'current_user', username: 'Vous' },
+            userScore: liveScore,
             clicks,
-            time_seconds: elapsedSecondsRef.current,
+            elapsedSeconds: elapsedSecondsRef.current || elapsedSeconds,
+            chronoScore,
+            knowledgeScore,
+            knowledgeTotal: totalQuizQuestions,
+            isKnowledgeMode,
+            isChronoMode,
             won: Boolean(won && !abandoned) || (isKnowledgeMode && knowledgeQuizSubmitted),
-            status: abandoned ? 'abandoned' : chronoDefeat ? 'timeout' : (won ? 'finished' : 'defeat')
-        }, gameMode)
-        : [];
+            abandoned,
+            chronoDefeat,
+            isFinal: isGameFinished,
+            gameMode
+        });
+    }, [participants, user, liveScore, clicks, elapsedSeconds, chronoScore, knowledgeScore, totalQuizQuestions, isKnowledgeMode, isChronoMode, won, abandoned, chronoDefeat, isGameFinished, gameMode, knowledgeQuizSubmitted]);
+
     const resultTitle = abandoned
         ? t('game.result_abandoned_title', { defaultValue: 'Partie interrompue' })
         : chronoDefeat
@@ -1542,6 +1632,15 @@ function Game() {
                                 {t('game.points')}: <strong className="font-semibold text-rose-950">{chronoScore}</strong>
                             </span>
                         )}
+                        <button
+                            type="button"
+                            onClick={() => setShowLeaderboardDrawer(true)}
+                            className="game-toolbar-leaderboard-btn"
+                            title="Classement de la partie en direct"
+                        >
+                            <Trophy size={13} className="shrink-0 text-amber-800" />
+                            <span>Classement</span>
+                        </button>
                         <button
                             type="button"
                             onClick={handleQuitGame}
@@ -1867,134 +1966,30 @@ function Game() {
                             )}
                         </div>
 
-                        {/* Ratio et Détails des réponses au quiz */}
-                        {knowledgeQuiz.length > 0 && knowledgeQuizSubmitted && (
-                            <div className="my-3 text-left">
-                                <div className="rounded-lg border border-amber-900/20 bg-amber-50/90 p-2.5">
-                                    <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-1.5">
-                                            <span>🎯</span>
-                                            <span className="text-xs font-bold text-amber-950">
-                                                Ratio : {correctAnswersCount} / {totalQuizQuestions} ({quizSuccessRatio}%)
-                                            </span>
-                                        </div>
-                                        <span className="text-[11px] text-amber-800">
-                                            {correctAnswersCount} bonne{correctAnswersCount > 1 ? 's' : ''} · {wrongAnswersCount} erreur{wrongAnswersCount > 1 ? 's' : ''}
-                                        </span>
-                                    </div>
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowQuizDetails((prev) => !prev)}
-                                        className="mt-2 flex w-full items-center justify-between rounded-md border border-amber-900/15 bg-white px-2.5 py-1.5 text-[11px] font-semibold text-amber-950 hover:bg-amber-100/50 transition"
-                                    >
-                                        <span>📜 {showQuizDetails ? 'Masquer le détail des réponses' : 'Voir les réponses aux questions du Quiz'}</span>
-                                        <span>{showQuizDetails ? '▲' : '▼'}</span>
-                                    </button>
-
-                                    {showQuizDetails && (
-                                        <div className="mt-2 max-h-56 overflow-y-auto space-y-2 rounded border border-amber-900/15 bg-white p-2.5 text-xs shadow-inner">
-                                            {knowledgeQuiz.map((item, qIdx) => {
-                                                const userChoice = knowledgeQuizAnswers[qIdx];
-                                                const isCorrect = userChoice === item.answerIndex;
-                                                return (
-                                                    <div key={qIdx} className="border-b border-amber-900/10 pb-2 last:border-b-0 last:pb-0">
-                                                        <p className="font-bold text-slate-900 mb-1">
-                                                            {qIdx + 1}. {item.question}
-                                                        </p>
-                                                        <div className="space-y-0.5 pl-2 text-[11px]">
-                                                            <p className={`font-semibold ${isCorrect ? 'text-emerald-700' : 'text-rose-700'}`}>
-                                                                {isCorrect ? '✓ Votre réponse : ' : '✗ Votre réponse : '}
-                                                                <span className="underline">{item.choices[userChoice] ?? 'Non répondue'}</span>
-                                                            </p>
-                                                            {!isCorrect && (
-                                                                <p className="text-emerald-800 font-semibold">
-                                                                    ✓ Bonne réponse : {item.choices[item.answerIndex]}
-                                                                </p>
-                                                            )}
-                                                            {item.sourceQuote && (
-                                                                <p className="text-slate-500 italic mt-0.5">
-                                                                    « {item.sourceQuote} » {item.sourceTitle ? `(${item.sourceTitle})` : ''}
-                                                                </p>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-                                    )}
+                        {/* Ratio Quiz si mode connaissance */}
+                        {isKnowledgeMode && knowledgeQuizSubmitted && (
+                            <div className="my-3 rounded-lg border border-amber-900/20 bg-amber-50/90 p-2.5 text-left text-xs text-amber-950">
+                                <div className="flex items-center justify-between font-bold">
+                                    <span className="flex items-center gap-1.5">
+                                        <span>🎯</span>
+                                        <span>Ratio : {correctAnswersCount} / {totalQuizQuestions} ({quizSuccessRatio}%)</span>
+                                    </span>
+                                    <span className="text-[11px] text-amber-800">
+                                        {correctAnswersCount} bonne{correctAnswersCount > 1 ? 's' : ''} · {wrongAnswersCount} erreur{wrongAnswersCount > 1 ? 's' : ''}
+                                    </span>
                                 </div>
                             </div>
                         )}
 
-                        {/* Classement des 8 joueurs de la session */}
-                        <div className="my-4 text-left">
-                            <div className="mb-1.5 flex items-center justify-between">
-                                <p className="text-[11px] font-bold uppercase tracking-wider text-amber-900 flex items-center gap-1">
-                                    <span>🏆</span>
-                                    <span>Classement de la partie</span>
-                                </p>
-                                <span className="text-[10px] text-amber-800/80 font-medium">8 participants</span>
-                            </div>
-                            <div className="max-h-56 overflow-y-auto rounded-lg border border-amber-900/20 bg-white/70 shadow-inner">
-                                <table className="w-full text-xs">
-                                    <thead className="sticky top-0 bg-[#ebe1cf] text-slate-800 border-b border-amber-900/20">
-                                        <tr>
-                                            <th className="py-1 px-2 font-bold text-center w-8">#</th>
-                                            <th className="py-1 px-2 font-bold text-left">Joueur</th>
-                                            <th className="py-1 px-2 font-bold text-center">Score</th>
-                                            <th className="py-1 px-2 font-bold text-center">Clics</th>
-                                            <th className="py-1 px-2 font-bold text-center">Temps</th>
-                                            <th className="py-1 px-2 font-bold text-center w-8">🚩</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-amber-900/10">
-                                        {finalLeaderboard.map((player, idx) => {
-                                            const rankIcon = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `${idx + 1}.`;
-                                            return (
-                                                <tr
-                                                    key={player.user_id || idx}
-                                                    className={`transition ${player.isCurrent ? 'bg-amber-200/80 font-semibold text-amber-950' : 'text-slate-800 hover:bg-black/5'}`}
-                                                >
-                                                    <td className="py-1.5 px-2 text-center font-bold">{rankIcon}</td>
-                                                    <td className="py-1.5 px-2">
-                                                        <div className="flex items-center gap-1.5 min-w-0">
-                                                            <span className="w-5 h-5 rounded-full overflow-hidden shrink-0 bg-slate-700 text-[10px] flex items-center justify-center text-white font-bold">
-                                                                {player.avatar_url ? <img src={resolveMediaUrl(player.avatar_url)} alt="" className="w-full h-full object-cover" /> : String(player.username || '?').slice(0, 1).toUpperCase()}
-                                                            </span>
-                                                            <span className="truncate max-w-[100px]">{player.username}</span>
-                                                            {player.isCurrent && (
-                                                                <span className="rounded bg-amber-800 text-white px-1 py-0.2 text-[9px] uppercase font-bold tracking-wider shrink-0">Vous</span>
-                                                            )}
-                                                            {player.isBot && !player.isCurrent && (
-                                                                <span className="text-[10px] opacity-60 shrink-0" title="Bot">🤖</span>
-                                                            )}
-                                                        </div>
-                                                    </td>
-                                                    <td className="py-1.5 px-2 text-center font-bold text-amber-900">{Math.round(player.score)} pts</td>
-                                                    <td className="py-1.5 px-2 text-center">{player.clicks}</td>
-                                                    <td className="py-1.5 px-2 text-center font-mono text-[11px]">{formatClock(player.time_seconds)}</td>
-                                                    <td className="py-1.5 px-2 text-center">
-                                                        {!player.isCurrent && (
-                                                            <button
-                                                                type="button"
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    setReportTarget({ id: player.user_id || `bot-${idx}`, username: player.username, isBot: player.isBot });
-                                                                }}
-                                                                className="text-slate-400 hover:text-red-600 transition p-1 rounded inline-flex items-center justify-center"
-                                                                title={`Signaler ${player.username}`}
-                                                                aria-label={`Signaler ${player.username}`}
-                                                            >
-                                                                <Flag size={12} />
-                                                            </button>
-                                                        )}
-                                                    </td>
-                                                </tr>
-                                            );
-                                        })}
-                                    </tbody>
-                                </table>
-                            </div>
+                        <div className="my-4 text-center">
+                            <button
+                                type="button"
+                                onClick={() => setShowLeaderboardDrawer(true)}
+                                className="inline-flex items-center gap-2 rounded-md border border-amber-800/30 bg-amber-100/90 px-3.5 py-2 text-xs font-bold text-amber-950 shadow-xs hover:bg-amber-200 transition"
+                            >
+                                <Trophy size={14} className="text-amber-800" />
+                                <span>Voir le classement de la partie (8 joueurs)</span>
+                            </button>
                         </div>
 
                         {resultSaveError && <p className="game-result-error">{resultSaveError}</p>}
@@ -2014,6 +2009,148 @@ function Game() {
                     </section>
                 </div>
             )}
+
+            {/* Tiroir déroulant par la droite pour le classement en direct */}
+            <div
+                className={`game-drawer-backdrop ${showLeaderboardDrawer ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
+                onClick={() => setShowLeaderboardDrawer(false)}
+                aria-hidden={!showLeaderboardDrawer}
+            />
+            <aside
+                className={`game-drawer-panel ${showLeaderboardDrawer ? 'is-open' : ''}`}
+                role="dialog"
+                aria-labelledby="drawer-leaderboard-title"
+            >
+                <div className="game-drawer-header">
+                    <div className="flex items-center gap-2">
+                        <Trophy size={18} className="text-amber-800 shrink-0" />
+                        <h3 id="drawer-leaderboard-title" className="text-sm font-bold text-slate-900 m-0">
+                            Classement de la partie
+                        </h3>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        {isGameFinished ? (
+                            <span className="inline-flex items-center gap-1 rounded-full border border-emerald-300 bg-emerald-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-900">
+                                🏁 Résultats finaux
+                            </span>
+                        ) : (
+                            <span className="inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-900">
+                                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                En direct
+                            </span>
+                        )}
+                        <button
+                            type="button"
+                            onClick={() => setShowLeaderboardDrawer(false)}
+                            className="game-icon-btn is-quit"
+                            title="Fermer"
+                            aria-label="Fermer le classement"
+                        >
+                            <X size={15} />
+                        </button>
+                    </div>
+                </div>
+
+                <div className="game-drawer-body">
+                    {isKnowledgeMode && (
+                        <div className="mb-3 rounded-lg border border-amber-900/20 bg-amber-50/90 p-2.5 text-xs text-amber-950 shadow-xs">
+                            <div className="flex items-center justify-between font-bold">
+                                <span className="flex items-center gap-1">
+                                    <span>🎯</span> Votre Ratio :
+                                </span>
+                                <span>
+                                    {correctAnswersCount} / {totalQuizQuestions || 5} ({quizSuccessRatio}%)
+                                </span>
+                            </div>
+                            <div className="mt-1 flex items-center justify-between text-[11px] text-amber-800">
+                                <span>Bonnes réponses : {correctAnswersCount}</span>
+                                <span>Erreurs : {wrongAnswersCount}</span>
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="overflow-hidden rounded-lg border border-amber-900/20 bg-white/85 shadow-xs">
+                        <table className="w-full text-xs">
+                            <thead className="bg-[#ebe1cf] text-slate-800 border-b border-amber-900/20">
+                                <tr>
+                                    <th className="py-2 px-1 font-bold text-center w-7">#</th>
+                                    <th className="py-2 px-1.5 font-bold text-left">Joueur</th>
+                                    {isKnowledgeMode && (
+                                        <th className="py-2 px-1 font-bold text-center">Ratio</th>
+                                    )}
+                                    <th className="py-2 px-1 font-bold text-center">Score</th>
+                                    <th className="py-2 px-1 font-bold text-center">Clics</th>
+                                    <th className="py-2 px-1 font-bold text-center">Temps</th>
+                                    <th className="py-2 px-1 font-bold text-center w-6">🚩</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-amber-900/10">
+                                {liveLeaderboard.map((player, idx) => {
+                                    const rankIcon = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `${idx + 1}.`;
+                                    return (
+                                        <tr
+                                            key={player.user_id || idx}
+                                            className={`transition ${player.isCurrent ? 'bg-amber-200/80 font-semibold text-amber-950' : 'text-slate-800 hover:bg-black/5'}`}
+                                        >
+                                            <td className="py-2 px-1 text-center font-bold">{rankIcon}</td>
+                                            <td className="py-2 px-1.5">
+                                                <div className="flex items-center gap-1.5 min-w-0">
+                                                    <span className="w-5 h-5 rounded-full overflow-hidden shrink-0 bg-slate-700 text-[10px] flex items-center justify-center text-white font-bold">
+                                                        {player.avatar_url ? (
+                                                            <img src={resolveMediaUrl(player.avatar_url)} alt="" className="w-full h-full object-cover" />
+                                                        ) : (
+                                                            String(player.username || '?').slice(0, 1).toUpperCase()
+                                                        )}
+                                                    </span>
+                                                    <span className="truncate max-w-[80px] sm:max-w-[100px]">{player.username}</span>
+                                                    {player.isCurrent && (
+                                                        <span className="rounded bg-amber-800 text-white px-1 py-0.2 text-[8px] uppercase font-bold tracking-wider shrink-0">Vous</span>
+                                                    )}
+                                                    {player.isBot && !player.isCurrent && (
+                                                        <span className="text-[10px] opacity-60 shrink-0" title="Bot">🤖</span>
+                                                    )}
+                                                </div>
+                                            </td>
+                                            {isKnowledgeMode && (
+                                                <td className="py-2 px-1 text-center font-semibold text-amber-900 text-[11px]">
+                                                    {player.ratio || '-'}
+                                                </td>
+                                            )}
+                                            <td className="py-2 px-1 text-center font-bold text-amber-900 whitespace-nowrap">
+                                                {Math.round(player.score)} pts
+                                            </td>
+                                            <td className="py-2 px-1 text-center">{player.clicks}</td>
+                                            <td className="py-2 px-1 text-center font-mono text-[11px] whitespace-nowrap">
+                                                {formatClock(player.time_seconds)}
+                                            </td>
+                                            <td className="py-2 px-1 text-center">
+                                                {!player.isCurrent && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setReportTarget({
+                                                                id: player.user_id || `bot-${idx}`,
+                                                                username: player.username,
+                                                                isBot: player.isBot
+                                                            });
+                                                        }}
+                                                        className="inline-flex h-5 w-5 items-center justify-center text-slate-400 hover:text-red-600 transition rounded hover:bg-red-50"
+                                                        title={`Signaler ${player.username}`}
+                                                        aria-label={`Signaler ${player.username}`}
+                                                    >
+                                                        <Flag size={10} />
+                                                    </button>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </aside>
 
             {reportTarget && (
                 <ReportModal
