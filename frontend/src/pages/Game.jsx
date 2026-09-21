@@ -578,6 +578,7 @@ function Game() {
     const [replayRequiredCount, setReplayRequiredCount] = useState(0);
     const [adminCheatActive, setAdminCheatActive] = useState(false);
     const [abandonQuizPrompt, setAbandonQuizPrompt] = useState(false);
+    const [showQuizDetails, setShowQuizDetails] = useState(false);
 
     useEffect(() => {
         if (user?.role === 'admin') {
@@ -1444,14 +1445,24 @@ function Game() {
         const selected = knowledgeQuizAnswers[index];
         return total + (selected === item.answerIndex ? 1 : 0);
     }, 0);
-    const finalPoints = calculateGamePoints({
-        mode: gameMode,
-        clicks,
-        elapsedSeconds: elapsedSecondsRef.current,
-        chronoScore,
-        knowledgeScore,
-        won: Boolean(won && !abandoned) || (isKnowledgeMode && knowledgeQuizSubmitted)
-    });
+
+    const correctAnswersCount = knowledgeScore;
+    const totalQuizQuestions = knowledgeQuiz.length;
+    const wrongAnswersCount = Math.max(0, totalQuizQuestions - correctAnswersCount);
+    const quizSuccessRatio = totalQuizQuestions > 0 ? Math.round((correctAnswersCount / totalQuizQuestions) * 100) : 0;
+
+    const liveScore = isChronoMode
+        ? chronoScore
+        : calculateGamePoints({
+            mode: gameMode,
+            clicks,
+            elapsedSeconds: elapsedSecondsRef.current,
+            chronoScore,
+            knowledgeScore,
+            won: Boolean(won && !abandoned) || (isKnowledgeMode && knowledgeQuizSubmitted)
+        });
+
+    const finalPoints = liveScore;
     const finalLeaderboard = showResultModal
         ? computeFinalLeaderboard(participants, {
             user_id: 'current_user',
@@ -1513,11 +1524,9 @@ function Game() {
                         <span className="rounded-full border border-violet-200 bg-violet-50 px-2.5 py-1 text-violet-800 shadow-sm whitespace-nowrap">
                             {isChronoMode ? t('game.remaining_time') : t('game.time')}: <strong ref={timerDisplayRef} className="font-semibold text-violet-950">{displayedTime}</strong>
                         </span>
-                        {isChronoMode && (
-                            <span className="rounded-full border border-rose-200 bg-rose-50 px-2.5 py-1 text-rose-800 shadow-sm whitespace-nowrap">
-                                {t('game.points')}: <strong className="font-semibold text-rose-950">{chronoScore}</strong>
-                            </span>
-                        )}
+                        <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-emerald-800 shadow-sm whitespace-nowrap">
+                            Score direct: <strong className="font-semibold text-emerald-950">{Math.round(liveScore)} pts</strong>
+                        </span>
                         <button
                             type="button"
                             onClick={handleGoBack}
@@ -1547,25 +1556,51 @@ function Game() {
                 </div>
 
                 {(() => {
-                    const fullParticipants = ensureEightParticipantsWithBots(participants);
+                    const fullParticipants = ensureEightParticipantsWithBots(participants, 'Vous');
+                    const finishedCount = fullParticipants.filter(p => p.progress_status === 'finished' || p.won).length;
                     return (
-                        <div className="game-participants mx-auto mt-2 flex max-w-6xl gap-2 overflow-x-auto pb-1" aria-label="Progression des 8 joueurs">
-                            {fullParticipants.map((participant) => {
-                                const avatarUrl = resolveMediaUrl(participant.avatar_url);
-                                const finished = participant.progress_status === 'finished';
-                                const isBotPlayer = Boolean(participant.isBot);
-                                return (
-                                    <div className={`game-participant${finished ? ' is-finished' : ''}${isBotPlayer ? ' is-bot opacity-90' : ''}`} key={participant.user_id}>
-                                        <span className="game-participant-avatar">
-                                            {avatarUrl ? <img src={avatarUrl} alt="" /> : String(participant.username || '?').slice(0, 1).toUpperCase()}
-                                        </span>
-                                        <span className="flex flex-col text-[10px] leading-tight">
-                                            <strong className="truncate max-w-[80px]">{participant.username}</strong>
-                                            <small className="text-slate-500">{isBotPlayer ? '🤖 Bot' : finished ? 'Terminé' : 'En cours'}</small>
-                                        </span>
-                                    </div>
-                                );
-                            })}
+                        <div className="mx-auto mt-2 max-w-6xl">
+                            <div className="mb-1 flex items-center justify-between text-[10px] font-semibold text-slate-600 px-0.5">
+                                <span>👥 Progression & Scores en direct ({fullParticipants.length} joueurs)</span>
+                                <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[9px] text-slate-700">
+                                    {finishedCount}/{fullParticipants.length} ont terminé
+                                </span>
+                            </div>
+                            <div className="game-participants flex gap-2 overflow-x-auto pb-1" aria-label="Progression des 8 joueurs">
+                                {fullParticipants.map((participant, pIdx) => {
+                                    const avatarUrl = resolveMediaUrl(participant.avatar_url);
+                                    const finished = participant.progress_status === 'finished' || participant.won;
+                                    const isBotPlayer = Boolean(participant.isBot);
+                                    const isCurrent = !participant.isBot && (
+                                        participant.user_id === user?.id || participant.user_id === 'current_user' || pIdx === 0
+                                    );
+                                    const pScore = isCurrent
+                                        ? liveScore
+                                        : (participant.score !== undefined && participant.score !== null)
+                                            ? Number(participant.score)
+                                            : calculateGamePoints({
+                                                mode: gameMode,
+                                                clicks: participant.clicks || Math.max(1, clicks + (pIdx % 3)),
+                                                elapsedSeconds: participant.time_seconds || elapsedSeconds,
+                                                chronoScore: Math.max(0, 250 - (pIdx * 25)),
+                                                knowledgeScore: Math.max(0, 3 - (pIdx % 2)),
+                                                won: finished
+                                            });
+
+                                    return (
+                                        <div className={`game-participant${finished ? ' is-finished' : ''}${isBotPlayer ? ' is-bot opacity-90' : ''}${isCurrent ? ' border-amber-500 ring-1 ring-amber-400' : ''}`} key={participant.user_id || pIdx}>
+                                            <span className="game-participant-avatar">
+                                                {avatarUrl ? <img src={avatarUrl} alt="" /> : String(participant.username || '?').slice(0, 1).toUpperCase()}
+                                            </span>
+                                            <span className="flex flex-col text-[10px] leading-tight min-w-0">
+                                                <strong className="truncate max-w-[80px]">{participant.username} {isCurrent && '(Vous)'}</strong>
+                                                <span className="font-bold text-amber-900">{Math.round(pScore)} pts</span>
+                                                <small className="text-slate-500">{isBotPlayer ? '🤖 Bot' : finished ? '✓ Terminé' : '⚡ En cours'}</small>
+                                            </span>
+                                        </div>
+                                    );
+                                })}
+                            </div>
                         </div>
                     );
                 })()}
@@ -1609,6 +1644,24 @@ function Game() {
                             {abandonQuizPrompt && (
                                 <div className="rounded-lg border border-amber-800/30 bg-[#f4ebd9] p-3 text-xs text-[#4a3928] leading-relaxed">
                                     💡 <strong>Vous avez choisi d’abandonner l’exploration :</strong> répondez à ce quiz pour tester votre mémoire sur les articles visités et marquer des points bonus sur votre score final !
+                                </div>
+                            )}
+
+                            {/* Ratio des réponses en direct lorsque le quiz est validé */}
+                            {knowledgeQuizSubmitted && totalQuizQuestions > 0 && (
+                                <div className="rounded-xl border border-emerald-600/30 bg-emerald-50/90 p-3 shadow-sm flex flex-wrap items-center justify-between gap-3">
+                                    <div className="flex items-center gap-2.5">
+                                        <span className="text-2xl">🎯</span>
+                                        <div>
+                                            <h4 className="text-xs font-bold uppercase tracking-wider text-emerald-950">Ratio de réussite au Quiz</h4>
+                                            <p className="text-xs text-emerald-800 font-medium">
+                                                <strong>{correctAnswersCount} / {totalQuizQuestions}</strong> bonnes réponses ({quizSuccessRatio}%) · <strong>{wrongAnswersCount}</strong> mauvaise{wrongAnswersCount > 1 ? 's' : ''}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <span className="rounded-full bg-emerald-800 text-white px-3 py-1 text-xs font-bold shadow-sm">
+                                        +{correctAnswersCount * 100} points
+                                    </span>
                                 </div>
                             )}
 
@@ -1790,11 +1843,72 @@ function Game() {
                             {abandoned ? 'Partie abandonnée' : chronoDefeat ? 'Temps écoulé' : 'Objectif atteint !'}
                         </p>
                         <div className="game-result-stats">
-                            <div><strong>{finalPoints}</strong><span>Points</span></div>
+                            <div><strong>{Math.round(finalPoints)}</strong><span>Points</span></div>
                             <div><strong>{clicks}</strong><span>Clics</span></div>
                             <div><strong>{formatClock(elapsedSecondsRef.current)}</strong><span>Temps</span></div>
-                            {isKnowledgeMode && knowledgeQuizSubmitted && <div><strong>{knowledgeScore}/{knowledgeQuiz.length}</strong><span>Quiz</span></div>}
+                            {isKnowledgeMode && knowledgeQuizSubmitted && (
+                                <div><strong>{correctAnswersCount}/{totalQuizQuestions}</strong><span>Quiz ({quizSuccessRatio}%)</span></div>
+                            )}
                         </div>
+
+                        {/* Ratio et Détails des réponses au quiz */}
+                        {knowledgeQuiz.length > 0 && knowledgeQuizSubmitted && (
+                            <div className="my-3 text-left">
+                                <div className="rounded-lg border border-amber-900/20 bg-amber-50/90 p-2.5">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-1.5">
+                                            <span>🎯</span>
+                                            <span className="text-xs font-bold text-amber-950">
+                                                Ratio : {correctAnswersCount} / {totalQuizQuestions} ({quizSuccessRatio}%)
+                                            </span>
+                                        </div>
+                                        <span className="text-[11px] text-amber-800">
+                                            {correctAnswersCount} bonne{correctAnswersCount > 1 ? 's' : ''} · {wrongAnswersCount} erreur{wrongAnswersCount > 1 ? 's' : ''}
+                                        </span>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowQuizDetails((prev) => !prev)}
+                                        className="mt-2 flex w-full items-center justify-between rounded-md border border-amber-900/15 bg-white px-2.5 py-1.5 text-[11px] font-semibold text-amber-950 hover:bg-amber-100/50 transition"
+                                    >
+                                        <span>📜 {showQuizDetails ? 'Masquer le détail des réponses' : 'Voir les réponses aux questions du Quiz'}</span>
+                                        <span>{showQuizDetails ? '▲' : '▼'}</span>
+                                    </button>
+
+                                    {showQuizDetails && (
+                                        <div className="mt-2 max-h-56 overflow-y-auto space-y-2 rounded border border-amber-900/15 bg-white p-2.5 text-xs shadow-inner">
+                                            {knowledgeQuiz.map((item, qIdx) => {
+                                                const userChoice = knowledgeQuizAnswers[qIdx];
+                                                const isCorrect = userChoice === item.answerIndex;
+                                                return (
+                                                    <div key={qIdx} className="border-b border-amber-900/10 pb-2 last:border-b-0 last:pb-0">
+                                                        <p className="font-bold text-slate-900 mb-1">
+                                                            {qIdx + 1}. {item.question}
+                                                        </p>
+                                                        <div className="space-y-0.5 pl-2 text-[11px]">
+                                                            <p className={`font-semibold ${isCorrect ? 'text-emerald-700' : 'text-rose-700'}`}>
+                                                                {isCorrect ? '✓ Votre réponse : ' : '✗ Votre réponse : '}
+                                                                <span className="underline">{item.choices[userChoice] ?? 'Non répondue'}</span>
+                                                            </p>
+                                                            {!isCorrect && (
+                                                                <p className="text-emerald-800 font-semibold">
+                                                                    ✓ Bonne réponse : {item.choices[item.answerIndex]}
+                                                                </p>
+                                                            )}
+                                                            {item.sourceQuote && (
+                                                                <p className="text-slate-500 italic mt-0.5">
+                                                                    « {item.sourceQuote} » {item.sourceTitle ? `(${item.sourceTitle})` : ''}
+                                                                </p>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
 
                         {/* Classement des 8 joueurs de la session */}
                         <div className="my-4 text-left">
@@ -1839,7 +1953,7 @@ function Game() {
                                                             )}
                                                         </div>
                                                     </td>
-                                                    <td className="py-1.5 px-2 text-center font-bold text-amber-900">{player.score} pts</td>
+                                                    <td className="py-1.5 px-2 text-center font-bold text-amber-900">{Math.round(player.score)} pts</td>
                                                     <td className="py-1.5 px-2 text-center">{player.clicks}</td>
                                                     <td className="py-1.5 px-2 text-center font-mono text-[11px]">{formatClock(player.time_seconds)}</td>
                                                 </tr>

@@ -79,12 +79,10 @@ function Header() {
                                 <UserPlus size={18} aria-hidden="true" />
                                 <span>{t('nav.register')}</span>
                             </button>
-                            {!isLoginRoute && (
-                                <button type="button" className="paper-btn site-session-button" onClick={() => navigate('/login')}>
-                                    <LogIn size={18} aria-hidden="true" />
-                                    <span>{t('nav.login')}</span>
-                                </button>
-                            )}
+                            <button type="button" className="paper-btn site-session-button" onClick={() => navigate('/login')}>
+                                <LogIn size={18} aria-hidden="true" />
+                                <span>{t('nav.login')}</span>
+                            </button>
                         </div>
                     )}
                     {user && (

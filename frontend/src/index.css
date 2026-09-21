@@ -577,8 +577,21 @@ html, body, #root {
 .shop-page { max-width: 1180px; }
 .shop-page.paper { background-color: #f5eee2 !important; }
 
-.profile-history-scroll { max-height: min(480px, 58vh); overflow: auto; overscroll-behavior: contain; }
-.profile-history-head { position: sticky; z-index: 2; top: 0; background: #f5eee2; }
+.profile-history-scroll { max-height: min(480px, 58vh); overflow: auto; overscroll-behavior: contain; position: relative; }
+.profile-history-head { position: sticky; z-index: 10; top: 0; background: #ebe1d1 !important; }
+.profile-history-head th { background-color: #ebe1d1 !important; color: #473522 !important; position: sticky; top: 0; z-index: 10; box-shadow: 0 1px 0 #d8c7b0; }
+
+.profile-delete-account-btn {
+  background: #c92a2a !important;
+  color: #ffffff !important;
+  border: 1px solid #991b1b !important;
+  font-weight: 700 !important;
+  transition: all 0.15s ease-in-out;
+}
+.profile-delete-account-btn:hover {
+  background: #a61e1e !important;
+  color: #ffffff !important;
+}
 
 .shop-heading {
   display: flex;

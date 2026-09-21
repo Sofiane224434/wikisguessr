@@ -321,16 +321,16 @@ function Profile() {
                 </p>
             ) : (
                 <div className="profile-history-scroll overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
-                    <table className="w-full text-sm">
+                    <table className="w-full text-sm border-collapse">
                         <thead className="profile-history-head">
-                            <tr className="border-b border-slate-100 bg-slate-50 text-[11px] uppercase tracking-widest text-slate-500">
-                                <th className="px-4 py-3 text-left">{t('profile.date')}</th>
-                                <th className="px-4 py-3 text-left">{t('profile.mode')}</th>
-                                <th className="px-4 py-3 text-left">{t('profile.route')}</th>
-                                <th className="px-4 py-3 text-right">{t('profile.clicks')}</th>
-                                <th className="px-4 py-3 text-right">{t('profile.time')}</th>
-                                <th className="px-4 py-3 text-right">{t('profile.points')}</th>
-                                <th className="px-4 py-3 text-center">{t('profile.result')}</th>
+                            <tr className="border-b border-slate-200 bg-[#ebe1d1] text-[11px] uppercase tracking-widest text-slate-700">
+                                <th className="sticky top-0 z-10 bg-[#ebe1d1] px-4 py-3 text-left font-bold">{t('profile.date')}</th>
+                                <th className="sticky top-0 z-10 bg-[#ebe1d1] px-4 py-3 text-left font-bold">{t('profile.mode')}</th>
+                                <th className="sticky top-0 z-10 bg-[#ebe1d1] px-4 py-3 text-left font-bold">{t('profile.route')}</th>
+                                <th className="sticky top-0 z-10 bg-[#ebe1d1] px-4 py-3 text-right font-bold">{t('profile.clicks')}</th>
+                                <th className="sticky top-0 z-10 bg-[#ebe1d1] px-4 py-3 text-right font-bold">{t('profile.time')}</th>
+                                <th className="sticky top-0 z-10 bg-[#ebe1d1] px-4 py-3 text-right font-bold">{t('profile.points')}</th>
+                                <th className="sticky top-0 z-10 bg-[#ebe1d1] px-4 py-3 text-center font-bold">{t('profile.result')}</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -349,7 +349,7 @@ function Profile() {
                                     points = r.won ? Math.max(0, 1000 - (r.clicks * 100) - (r.time_seconds / 2)) : 0;
                                 }
                                 return (
-                                    <tr key={r.id} className="border-b border-slate-50 transition hover:bg-slate-50">
+                                    <tr key={r.id} className="border-b border-slate-100 bg-white transition hover:bg-slate-50">
                                         <td className="px-4 py-3 text-slate-500 text-xs whitespace-nowrap">{formatDate(r.played_at)}</td>
                                         <td className="px-4 py-3">
                                             <span className={`rounded-full border px-2 py-0.5 text-xs font-semibold ${MODE_BADGE[r.mode] || 'border-slate-200 bg-slate-50 text-slate-700'}`}>
@@ -380,7 +380,7 @@ function Profile() {
             )}
 
             {/* Zone de Danger : Suppression de compte RGPD */}
-            <section className="mt-12 rounded-2xl border border-rose-300 bg-rose-50/70 p-6 shadow-sm">
+            <section className="profile-danger-zone mt-12 rounded-2xl border border-rose-300 bg-rose-50/70 p-6 shadow-sm">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                         <h3 className="flex items-center gap-2 text-base font-bold text-rose-900">
@@ -398,10 +398,10 @@ function Profile() {
                             setDeletePassword('');
                             setShowDeleteModal(true);
                         }}
-                        className="inline-flex items-center justify-center gap-2 rounded-xl border border-rose-600 bg-rose-600 px-4 py-2.5 text-xs font-bold text-white shadow transition hover:bg-rose-700 active:scale-95 shrink-0"
+                        className="profile-delete-account-btn inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold text-white shadow transition active:scale-95 shrink-0"
                     >
                         <Trash2 size={16} />
-                        {t('profile.delete_account_button', { defaultValue: 'Supprimer mon compte' })}
+                        <span>{t('profile.delete_account_button', { defaultValue: 'Supprimer mon compte' })}</span>
                     </button>
                 </div>
             </section>
