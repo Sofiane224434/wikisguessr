@@ -3,10 +3,9 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import { useAuth } from '../context/Authcontext.jsx';
 import { gameRoomService, friendService, resolveMediaUrl, roomMessageService } from '../services/api.js';
-import ReportModal from '../components/ui/ReportModal.jsx';
 import GameModeModal from '../components/ui/GameModeModal.jsx';
 import MatchmakingUI from '../components/ui/MatchmakingUI.jsx';
-import { Check, Copy, Flag, KeyRound, LogOut, Play, Send, Trash2, UserPlus, Users, X } from 'lucide-react';
+import { Check, Copy, KeyRound, LogOut, Play, Send, Trash2, UserPlus, Users, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 const MODE_LABELS = {
@@ -65,9 +64,6 @@ function Lobby() {
     const [sendingMessage, setSendingMessage] = useState(false);
     const socketRef = useRef(null);
     const chatEndRef = useRef(null);
-
-    // Signalement
-    const [reportTarget, setReportTarget] = useState(null);
 
     // Modale de mode
     const [showModeModal, setShowModeModal] = useState(false);
@@ -558,14 +554,6 @@ function Lobby() {
                                         <div className={`lobby-member${Number(member.id) === Number(user?.id) ? ' is-self' : ''}`} key={member.id}>
                                             <LobbyAvatar user={member} />
                                             <span>{Number(member.id) === Number(user?.id) ? t('lobby.you') : member.username}{Number(member.id) === Number(myRoom.owner_id) ? ` · ${t('lobby.host')}` : ''}</span>
-                                            {Number(member.id) !== Number(user?.id) && <button
-                                                type="button"
-                                                className="lobby-icon-button is-danger"
-                                                onClick={() => setReportTarget(member)}
-                                                title={t('lobby.report', { username: member.username })}
-                                            >
-                                                <Flag size={15} aria-hidden="true" />
-                                            </button>}
                                         </div>
                                     ))}
                                 </div>
@@ -606,13 +594,6 @@ function Lobby() {
                     </section>
                 </div>
             </div>
-
-            {reportTarget && (
-                <ReportModal
-                    reportedUser={reportTarget}
-                    onClose={() => setReportTarget(null)}
-                />
-            )}
 
             {showModeModal && (
                 <GameModeModal

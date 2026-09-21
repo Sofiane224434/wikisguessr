@@ -1359,8 +1359,29 @@ html, body, #root {
 .home-ranking p { margin: 0; line-height: 1.55; }
 .home-ranking > div > p { color: #d7e6df; font-size: 0.72rem; font-weight: 800; text-transform: uppercase; }
 .home-ranking h2 { margin: 0.25rem 0 0; color: #fffaf2; font-size: clamp(1.15rem, 2vw, 1.55rem); }
-.home-ranking > p { color: #edf4ef; font-size: 0.9rem; }
-.home-ranking button { display: inline-flex; align-items: center; gap: 0.45rem; border: 1px solid #fffaf2; padding: 0.65rem 0.85rem; color: #fffaf2; font-weight: 800; }
+.home-ranking button {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 0.55rem !important;
+  background: #fdfbf7 !important;
+  color: #204f56 !important;
+  border: 1px solid #d4c4ad !important;
+  border-radius: 8px !important;
+  padding: 0.75rem 1.25rem !important;
+  font-weight: 800 !important;
+  font-size: 0.95rem !important;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.22) !important;
+  white-space: nowrap !important;
+  transition: all 0.15s ease-in-out !important;
+  cursor: pointer !important;
+}
+.home-ranking button:hover {
+  background: #ffffff !important;
+  color: #123439 !important;
+  transform: translateY(-2px) !important;
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.28) !important;
+}
 
 .home-shortcuts > button {
   display: grid !important;

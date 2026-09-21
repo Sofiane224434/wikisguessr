@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Compass } from 'lucide-react';
+import { Compass, Flag } from 'lucide-react';
 import DOMPurify from 'dompurify';
 import { useTranslation } from 'react-i18next';
 import { io } from 'socket.io-client';
 import { gameService, siteService, resolveMediaUrl } from '../services/api.js';
 import { useAuth } from '../context/Authcontext.jsx';
+import ReportModal from '../components/ui/ReportModal.jsx';
 
 const normalizeArticle = (value) =>
     decodeURIComponent(String(value || '').replace(/\+/g, ' '))
@@ -579,6 +580,7 @@ function Game() {
     const [adminCheatActive, setAdminCheatActive] = useState(false);
     const [abandonQuizPrompt, setAbandonQuizPrompt] = useState(false);
     const [showQuizDetails, setShowQuizDetails] = useState(false);
+    const [reportTarget, setReportTarget] = useState(null);
 
     useEffect(() => {
         if (user?.role === 'admin') {
@@ -1588,12 +1590,28 @@ function Game() {
                                             });
 
                                     return (
-                                        <div className={`game-participant${finished ? ' is-finished' : ''}${isBotPlayer ? ' is-bot opacity-90' : ''}${isCurrent ? ' border-amber-500 ring-1 ring-amber-400' : ''}`} key={participant.user_id || pIdx}>
+                                        <div className={`game-participant relative group${finished ? ' is-finished' : ''}${isBotPlayer ? ' is-bot opacity-90' : ''}${isCurrent ? ' border-amber-500 ring-1 ring-amber-400' : ''}`} key={participant.user_id || pIdx}>
                                             <span className="game-participant-avatar">
                                                 {avatarUrl ? <img src={avatarUrl} alt="" /> : String(participant.username || '?').slice(0, 1).toUpperCase()}
                                             </span>
                                             <span className="flex flex-col text-[10px] leading-tight min-w-0">
-                                                <strong className="truncate max-w-[80px]">{participant.username} {isCurrent && '(Vous)'}</strong>
+                                                <div className="flex items-center justify-between gap-1">
+                                                    <strong className="truncate max-w-[68px]">{participant.username} {isCurrent && '(Vous)'}</strong>
+                                                    {!isCurrent && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setReportTarget({ id: participant.user_id || `bot-${pIdx}`, username: participant.username, isBot: isBotPlayer });
+                                                            }}
+                                                            className="text-slate-400 hover:text-red-600 transition p-0.5 rounded"
+                                                            title={`Signaler ${participant.username}`}
+                                                            aria-label={`Signaler ${participant.username}`}
+                                                        >
+                                                            <Flag size={11} />
+                                                        </button>
+                                                    )}
+                                                </div>
                                                 <span className="font-bold text-amber-900">{Math.round(pScore)} pts</span>
                                                 <small className="text-slate-500">{isBotPlayer ? '🤖 Bot' : finished ? '✓ Terminé' : '⚡ En cours'}</small>
                                             </span>
@@ -1928,6 +1946,7 @@ function Game() {
                                             <th className="py-1 px-2 font-bold text-center">Score</th>
                                             <th className="py-1 px-2 font-bold text-center">Clics</th>
                                             <th className="py-1 px-2 font-bold text-center">Temps</th>
+                                            <th className="py-1 px-2 font-bold text-center w-8">🚩</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-amber-900/10">
@@ -1956,6 +1975,22 @@ function Game() {
                                                     <td className="py-1.5 px-2 text-center font-bold text-amber-900">{Math.round(player.score)} pts</td>
                                                     <td className="py-1.5 px-2 text-center">{player.clicks}</td>
                                                     <td className="py-1.5 px-2 text-center font-mono text-[11px]">{formatClock(player.time_seconds)}</td>
+                                                    <td className="py-1.5 px-2 text-center">
+                                                        {!player.isCurrent && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setReportTarget({ id: player.user_id || `bot-${idx}`, username: player.username, isBot: player.isBot });
+                                                                }}
+                                                                className="text-slate-400 hover:text-red-600 transition p-1 rounded inline-flex items-center justify-center"
+                                                                title={`Signaler ${player.username}`}
+                                                                aria-label={`Signaler ${player.username}`}
+                                                            >
+                                                                <Flag size={12} />
+                                                            </button>
+                                                        )}
+                                                    </td>
                                                 </tr>
                                             );
                                         })}
@@ -1980,6 +2015,13 @@ function Game() {
                         </div>
                     </section>
                 </div>
+            )}
+
+            {reportTarget && (
+                <ReportModal
+                    reportedUser={reportTarget}
+                    onClose={() => setReportTarget(null)}
+                />
             )}
         </div>
     );
