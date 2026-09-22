@@ -1,31 +1,49 @@
 import Report from '../models/report.model.js';
 import { query } from '../config/db.js';
 
-// POST /api/reports/send — joueur signale un autre joueur
+const getOrCreateBotUserId = async () => {
+    const rows = await query('SELECT id FROM users WHERE username = ? OR email = ? LIMIT 1', ['Bot_System', 'bot@wikisguessr.internal']);
+    if (rows && rows.length > 0) {
+        return rows[0].id;
+    }
+    const insertRes = await query(
+        'INSERT INTO users (username, email, password, role) VALUES (?, ?, ?, ?)',
+        ['Bot_System', 'bot@wikisguessr.internal', '$2b$10$botplaceholderhash0000000000000000000000000000000000', 'user']
+    );
+    return insertRes.insertId;
+};
+
+// POST /api/reports/send — joueur signale un autre joueur (réel ou bot)
 export const sendReport = async (req, res) => {
     try {
-        const { reportedUserId, message, imageData } = req.body;
+        const { reportedUserId, reportedUsername, message, imageData } = req.body;
 
-        if (!reportedUserId) {
+        if (!reportedUserId && !reportedUsername) {
             return res.status(400).json({ error: 'Joueur signalé manquant' });
         }
-        if (reportedUserId === req.user.id) {
+        if (Number(reportedUserId) === Number(req.user.id)) {
             return res.status(400).json({ error: 'Vous ne pouvez pas vous signaler vous-même' });
         }
 
-        // Vérifier si c'est un bot ou un joueur simulé
-        if (typeof reportedUserId === 'string' && (reportedUserId.startsWith('bot-') || reportedUserId.startsWith('bot_') || reportedUserId.startsWith('bot'))) {
-            return res.json({ ok: true, reportId: 'bot-report-ok', message: 'Signalement du bot enregistré' });
+        let targetUserId = Number.parseInt(reportedUserId, 10);
+        const isBotOrSimulated = !targetUserId || Number.isNaN(targetUserId) ||
+            (typeof reportedUserId === 'string' && (reportedUserId.startsWith('bot-') || reportedUserId.startsWith('bot_') || reportedUserId.startsWith('bot')));
+
+        if (isBotOrSimulated) {
+            targetUserId = await getOrCreateBotUserId();
+        } else {
+            // Vérifier que l'utilisateur signalé existe dans la base
+            const rows = await query('SELECT id FROM users WHERE id = ?', [targetUserId]);
+            if (!rows || rows.length === 0) {
+                targetUserId = await getOrCreateBotUserId();
+            }
         }
 
-        // Vérifier que l'utilisateur signalé existe dans la base
-        const rows = await query('SELECT id FROM users WHERE id = ?', [reportedUserId]);
-        if (!rows || rows.length === 0) {
-            // Repli souple pour les participants de session de jeu / bots
-            return res.json({ ok: true, reportId: 'simulated-report-ok', message: 'Signalement enregistré' });
-        }
+        const formattedMessage = (isBotOrSimulated && reportedUsername)
+            ? `[Bot / Joueur IA : ${reportedUsername}]\n${message}`
+            : message;
 
-        const result = await Report.create(req.user.id, reportedUserId, message, imageData || null);
+        const result = await Report.create(req.user.id, targetUserId, formattedMessage, imageData || null);
         return res.json({ ok: true, reportId: result.id });
     } catch (error) {
         if (error.status) {

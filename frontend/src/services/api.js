@@ -239,9 +239,9 @@ export const roomMessageService = {
 }
 
 export const reportService = {
-    send: (reportedUserId, message, imageData = null) => fetchAPI('/reports/send', {
+    send: (reportedUserId, message, imageData = null, reportedUsername = null) => fetchAPI('/reports/send', {
         method: 'POST',
-        body: JSON.stringify({ reportedUserId, message, imageData })
+        body: JSON.stringify({ reportedUserId, message, imageData, reportedUsername })
     }),
     getAll: (status = null) => fetchAPI(`/reports${status ? `?status=${status}` : ''}`),
     getById: (id) => fetchAPI(`/reports/${id}`),

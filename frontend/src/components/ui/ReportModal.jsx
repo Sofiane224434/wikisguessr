@@ -48,7 +48,7 @@ function ReportModal({ reportedUser, onClose }) {
         setError(null);
 
         try {
-            await reportService.send(reportedUser.id, message, imageData);
+            await reportService.send(reportedUser.id, message, imageData, reportedUser.username);
             setDone(true);
         } catch (err) {
             setError(err.message || 'Impossible d\'envoyer le signalement');

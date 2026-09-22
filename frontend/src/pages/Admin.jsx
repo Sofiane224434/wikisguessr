@@ -635,68 +635,76 @@ function Admin() {
             {/* Modal détail signalement */}
             {selectedReport && (
                 <div
-                    className="antique-modal-backdrop fixed inset-0 z-50 flex items-center justify-center p-4"
+                    className="antique-modal-backdrop fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs"
                     onClick={(e) => e.target === e.currentTarget && setSelectedReport(null)}
                 >
-                    <div className="antique-modal paper border-4 shadow-large w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto">
-                        <div className="mb-4 flex items-start justify-between">
+                    <div className="antique-modal paper border-3 shadow-large w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto bg-[#fbf6ee] text-[#2c1d11] rounded-2xl">
+                        <div className="mb-4 flex items-start justify-between border-b border-[#d8c7b0] pb-3">
                             <div>
-                                <p className="text-xs uppercase tracking-widest text-red-400">Signalement #{selectedReport.id}</p>
-                                <h2 className="mt-1 text-lg font-semibold text-white">
-                                    <span className="text-cyan-300">{selectedReport.reporter_username}</span>
+                                <p className="text-xs font-bold uppercase tracking-widest text-[#a84232]">Signalement #{selectedReport.id}</p>
+                                <h2 className="mt-1 text-xl font-bold font-serif text-[#34261a]">
+                                    <span className="text-[#1a5b66]">{selectedReport.reporter_username}</span>
                                     {' signale '}
-                                    <span className="text-red-300">{selectedReport.reported_username}</span>
+                                    <span className="text-[#a84232]">{selectedReport.reported_username}</span>
                                 </h2>
-                                <p className="text-xs text-slate-500">{new Date(selectedReport.created_at).toLocaleString()}</p>
+                                <p className="text-xs text-[#8c7355] mt-0.5">{new Date(selectedReport.created_at).toLocaleString()}</p>
                             </div>
-                            <button type="button" onClick={() => { setSelectedReport(null); setReportDetail(null); }} className="text-slate-500 hover:text-white text-xl">✕</button>
+                            <button
+                                type="button"
+                                onClick={() => { setSelectedReport(null); setReportDetail(null); }}
+                                className="rounded-full p-1 text-[#8c7355] hover:bg-[#ece2d0] hover:text-[#34261a] transition"
+                            >
+                                ✕
+                            </button>
                         </div>
 
-                        <div className="mb-4 rounded-xl border border-slate-800 bg-slate-800/60 p-3">
-                            <p className="mb-1 text-xs uppercase tracking-wider text-slate-400">Message</p>
-                            <p className="text-sm text-white whitespace-pre-wrap">{reportDetail?.message || selectedReport.message}</p>
+                        <div className="mb-4 rounded-xl border border-[#c4ab89] bg-[#fffdfa] p-3.5 shadow-inner">
+                            <p className="mb-1 text-xs font-bold uppercase tracking-wider text-[#6b5138]">Message</p>
+                            <p className="text-sm text-[#2c1d11] whitespace-pre-wrap leading-relaxed">{reportDetail?.message || selectedReport.message}</p>
                         </div>
 
                         {reportDetail?.image_data && (
                             <div className="mb-4">
-                                <p className="mb-1 text-xs uppercase tracking-wider text-slate-400">Capture d'écran</p>
-                                <img
-                                    src={reportDetail.image_data}
-                                    alt="Capture signalement"
-                                    className="w-full rounded-xl border border-slate-700 object-contain max-h-64"
-                                />
+                                <p className="mb-1 text-xs font-bold uppercase tracking-wider text-[#6b5138]">Capture d'écran</p>
+                                <div className="rounded-xl border border-[#c4ab89] bg-[#f0e6d6] p-1.5 shadow-inner">
+                                    <img
+                                        src={reportDetail.image_data}
+                                        alt="Capture signalement"
+                                        className="w-full rounded-lg object-contain max-h-64 bg-black/5"
+                                    />
+                                </div>
                             </div>
                         )}
 
                         {selectedReport.admin_note && (
-                            <div className="mb-4 rounded-xl border border-slate-800 bg-slate-950/60 p-3">
-                                <p className="mb-1 text-xs uppercase tracking-wider text-slate-400">Note admin précédente</p>
-                                <p className="text-sm text-slate-300">{selectedReport.admin_note}</p>
+                            <div className="mb-4 rounded-xl border border-[#c4ab89] bg-[#f5ede0]/60 p-3">
+                                <p className="mb-1 text-xs font-bold uppercase tracking-wider text-[#6b5138]">Note admin précédente</p>
+                                <p className="text-sm text-[#4a3828]">{selectedReport.admin_note}</p>
                             </div>
                         )}
 
                         {selectedReport.status === 'pending' && (
-                            <div className="flex gap-2 pt-2">
+                            <div className="flex gap-2.5 pt-2">
                                 <button
                                     type="button"
                                     onClick={() => handleUpdateReport(selectedReport.id, 'reviewed')}
                                     disabled={updatingReport}
-                                    className="flex-1 rounded-full bg-emerald-600 py-2 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-60"
+                                    className="flex-1 rounded-full bg-emerald-700 py-2 text-sm font-semibold text-white shadow-md hover:bg-emerald-600 disabled:opacity-60 transition"
                                 >
-                                    ✅ Traiter
+                                    ✅ Marquer traité
                                 </button>
                                 <button
                                     type="button"
                                     onClick={() => handleUpdateReport(selectedReport.id, 'dismissed')}
                                     disabled={updatingReport}
-                                    className="flex-1 rounded-full border border-slate-700 py-2 text-sm text-slate-300 hover:bg-slate-800 disabled:opacity-60"
+                                    className="flex-1 rounded-full border border-[#c4ab89] bg-[#fbf6ee] py-2 text-sm font-semibold text-[#593e25] hover:bg-[#ede3d2] disabled:opacity-60 transition"
                                 >
                                     🗑️ Rejeter
                                 </button>
                             </div>
                         )}
                         {selectedReport.status !== 'pending' && (
-                            <p className="text-center text-xs text-slate-500 pt-2">Ce signalement a déjà été traité.</p>
+                            <p className="text-center text-xs text-[#8c7355] pt-2 font-medium">Ce signalement a déjà été traité ({selectedReport.status === 'reviewed' ? 'Traité' : 'Rejeté'}).</p>
                         )}
                     </div>
                 </div>
