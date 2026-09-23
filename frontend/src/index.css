@@ -879,84 +879,362 @@ html, body, #root {
   .profile-identity { flex-direction: column; text-align: center; }
 }
 
-/* Recherche d'adversaires */
+/* Recherche d'adversaires — Modale large sans scroll avec règles intégrées */
 .matchmaking-backdrop {
   padding: 1rem;
-  background: rgba(20, 13, 8, 0.78);
-  backdrop-filter: blur(4px) sepia(0.2);
+  background: rgba(18, 12, 7, 0.82);
+  backdrop-filter: blur(5px) sepia(0.2);
 }
 
 .matchmaking-dialog {
   position: relative;
-  width: min(100%, 480px);
-  max-height: calc(100vh - 2rem);
-  overflow-y: auto;
-  padding: 2rem;
+  width: min(100%, 820px);
+  max-height: 92vh;
+  padding: 1.4rem 1.6rem;
   color: #302419;
   background:
-    linear-gradient(120deg, rgba(255, 255, 255, 0.56), rgba(222, 207, 186, 0.32)),
-    #f4ebdc;
-  border: 1px solid #b28f63;
-  border-radius: 7px;
+    linear-gradient(135deg, rgba(255, 255, 255, 0.65), rgba(234, 222, 203, 0.45)),
+    #f5ede0;
+  border: 1.5px solid #b8976d;
+  border-radius: 8px;
   font-family: Georgia, 'Times New Roman', serif;
-  text-align: center;
+  box-shadow: 0 10px 35px rgba(24, 15, 8, 0.35);
 }
 
 .matchmaking-close {
   position: absolute;
-  top: 0.65rem;
-  right: 0.65rem;
+  top: 0.75rem;
+  right: 0.75rem;
+  z-index: 10;
   display: inline-flex !important;
-  width: 38px !important;
-  height: 38px !important;
+  width: 34px !important;
+  height: 34px !important;
   align-items: center;
   justify-content: center;
   margin: 0 !important;
   padding: 0 !important;
-  color: #5e4a36 !important;
-  background: transparent !important;
-  border: 0 !important;
+  color: #6a523b !important;
+  background: rgba(226, 212, 193, 0.5) !important;
+  border: 1px solid #caa87d !important;
+  border-radius: 50% !important;
   box-shadow: none !important;
+  cursor: pointer;
+  transition: all 140ms ease;
 }
 
-.matchmaking-compass {
+.matchmaking-close:hover {
+  background: #ecd9d4 !important;
+  color: #8c3830 !important;
+  border-color: #b87970 !important;
+}
+
+.matchmaking-split-grid {
+  display: grid;
+  grid-template-columns: 1fr 1.22fr;
+  gap: 1.35rem;
+  align-items: stretch;
+  text-align: left;
+}
+
+/* Colonne Gauche : Explication & règles */
+.matchmaking-mode-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1.15rem;
+  background: rgba(255, 253, 248, 0.75);
+  border: 1px solid #d8c3a5;
+  border-radius: 7px;
+}
+
+.matchmaking-mode-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.matchmaking-mode-badge-icon {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  background: #ebdfcc;
+  border: 1px solid #bca179;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+.matchmaking-kicker {
+  margin: 0;
+  color: #8b652b;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.matchmaking-mode-heading {
+  margin: 0.1rem 0 0;
+  color: #24180d;
+  font-family: inherit;
+  font-size: 1.25rem;
+  font-weight: 700;
+  line-height: 1.15;
+}
+
+.matchmaking-mode-lead {
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  color: #4f3d2b;
+}
+
+.matchmaking-rules-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  padding: 0.75rem 0.85rem;
+  background: rgba(239, 229, 214, 0.55);
+  border: 1px dashed #cfba9b;
+  border-radius: 6px;
+  flex: 1 1 auto;
+}
+
+.matchmaking-rules-title {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0;
+  font-size: 0.74rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #7a5a27;
+}
+
+.matchmaking-rules-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.matchmaking-rules-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  line-height: 1.35;
+  color: #362618;
+}
+
+.matchmaking-rule-bullet {
+  color: #2d6870;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.matchmaking-lang-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-top: auto;
+  padding: 0.35rem 0.65rem;
+  background: #e2ece9;
+  border: 1px solid #9bbcb8;
+  color: #1e5257;
+  font-size: 0.76rem;
+  font-weight: 600;
+  border-radius: 4px;
+}
+
+/* Colonne Droite : Radar, Grille Joueurs, Actions */
+.matchmaking-queue-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1.15rem;
+  background: rgba(255, 253, 248, 0.6);
+  border: 1px solid #d8c3a5;
+  border-radius: 7px;
+}
+
+.matchmaking-queue-header {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.matchmaking-compass-mini {
   position: relative;
   display: grid;
-  width: 104px;
-  height: 104px;
+  width: 52px;
+  height: 52px;
   place-items: center;
-  margin: 0 auto 1.1rem;
   color: #2d6870;
   background: #eee0c7;
   border: 1px solid #b69260;
   border-radius: 50%;
+  flex-shrink: 0;
 }
 
-.matchmaking-compass > svg { animation: compass-seek 2.2s ease-in-out infinite; }
+.matchmaking-compass-mini > svg { animation: compass-seek 2.2s ease-in-out infinite; }
 .matchmaking-orbit { position: absolute; inset: -1px; animation: orbit-turn 4s linear infinite; }
-.matchmaking-orbit i { position: absolute; width: 8px; height: 8px; background: #b17e32; border-radius: 50%; }
-.matchmaking-orbit i:nth-child(1) { top: -4px; left: calc(50% - 4px); }
-.matchmaking-orbit i:nth-child(2) { right: 8px; bottom: 14px; }
-.matchmaking-orbit i:nth-child(3) { bottom: 14px; left: 8px; }
-.matchmaking-kicker { margin: 0 0 0.3rem; color: #8b652b; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; }
-.matchmaking-dialog h2 { margin: 0; color: #281d14 !important; font-family: inherit !important; font-size: 1.75rem !important; letter-spacing: 0; }
-.matchmaking-mode { margin: 0.35rem 0 1.2rem; color: #66543f; }
-.matchmaking-status { display: grid; grid-template-columns: 1fr; gap: 0.55rem; }
-.matchmaking-status > div { display: flex; min-width: 0; align-items: center; gap: 0.5rem; padding: 0.75rem; background: rgba(255, 250, 242, 0.72); border: 1px solid #cfb895; text-align: left; }
-.matchmaking-status svg { flex: 0 0 auto; color: #2d6870; }
-.matchmaking-status span { font-size: 0.78rem; line-height: 1.3; }
-.matchmaking-status strong { display: block; color: #33261b; font-size: 1rem; }
-.matchmaking-progress { height: 6px; margin: 1rem 0; overflow: hidden; background: #d8c7ae; border-radius: 0; }
-.matchmaking-progress span { display: block; height: 100%; background: #2d6870; transition: width 1s linear; }
-.matchmaking-players { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.55rem; margin-top: 0.85rem; }
-.matchmaking-player { display: grid; min-width: 0; justify-items: center; gap: 0.35rem; padding: 0.55rem 0.25rem; color: #8a7b68; background: rgba(221, 209, 191, 0.55); border: 1px dashed #bca98e; }
-.matchmaking-player > span, .matchmaking-player img { display: grid; width: 42px; height: 42px; place-items: center; object-fit: cover; color: #725e45; background: #e8dcc9; border: 1px solid #bca17a; border-radius: 50%; font-weight: 700; }
-.matchmaking-player.is-ready { color: #315d62; background: #e1ece9; border-style: solid; border-color: #83a5a5; }
-.matchmaking-player small { width: 100%; overflow: hidden; font-size: 0.68rem; text-overflow: ellipsis; white-space: nowrap; }
-.matchmaking-note { margin: 0 0 1.2rem; color: #71604c; font-size: 0.8rem; line-height: 1.45; }
-.matchmaking-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; }
-.matchmaking-start-now { display: inline-flex !important; min-height: 42px; align-items: center; justify-content: center; gap: 0.4rem; margin: 0 !important; color: #fff !important; background: #315d62 !important; border: 1px solid #24474b !important; border-radius: 5px !important; box-shadow: none !important; font-weight: 700; }
-.matchmaking-cancel { width: 100% !important; min-height: 42px; margin: 0 !important; color: #713733 !important; background: #f1ded9 !important; border: 1px solid #b87970 !important; border-radius: 5px !important; box-shadow: none !important; font-weight: 700; }
+.matchmaking-orbit i { position: absolute; width: 6px; height: 6px; background: #b17e32; border-radius: 50%; }
+.matchmaking-orbit i:nth-child(1) { top: -3px; left: calc(50% - 3px); }
+.matchmaking-orbit i:nth-child(2) { right: 4px; bottom: 8px; }
+.matchmaking-orbit i:nth-child(3) { bottom: 8px; left: 4px; }
+
+.matchmaking-queue-title {
+  margin: 0;
+  color: #24180d !important;
+  font-family: inherit !important;
+  font-size: 1.25rem !important;
+  font-weight: 700;
+  line-height: 1.15;
+}
+
+.matchmaking-count-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.2rem;
+  color: #2d6870;
+  font-size: 0.8rem;
+}
+
+.matchmaking-progress-bar {
+  height: 5px;
+  overflow: hidden;
+  background: #d8c7ae;
+  border-radius: 3px;
+}
+
+.matchmaking-progress-bar span {
+  display: block;
+  height: 100%;
+  background: #2d6870;
+  transition: width 0.7s ease-out;
+}
+
+.matchmaking-players-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.45rem;
+}
+
+.matchmaking-player-slot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  padding: 0.45rem 0.2rem;
+  background: rgba(221, 209, 191, 0.4);
+  border: 1px dashed #bca98e;
+  border-radius: 5px;
+  min-height: 60px;
+}
+
+.matchmaking-player-slot.is-ready {
+  background: #e1ece9;
+  border-style: solid;
+  border-color: #83a5a5;
+  color: #1e5257;
+}
+
+.matchmaking-avatar-img,
+.matchmaking-avatar-fallback {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  object-fit: cover;
+  border-radius: 50%;
+  border: 1px solid #bca17a;
+  background: #e8dcc9;
+  color: #725e45;
+  font-weight: 700;
+  font-size: 0.8rem;
+}
+
+.matchmaking-player-slot.is-ready .matchmaking-avatar-fallback {
+  background: #2d6870;
+  color: #fff;
+  border-color: #1e4b52;
+}
+
+.matchmaking-slot-name {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.68rem;
+  color: #6a5845;
+}
+
+.matchmaking-footer-note {
+  margin: 0;
+  font-size: 0.74rem;
+  line-height: 1.35;
+  color: #71604c;
+  text-align: center;
+}
+
+.matchmaking-actions-row {
+  display: grid;
+  grid-template-columns: 1.3fr 1fr;
+  gap: 0.55rem;
+  margin-top: auto;
+}
+
+.matchmaking-btn-start {
+  display: inline-flex !important;
+  min-height: 38px;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  margin: 0 !important;
+  color: #fff !important;
+  background: #2d6870 !important;
+  border: 1px solid #1e4b52 !important;
+  border-radius: 5px !important;
+  font-size: 0.84rem !important;
+  font-weight: 700 !important;
+  cursor: pointer;
+  transition: background 130ms ease;
+}
+
+.matchmaking-btn-start:hover:not(:disabled) {
+  background: #235259 !important;
+}
+
+.matchmaking-btn-start:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.matchmaking-btn-cancel {
+  display: inline-flex !important;
+  min-height: 38px;
+  align-items: center;
+  justify-content: center;
+  margin: 0 !important;
+  color: #713733 !important;
+  background: #f1ded9 !important;
+  border: 1px solid #b87970 !important;
+  border-radius: 5px !important;
+  font-size: 0.84rem !important;
+  font-weight: 700 !important;
+  cursor: pointer;
+  transition: background 130ms ease;
+}
+
+.matchmaking-btn-cancel:hover {
+  background: #e8cec7 !important;
+}
 
 @keyframes orbit-turn { to { transform: rotate(360deg); } }
 @keyframes compass-seek { 0%, 100% { transform: rotate(-15deg); } 50% { transform: rotate(28deg); } }
@@ -2849,24 +3127,35 @@ html, body, #root {
     box-shadow: 0 0 12px rgba(244, 63, 94, 0.65);
   }
 
-  /* Lecteur d'articles Wikipedia — Largeur généreuse & style parchemin WikisGuessr */
+  /* Lecteur d'articles Wikipedia — Largeur généreuse, typographie ultra-lisible & style parchemin WikisGuessr */
   .game-article-sheet {
-    max-width: 980px !important;
+    max-width: 1000px !important;
     margin-inline: auto !important;
-    padding: 2.2rem clamp(1.4rem, 3.5vw, 3.2rem) !important;
+    padding: 2.2rem clamp(1.4rem, 3.8vw, 3.5rem) !important;
     background: linear-gradient(180deg, #fdfbf7 0%, #f7f2e7 100%) !important;
-    border: 1px solid #cfb998 !important;
+    border: 1px solid #d4c2a5 !important;
     border-radius: 8px !important;
-    box-shadow: 0 4px 20px rgba(35, 23, 14, 0.12), 0 1px 4px rgba(35, 23, 14, 0.08) !important;
+    box-shadow: 0 6px 24px rgba(35, 23, 14, 0.12), 0 1px 4px rgba(35, 23, 14, 0.08) !important;
   }
 
   .wiki-mobile-html {
-    font-family: Georgia, Cambria, 'Times New Roman', Times, serif !important;
-    font-size: 1.14rem !important;
-    line-height: 1.82 !important;
-    color: #23180f !important;
-    letter-spacing: 0;
+    font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif !important;
+    font-size: 1.15rem !important;
+    line-height: 1.8 !important;
+    color: #1a120b !important;
+    font-weight: 400 !important;
+    letter-spacing: -0.01em;
     overflow-wrap: anywhere;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  .wiki-mobile-html p {
+    font-family: inherit !important;
+    font-size: 1.15rem !important;
+    line-height: 1.8 !important;
+    color: #1a120b !important;
+    margin-bottom: 1.35rem !important;
   }
 
   .wiki-mobile-html form,
@@ -2889,29 +3178,30 @@ html, body, #root {
   .wiki-mobile-html h4,
   .wiki-mobile-html h5,
   .wiki-mobile-html h6 {
-    font-family: Georgia, 'Times New Roman', serif !important;
+    font-family: 'Plus Jakarta Sans', 'Inter', sans-serif !important;
     scroll-margin-top: 7rem;
-    line-height: 1.25;
-    font-weight: 700;
-    color: #24150b !important;
+    line-height: 1.28;
+    font-weight: 800 !important;
+    color: #160d06 !important;
+    letter-spacing: -0.02em;
   }
 
   .wiki-mobile-html h1 {
-    font-size: 2.15rem;
-    margin: 1.6rem 0 0.95rem;
-    padding-bottom: 0.45rem;
+    font-size: 2.2rem;
+    margin: 1.6rem 0 1rem;
+    padding-bottom: 0.5rem;
     border-bottom: 2px solid #cca87c;
   }
 
   .wiki-mobile-html h2 {
-    font-size: 1.55rem;
+    font-size: 1.6rem;
     margin: 1.85rem 0 0.85rem;
-    padding-bottom: 0.35rem;
+    padding-bottom: 0.4rem;
     border-bottom: 1.5px solid #dfcbb0;
   }
 
   .wiki-mobile-html h3 {
-    font-size: 1.28rem;
+    font-size: 1.3rem;
     margin: 1.45rem 0 0.65rem;
   }
 
@@ -2937,7 +3227,7 @@ html, body, #root {
   .wiki-mobile-html .thumbcaption,
   .wiki-mobile-html .infobox-caption {
     margin-top: 0.5rem;
-    font-size: 0.92rem;
+    font-size: 0.94rem;
     line-height: 1.45;
     color: #5c4735;
     font-style: italic;
@@ -2948,6 +3238,7 @@ html, body, #root {
     max-width: 100% !important;
     overflow-x: auto;
     border-collapse: collapse;
+    font-size: 0.98rem;
   }
 
   .wiki-mobile-html table.infobox,
@@ -2991,21 +3282,22 @@ html, body, #root {
     display: none !important;
   }
 
+  /* Liens Wikipédia : Ultra-visibles, distincts et rapides à repérer */
   .wiki-mobile-html a {
-    color: #19676e !important;
+    color: #0b7285 !important;
     font-weight: 600 !important;
-    text-decoration: underline !important;
+    text-decoration: underline 1.5px !important;
     text-underline-offset: 3px !important;
-    text-decoration-color: rgba(25, 103, 110, 0.45) !important;
+    text-decoration-color: rgba(11, 114, 133, 0.45) !important;
     padding: 1px 3px !important;
     border-radius: 3px !important;
-    transition: background-color 130ms ease, color 130ms ease, text-decoration-color 130ms ease;
+    transition: background-color 120ms ease, color 120ms ease, text-decoration-color 120ms ease;
   }
 
   .wiki-mobile-html a:hover {
-    background-color: rgba(25, 103, 110, 0.14) !important;
-    color: #0f484f !important;
-    text-decoration-color: #0f484f !important;
+    background-color: rgba(11, 114, 133, 0.15) !important;
+    color: #085461 !important;
+    text-decoration-color: #085461 !important;
   }
 
   .wiki-mobile-html audio,
@@ -3014,11 +3306,9 @@ html, body, #root {
     margin: 0.75rem 0;
   }
 
-  .wiki-mobile-html p,
   .wiki-mobile-html ul,
   .wiki-mobile-html ol,
   .wiki-mobile-html blockquote,
-  .wiki-mobile-html table,
   .wiki-mobile-html figure {
     margin-bottom: 1.35rem;
   }
@@ -3028,6 +3318,22 @@ html, body, #root {
   .wiki-mobile-html .navbox,
   .wiki-mobile-html .vertical-navbox {
     font-size: 0.875rem;
+  }
+
+  @media (max-width: 680px) {
+    .matchmaking-dialog {
+      padding: 1rem 0.85rem !important;
+      max-height: 94vh !important;
+      overflow-y: auto !important;
+    }
+    .matchmaking-split-grid {
+      grid-template-columns: 1fr !important;
+      gap: 0.85rem !important;
+    }
+    .matchmaking-players-grid {
+      grid-template-columns: repeat(4, 1fr) !important;
+      gap: 0.35rem !important;
+    }
   }
 
   @media (max-width: 768px) {

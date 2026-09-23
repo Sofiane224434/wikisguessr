@@ -3,7 +3,6 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import { useAuth } from '../context/Authcontext.jsx';
 import { gameRoomService, friendService, resolveMediaUrl, roomMessageService } from '../services/api.js';
-import GameModeModal from '../components/ui/GameModeModal.jsx';
 import MatchmakingUI from '../components/ui/MatchmakingUI.jsx';
 import { Check, Copy, KeyRound, LogOut, Play, Send, Trash2, UserPlus, Users, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -64,9 +63,6 @@ function Lobby() {
     const [sendingMessage, setSendingMessage] = useState(false);
     const socketRef = useRef(null);
     const chatEndRef = useRef(null);
-
-    // Modale de mode
-    const [showModeModal, setShowModeModal] = useState(false);
 
     // Matchmaking
     const [isSearching, setIsSearching] = useState(false);
@@ -198,15 +194,10 @@ function Lobby() {
         chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages]);
 
-    const handleShowModeModal = () => {
-        setShowModeModal(true);
-    };
-
     const handleConfirmCreateGame = async () => {
         setError(null);
         setSuccess(null);
         setLoading(true);
-        setShowModeModal(false);
 
         try {
             if (myRoom?.id && Number(myRoom.owner_id) === Number(user?.id)) {
@@ -496,7 +487,7 @@ function Lobby() {
                         <button
                             type="button"
                             className="paper-btn lobby-primary-button lobby-launch-button"
-                            onClick={handleShowModeModal}
+                            onClick={handleConfirmCreateGame}
                             disabled={loading}
                         >
                             <Play size={18} fill="currentColor" aria-hidden="true" />
@@ -595,13 +586,7 @@ function Lobby() {
                 </div>
             </div>
 
-            {showModeModal && (
-                <GameModeModal
-                    mode={mode}
-                    onClose={() => setShowModeModal(false)}
-                    onConfirm={handleConfirmCreateGame}
-                />
-            )}
+
 
             {roomInvitations[0] && (
                 <div className="game-modal-backdrop" role="presentation">
