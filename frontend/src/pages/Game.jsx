@@ -676,6 +676,24 @@ function Game() {
     const [showQuizDetails, setShowQuizDetails] = useState(false);
     const [showLeaderboardDrawer, setShowLeaderboardDrawer] = useState(false);
     const [reportTarget, setReportTarget] = useState(null);
+    const [finishToasts, setFinishToasts] = useState([]);
+    const shownFinishToastIdsRef = useRef(new Set());
+
+    const triggerFinishToast = useCallback((participant) => {
+        if (!participant || !participant.username) return;
+        const toastId = `${participant.user_id || participant.username}-${Date.now()}`;
+        const newToast = {
+            id: toastId,
+            username: participant.username,
+            avatar_url: participant.avatar_url,
+            isBot: Boolean(participant.isBot)
+        };
+        setFinishToasts((prev) => [...prev.slice(-2), newToast]);
+
+        setTimeout(() => {
+            setFinishToasts((prev) => prev.filter((t) => t.id !== toastId));
+        }, 3600);
+    }, []);
 
     useEffect(() => {
         if (user?.role === 'admin') {
@@ -1144,7 +1162,19 @@ function Game() {
 
         socket.on('game:participants', ({ code, participants: nextParticipants }) => {
             if (String(code || '').toUpperCase() === String(gameCode).toUpperCase()) {
-                setParticipants(Array.isArray(nextParticipants) ? nextParticipants : []);
+                const nextList = Array.isArray(nextParticipants) ? nextParticipants : [];
+                setParticipants(nextList);
+
+                // Déclenche une bulle toast si un joueur adverse a terminé
+                nextList.forEach((p) => {
+                    const isFinished = p.progress_status === 'finished' || p.won;
+                    const isOpponent = p.user_id !== user?.id && p.username !== user?.username;
+                    const pKey = String(p.user_id || p.username || '');
+                    if (isFinished && isOpponent && pKey && !shownFinishToastIdsRef.current.has(pKey)) {
+                        shownFinishToastIdsRef.current.add(pKey);
+                        triggerFinishToast(p);
+                    }
+                });
             }
         });
         socket.on('game:replay-status', ({ code, readyCount, requiredCount }) => {
@@ -1173,7 +1203,47 @@ function Game() {
             socket.disconnect();
             gameSocketRef.current = null;
         };
-    }, [gameCode, isPreviewMode, navigate]);
+    }, [gameCode, isPreviewMode, navigate, triggerFinishToast, user?.id, user?.username]);
+
+    // Déclenche une simulation de joueur qui termine en partie solo / bot pour mettre la pression
+    useEffect(() => {
+        if (!startedAt || won || abandoned || chronoDefeat) {
+            return undefined;
+        }
+
+        const botTimer1 = setTimeout(() => {
+            const candidate = PRESET_BOTS[0];
+            const pKey = candidate?.username;
+            if (candidate && pKey && !shownFinishToastIdsRef.current.has(pKey)) {
+                shownFinishToastIdsRef.current.add(pKey);
+                triggerFinishToast({
+                    user_id: 'bot-0',
+                    username: candidate.username,
+                    avatar_url: candidate.avatar_url,
+                    isBot: true
+                });
+            }
+        }, 45000);
+
+        const botTimer2 = setTimeout(() => {
+            const candidate = PRESET_BOTS[1];
+            const pKey = candidate?.username;
+            if (candidate && pKey && !shownFinishToastIdsRef.current.has(pKey)) {
+                shownFinishToastIdsRef.current.add(pKey);
+                triggerFinishToast({
+                    user_id: 'bot-1',
+                    username: candidate.username,
+                    avatar_url: candidate.avatar_url,
+                    isBot: true
+                });
+            }
+        }, 85000);
+
+        return () => {
+            clearTimeout(botTimer1);
+            clearTimeout(botTimer2);
+        };
+    }, [startedAt, won, abandoned, chronoDefeat, triggerFinishToast]);
 
     const knowledgeResultReady = isKnowledgeMode
         && (won || abandoned)
@@ -1671,73 +1741,6 @@ function Game() {
                     </div>
                 </div>
 
-                {(() => {
-                    const fullParticipants = ensureEightParticipantsWithBots(participants, 'Vous');
-                    return (
-                        <div className="mx-auto mt-2 max-w-6xl">
-                            <div className="game-participants grid grid-cols-4 sm:grid-cols-8 gap-1" aria-label="Progression des 8 joueurs">
-                                {fullParticipants.map((participant, pIdx) => {
-                                    const avatarUrl = resolveMediaUrl(participant.avatar_url);
-                                    const finished = participant.progress_status === 'finished' || participant.won;
-                                    const isBotPlayer = Boolean(participant.isBot);
-                                    const isCurrent = !participant.isBot && (
-                                        participant.user_id === user?.id || participant.user_id === 'current_user' || pIdx === 0
-                                    );
-                                    const pScore = isCurrent
-                                        ? liveScore
-                                        : (participant.score !== undefined && participant.score !== null)
-                                            ? Number(participant.score)
-                                            : calculateGamePoints({
-                                                mode: gameMode,
-                                                clicks: participant.clicks || Math.max(1, clicks + (pIdx % 3)),
-                                                elapsedSeconds: participant.time_seconds || elapsedSeconds,
-                                                chronoScore: Math.max(0, 250 - (pIdx * 25)),
-                                                knowledgeScore: Math.max(0, 3 - (pIdx % 2)),
-                                                won: finished
-                                            });
-
-                                    return (
-                                        <div
-                                            className={`game-participant${finished ? ' is-finished' : ''}${isBotPlayer ? ' is-bot' : ''}${isCurrent ? ' is-current' : ''}`}
-                                            key={participant.user_id || pIdx}
-                                            title={`${participant.username} — ${Math.round(pScore)} pts (${finished ? 'Terminé' : 'En cours'})`}
-                                        >
-                                            <span className="game-participant-avatar">
-                                                {avatarUrl ? <img src={avatarUrl} alt="" /> : String(participant.username || '?').slice(0, 1).toUpperCase()}
-                                            </span>
-                                            <div className="game-participant-info min-w-0 flex-1">
-                                                <div className="flex items-center justify-between gap-0.5 leading-none">
-                                                    <strong className="truncate">{participant.username}</strong>
-                                                    {!isCurrent && (
-                                                        <button
-                                                            type="button"
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                setReportTarget({ id: participant.user_id || `bot-${pIdx}`, username: participant.username, isBot: isBotPlayer });
-                                                            }}
-                                                            className="game-report-btn text-slate-400 hover:text-red-600 transition shrink-0"
-                                                            title={`Signaler ${participant.username}`}
-                                                            aria-label={`Signaler ${participant.username}`}
-                                                        >
-                                                            <Flag size={9} />
-                                                        </button>
-                                                    )}
-                                                </div>
-                                                <div className="flex items-center justify-between gap-0.5 text-[9px] leading-none mt-0.5">
-                                                    <span className="font-bold text-amber-900 truncate">{Math.round(pScore)} pts</span>
-                                                    <span className={`text-[8px] font-medium shrink-0 ${finished ? 'text-emerald-700' : 'text-slate-500'}`}>
-                                                        {finished ? '✓' : isBotPlayer ? 'bot' : 'jeu'}
-                                                    </span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        </div>
-                    );
-                })()}
-
                 {won && (
                     <div className="mx-auto mt-1 max-w-6xl px-1 text-xs sm:text-sm font-medium text-emerald-900 flex items-center gap-1.5">
                         <span className="text-sm">🎯</span>
@@ -1938,12 +1941,33 @@ function Game() {
                         onClick={handleContentClick}
                     >
                         <div
-                            className="game-article-sheet wiki-mobile-html prose mx-auto w-full max-w-5xl prose-slate"
+                            className="game-article-sheet wiki-mobile-html prose mx-auto w-full max-w-3xl prose-slate"
                             dangerouslySetInnerHTML={{ __html: html || `<p>${t('game.no_content')}</p>` }}
                         />
                     </div>
                 )}
             </div>
+
+            {/* Pop-up dynamique non-bloquant de la bulle du joueur qui a fini (met la pression sans empêcher de jouer) */}
+            {finishToasts.length > 0 && (
+                <div className="game-finish-toasts-container" aria-live="assertive" role="status">
+                    {finishToasts.map((toast) => (
+                        <div key={toast.id} className="game-finish-toast">
+                            <div className="game-finish-toast-avatar">
+                                {toast.avatar_url ? (
+                                    <img src={resolveMediaUrl(toast.avatar_url)} alt="" />
+                                ) : (
+                                    <span>{String(toast.username || '?').slice(0, 1).toUpperCase()}</span>
+                                )}
+                            </div>
+                            <div className="game-finish-toast-content">
+                                <span className="game-finish-toast-player">{toast.username}</span>
+                                <span className="game-finish-toast-badge">FINI ! ⚡</span>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
 
             {showAbandonConfirm && (
                 <div className="game-modal-backdrop" role="presentation">
