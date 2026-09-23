@@ -1,4 +1,4 @@
-import { useEffect, useEffectEvent, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import { useAuth } from '../context/Authcontext.jsx';
@@ -70,15 +70,45 @@ function Lobby() {
     const [matchmakingTarget, setMatchmakingTarget] = useState(8);
     const [searchingWithRoom, setSearchingWithRoom] = useState(false);
 
-    const handleMatchFound = useEffectEvent((notifyData) => {
-        setIsSearching(false);
-        setSuccess(t('lobby.game_created'));
-        navigate(`/game?code=${encodeURIComponent(notifyData.game.code)}`);
-    });
+    const loadMyRoom = useCallback(async () => {
+        try {
+            setRoomLoading(true);
+            const data = await gameRoomService.getMyRoom();
+            setMyRoom(data.room);
+            setMembers(data.members || []);
+        } catch (err) {
+            console.error('Erreur lors du chargement du salon:', err);
+        } finally {
+            setRoomLoading(false);
+        }
+    }, []);
 
-    const handleRoomGameStarted = useEffectEvent(({ game }) => {
-        navigate(`/game?code=${encodeURIComponent(game.code)}`);
-    });
+    const loadFriendsWithStatus = useCallback(async () => {
+        try {
+            const data = await friendService.getFriendsWithStatus();
+            setFriends(data.friends || []);
+        } catch (err) {
+            console.error('Erreur lors du chargement des amis:', err);
+        }
+    }, []);
+
+    const loadFriendRequests = useCallback(async () => {
+        try {
+            const data = await friendService.getRequests();
+            setFriendRequests(data.requests || []);
+        } catch (err) {
+            console.error('Erreur lors du chargement des demandes:', err);
+        }
+    }, []);
+
+    const loadRoomInvitations = useCallback(async () => {
+        try {
+            const data = await gameRoomService.getInvitations();
+            setRoomInvitations(data.invitations || []);
+        } catch (err) {
+            console.error('Erreur lors du chargement des invitations:', err);
+        }
+    }, []);
 
     // Connexion socket au montage
     useEffect(() => {
@@ -86,7 +116,7 @@ function Lobby() {
         const socketUrl = import.meta.env.DEV ? 'http://localhost:5000' : window.location.origin;
         const socket = io(socketUrl, {
             auth: { token },
-            transports: import.meta.env.DEV ? ['polling'] : ['websocket', 'polling']
+            transports: ['polling', 'websocket']
         });
         socketRef.current = socket;
 
@@ -99,7 +129,11 @@ function Lobby() {
             setMatchmakingPlayers(Array.isArray(players) ? players : []);
         });
 
-        socket.on('matchmaking:found', handleMatchFound);
+        socket.on('matchmaking:found', (notifyData) => {
+            setIsSearching(false);
+            setSuccess(t('lobby.game_created'));
+            navigate(`/game?code=${encodeURIComponent(notifyData.game.code)}`);
+        });
 
         socket.on('matchmaking:error', ({ error: matchmakingError }) => {
             setError(matchmakingError || t('lobby.error_create_game'));
@@ -112,7 +146,9 @@ function Lobby() {
             setMembers([]);
             setMessages([]);
         });
-        socket.on('room:game-started', handleRoomGameStarted);
+        socket.on('room:game-started', ({ game }) => {
+            navigate(`/game?code=${encodeURIComponent(game.code)}`);
+        });
         socket.on('room:invited', () => loadRoomInvitations());
         socket.on('friend:request', () => loadFriendRequests());
         socket.on('friend:updated', () => loadFriendsWithStatus());
@@ -124,14 +160,14 @@ function Lobby() {
         return () => {
             socket.disconnect();
         };
-    }, []);
+    }, [loadFriendsWithStatus, loadFriendRequests, loadMyRoom, loadRoomInvitations, navigate, t]);
 
     useEffect(() => {
         loadMyRoom();
         loadFriendsWithStatus();
         loadFriendRequests();
         loadRoomInvitations();
-    }, []);
+    }, [loadFriendsWithStatus, loadFriendRequests, loadMyRoom, loadRoomInvitations]);
 
     useEffect(() => {
         if (myRoom?.id && socketRef.current) {
@@ -148,46 +184,6 @@ function Lobby() {
             };
         }
     }, [myRoom?.id]);
-
-    const loadMyRoom = async () => {
-        try {
-            setRoomLoading(true);
-            const data = await gameRoomService.getMyRoom();
-            setMyRoom(data.room);
-            setMembers(data.members || []);
-        } catch (err) {
-            console.error('Erreur lors du chargement du salon:', err);
-        } finally {
-            setRoomLoading(false);
-        }
-    };
-
-    const loadFriendsWithStatus = async () => {
-        try {
-            const data = await friendService.getFriendsWithStatus();
-            setFriends(data.friends || []);
-        } catch (err) {
-            console.error('Erreur lors du chargement des amis:', err);
-        }
-    };
-
-    const loadFriendRequests = async () => {
-        try {
-            const data = await friendService.getRequests();
-            setFriendRequests(data.requests || []);
-        } catch (err) {
-            console.error('Erreur lors du chargement des demandes:', err);
-        }
-    };
-
-    const loadRoomInvitations = async () => {
-        try {
-            const data = await gameRoomService.getInvitations();
-            setRoomInvitations(data.invitations || []);
-        } catch (err) {
-            console.error('Erreur lors du chargement des invitations:', err);
-        }
-    };
 
     // Auto-scroll vers le dernier message
     useEffect(() => {

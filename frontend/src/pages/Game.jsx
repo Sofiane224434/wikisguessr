@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useEffectEvent, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Compass, Flag, LogOut, Trophy, X, Zap } from 'lucide-react';
 import DOMPurify from 'dompurify';
@@ -1044,8 +1044,6 @@ function Game() {
         }
     }, [articleHistory, chronoRemainingSeconds, chronoScore, clicks, fetchArticlePayload, game?.wiki_lang, gameCode, gameMode, knowledgeQuiz, knowledgeQuizAnswers, knowledgeQuizSubmitted, saveCurrentGameState, won]);
 
-    const loadInitialArticle = useEffectEvent((...args) => loadArticle(...args));
-
     useEffect(() => {
         if ((!won && !abandonQuizPrompt) || !isKnowledgeMode || !gameCode || isPreviewMode) {
             return;
@@ -1197,7 +1195,7 @@ function Game() {
         const socketUrl = import.meta.env.DEV ? 'http://localhost:5000' : window.location.origin;
         const socket = io(socketUrl, {
             auth: { token },
-            transports: import.meta.env.DEV ? ['polling'] : ['websocket', 'polling']
+            transports: ['polling', 'websocket']
         });
         gameSocketRef.current = socket;
 
