@@ -682,17 +682,24 @@ function Game() {
     const triggerFinishToast = useCallback((participant) => {
         if (!participant || !participant.username) return;
         const toastId = `${participant.user_id || participant.username}-${Date.now()}`;
+        const isAbandoned = Boolean(
+            participant.abandoned
+            || participant.progress_status === 'abandoned'
+            || participant.status === 'abandoned'
+        );
         const newToast = {
             id: toastId,
             username: participant.username,
             avatar_url: participant.avatar_url,
-            isBot: Boolean(participant.isBot)
+            isBot: Boolean(participant.isBot),
+            isAbandoned,
+            statusLabel: isAbandoned ? 'A abandonné 🏳️' : 'A trouvé la cible ! 🎯'
         };
         setFinishToasts((prev) => [...prev.slice(-2), newToast]);
 
         setTimeout(() => {
             setFinishToasts((prev) => prev.filter((t) => t.id !== toastId));
-        }, 3600);
+        }, 3800);
     }, []);
 
     useEffect(() => {
@@ -1165,14 +1172,18 @@ function Game() {
                 const nextList = Array.isArray(nextParticipants) ? nextParticipants : [];
                 setParticipants(nextList);
 
-                // Déclenche une bulle toast si un joueur adverse a terminé
+                // Déclenche une bulle toast si un joueur adverse a trouvé la cible ou abandonné
                 nextList.forEach((p) => {
-                    const isFinished = p.progress_status === 'finished' || p.won;
+                    const isWon = Boolean(p.won || p.progress_status === 'finished');
+                    const isAbandoned = Boolean(p.abandoned || p.progress_status === 'abandoned');
                     const isOpponent = p.user_id !== user?.id && p.username !== user?.username;
                     const pKey = String(p.user_id || p.username || '');
-                    if (isFinished && isOpponent && pKey && !shownFinishToastIdsRef.current.has(pKey)) {
+                    if ((isWon || isAbandoned) && isOpponent && pKey && !shownFinishToastIdsRef.current.has(pKey)) {
                         shownFinishToastIdsRef.current.add(pKey);
-                        triggerFinishToast(p);
+                        triggerFinishToast({
+                            ...p,
+                            isAbandoned
+                        });
                     }
                 });
             }
@@ -1205,7 +1216,7 @@ function Game() {
         };
     }, [gameCode, isPreviewMode, navigate, triggerFinishToast, user?.id, user?.username]);
 
-    // Déclenche une simulation de joueur qui termine en partie solo / bot pour mettre la pression
+    // Déclenche une simulation de joueur qui termine (trouvé / abandon) en partie solo / bot pour mettre la pression
     useEffect(() => {
         if (!startedAt || won || abandoned || chronoDefeat) {
             return undefined;
@@ -1220,10 +1231,11 @@ function Game() {
                     user_id: 'bot-0',
                     username: candidate.username,
                     avatar_url: candidate.avatar_url,
-                    isBot: true
+                    isBot: true,
+                    isAbandoned: false
                 });
             }
-        }, 45000);
+        }, 42000);
 
         const botTimer2 = setTimeout(() => {
             const candidate = PRESET_BOTS[1];
@@ -1234,10 +1246,11 @@ function Game() {
                     user_id: 'bot-1',
                     username: candidate.username,
                     avatar_url: candidate.avatar_url,
-                    isBot: true
+                    isBot: true,
+                    isAbandoned: true
                 });
             }
-        }, 85000);
+        }, 80000);
 
         return () => {
             clearTimeout(botTimer1);
@@ -1941,18 +1954,21 @@ function Game() {
                         onClick={handleContentClick}
                     >
                         <div
-                            className="game-article-sheet wiki-mobile-html prose mx-auto w-full max-w-3xl prose-slate"
+                            className="game-article-sheet wiki-mobile-html prose mx-auto w-full max-w-5xl prose-slate"
                             dangerouslySetInnerHTML={{ __html: html || `<p>${t('game.no_content')}</p>` }}
                         />
                     </div>
                 )}
             </div>
 
-            {/* Pop-up dynamique non-bloquant de la bulle du joueur qui a fini (met la pression sans empêcher de jouer) */}
+            {/* Pop-up dynamique non-bloquant de la bulle du joueur qui a fini (trouvé / abandon) */}
             {finishToasts.length > 0 && (
                 <div className="game-finish-toasts-container" aria-live="assertive" role="status">
                     {finishToasts.map((toast) => (
-                        <div key={toast.id} className="game-finish-toast">
+                        <div
+                            key={toast.id}
+                            className={`game-finish-toast ${toast.isAbandoned ? 'is-abandon' : 'is-found'}`}
+                        >
                             <div className="game-finish-toast-avatar">
                                 {toast.avatar_url ? (
                                     <img src={resolveMediaUrl(toast.avatar_url)} alt="" />
@@ -1962,7 +1978,9 @@ function Game() {
                             </div>
                             <div className="game-finish-toast-content">
                                 <span className="game-finish-toast-player">{toast.username}</span>
-                                <span className="game-finish-toast-badge">FINI ! ⚡</span>
+                                <span className={`game-finish-toast-badge ${toast.isAbandoned ? 'badge-abandon' : 'badge-found'}`}>
+                                    {toast.statusLabel || (toast.isAbandoned ? 'A abandonné 🏳️' : 'A trouvé la cible ! 🎯')}
+                                </span>
                             </div>
                         </div>
                     ))}
