@@ -151,7 +151,8 @@ const computeLiveLeaderboard = ({
     abandoned = false,
     chronoDefeat = false,
     isFinal = false,
-    gameMode = 'normal'
+    gameMode = 'normal',
+    botRegistry = {}
 }) => {
     const list = ensureEightParticipantsWithBots(participants, currentUser?.username || 'Vous');
     const playerWon = Boolean(won && !abandoned) || (isKnowledgeMode && isFinal && !abandoned);
@@ -185,86 +186,87 @@ const computeLiveLeaderboard = ({
                 abandoned: Boolean(abandoned),
                 status: isFinal
                     ? (abandoned ? 'abandoned' : chronoDefeat ? 'timeout' : (playerWon ? 'finished' : 'defeat'))
-                    : (playerWon ? 'finished' : 'playing')
+                    : (playerWon ? 'finished' : (abandoned ? 'abandoned' : 'playing'))
             };
         }
 
-        const botSeed = ((idx + 1) * 73 + playerClicks * 17) % 100;
-        const botWon = isFinal
-            ? (playerWon ? (botSeed > 30) : (botSeed > 65))
-            : (idx === 1 && playerClicks > 10);
-        const botAbandoned = isFinal && !botWon;
+        // Si le bot a déjà terminé ou abandonné (enregistré dans botRegistry)
+        const botKey = p.user_id || p.username;
+        const registered = botRegistry[botKey] || (p.username && botRegistry[p.username]);
+        if (registered) {
+            return {
+                ...p,
+                isCurrent: false,
+                score: registered.score,
+                clicks: registered.clicks,
+                time_seconds: registered.time_seconds,
+                won: registered.won,
+                ratio: registered.ratio || null,
+                abandoned: registered.abandoned,
+                status: registered.status
+            };
+        }
 
-        const isEarlyAbandon = botAbandoned && (idx >= 5 || idx === 7);
-        const botClicks = isFinal
-            ? (botWon
-                ? (playerWon ? Math.max(playerClicks + idx + 1, Math.round(playerClicks * (1.15 + (idx * 0.08)))) : Math.max(4, 4 + idx * 2))
-                : (isEarlyAbandon ? 1 : Math.max(2, Math.min(4, Math.round(playerClicks * 0.5)))))
-            : Math.max(1, Math.max(0, playerClicks - (idx % 2)) + (idx % 3));
-
-        const botTime = isFinal
-            ? (botWon
-                ? (playerWon ? Math.max(playerTime + (idx + 1) * 4, Math.round(playerTime * (1.18 + (idx * 0.06)))) : Math.max(30, 45 + idx * 10))
-                : (isEarlyAbandon ? Math.max(8, Math.round(playerTime * 0.25)) : Math.max(15, Math.round(playerTime * 0.6))))
-            : Math.max(5, playerTime + (idx * 3) - 2);
-
-        const botKnowledgeCorrect = isFinal
-            ? (botWon
-                ? Math.max(1, Math.min(totalQuestions, Math.floor(4 - (idx % 3) + 1)))
-                : (isEarlyAbandon ? 0 : Math.max(0, idx % 2)))
-            : Math.max(0, Math.min(totalQuestions, Math.floor(4 - (idx % 3))));
-
-        const botKnowledgeTotal = totalQuestions;
-        const botPct = Math.round((botKnowledgeCorrect / botKnowledgeTotal) * 100);
-        const botRatioStr = isKnowledgeMode ? `${botKnowledgeCorrect}/${botKnowledgeTotal} (${botPct}%)` : null;
-
-        let botScore = 0;
+        // Si la partie est finale et que le bot n'était pas encore enregistré, on calcule sa fin
         if (isFinal) {
+            const botSeed = ((idx + 1) * 73 + playerClicks * 17) % 100;
+            const botWon = playerWon ? (botSeed > 35) : (botSeed > 60);
+            const botAbandoned = !botWon;
+            const botClicks = botWon
+                ? Math.max(playerClicks + idx + 1, Math.round(playerClicks * (1.12 + (idx * 0.05))))
+                : Math.max(2, Math.min(5, Math.round(playerClicks * 0.4)));
+            const botTime = botWon
+                ? Math.max(playerTime + (idx + 1) * 3, Math.round(playerTime * (1.1 + (idx * 0.04))))
+                : Math.max(12, Math.round(playerTime * 0.5));
+
+            let botScore = 0;
             if (botWon) {
                 let baseScore = calculateGamePoints({
                     mode: gameMode,
                     clicks: botClicks,
                     elapsedSeconds: botTime,
                     chronoScore: Math.max(20, 220 - (idx * 25)),
-                    knowledgeScore: botKnowledgeCorrect,
+                    knowledgeScore: 3,
                     won: true
                 });
-
                 if (playerWon && playerScore > 0 && baseScore >= playerScore) {
-                    baseScore = Math.max(0, playerScore - ((idx + 1) * 25));
+                    baseScore = Math.max(0, playerScore - ((idx + 1) * 20));
                 }
                 botScore = Math.max(0, baseScore);
-            } else {
-                botScore = isKnowledgeMode ? botKnowledgeCorrect * 100 : 0;
             }
-        } else {
-            botScore = (p.score !== undefined && p.score !== null)
-                ? Number(p.score)
-                : calculateGamePoints({
-                    mode: gameMode,
-                    clicks: botClicks,
-                    elapsedSeconds: botTime,
-                    chronoScore: Math.max(0, 250 - (idx * 25)),
-                    knowledgeScore: botKnowledgeCorrect,
-                    won: botWon
-                });
+
+            return {
+                ...p,
+                isCurrent: false,
+                score: Math.round(botScore),
+                clicks: botClicks,
+                time_seconds: botTime,
+                won: botWon,
+                ratio: null,
+                abandoned: botAbandoned,
+                status: botWon ? 'finished' : 'abandoned'
+            };
         }
 
+        // Sinon : Bot toujours en cours de jeu (temps réel actif)
+        const liveBotClicks = Math.max(1, Math.floor(playerClicks * 0.7) + (idx % 2));
         return {
             ...p,
             isCurrent: false,
-            score: Math.round(botScore),
-            clicks: botClicks,
-            time_seconds: botTime,
-            won: botWon,
-            ratio: botRatioStr,
-            abandoned: botAbandoned,
-            status: isFinal ? (botWon ? 'finished' : 'abandoned') : (botWon ? 'finished' : 'playing')
+            score: 0,
+            clicks: liveBotClicks,
+            time_seconds: playerTime,
+            won: false,
+            ratio: null,
+            abandoned: false,
+            status: 'playing'
         };
     });
 
     ranked.sort((a, b) => {
         if (a.won !== b.won) return a.won ? -1 : 1;
+        if (a.status === 'playing' && b.status !== 'playing') return 1;
+        if (b.status === 'playing' && a.status !== 'playing') return -1;
         if (b.score !== a.score) return b.score - a.score;
         if (a.time_seconds !== b.time_seconds) return a.time_seconds - b.time_seconds;
         return a.clicks - b.clicks;
@@ -676,31 +678,63 @@ function Game() {
     const [showQuizDetails, setShowQuizDetails] = useState(false);
     const [showLeaderboardDrawer, setShowLeaderboardDrawer] = useState(false);
     const [reportTarget, setReportTarget] = useState(null);
-    const [finishToasts, setFinishToasts] = useState([]);
+    const [finishPopup, setFinishPopup] = useState(null);
+    const [botRegistry, setBotRegistry] = useState({});
+    const [isSimulatingBots, setIsSimulatingBots] = useState(false);
+    const [simulationDone, setSimulationDone] = useState(false);
     const shownFinishToastIdsRef = useRef(new Set());
 
-    const triggerFinishToast = useCallback((participant) => {
+    const triggerFinishBubble = useCallback((participant) => {
         if (!participant || !participant.username) return;
-        const toastId = `${participant.user_id || participant.username}-${Date.now()}`;
+        const pKey = String(participant.user_id || participant.username);
         const isAbandoned = Boolean(
             participant.abandoned
             || participant.progress_status === 'abandoned'
             || participant.status === 'abandoned'
         );
-        const newToast = {
-            id: toastId,
+
+        const newPopup = {
+            id: `${pKey}-${Date.now()}`,
             username: participant.username,
             avatar_url: participant.avatar_url,
-            isBot: Boolean(participant.isBot),
-            isAbandoned,
-            statusLabel: isAbandoned ? 'A abandonné 🏳️' : 'A trouvé la cible ! 🎯'
+            isAbandoned
         };
-        setFinishToasts((prev) => [...prev.slice(-2), newToast]);
 
+        setFinishPopup(newPopup);
         setTimeout(() => {
-            setFinishToasts((prev) => prev.filter((t) => t.id !== toastId));
-        }, 3800);
+            setFinishPopup((curr) => (curr?.id === newPopup.id ? null : curr));
+        }, 2200);
     }, []);
+
+    const registerBotResult = useCallback((bot, isAbandoned = false, customTime = null) => {
+        if (!bot) return;
+        const pKey = String(bot.user_id || bot.username);
+        const time = customTime ?? Math.max(1, elapsedSecondsRef.current || 1);
+        const currentClicks = clicks || 1;
+        const botClicks = isAbandoned
+            ? Math.max(1, Math.round(currentClicks * 0.4) || 2)
+            : Math.max(3, currentClicks + (Math.floor(Math.random() * 3) - 1) || 4);
+        const botWon = !isAbandoned;
+        const botScore = botWon
+            ? calculateGamePoints({ mode: gameMode, clicks: botClicks, elapsedSeconds: time, chronoScore: 200, knowledgeScore: 3, won: true })
+            : 0;
+
+        const entry = {
+            user_id: bot.user_id || pKey,
+            username: bot.username,
+            avatar_url: bot.avatar_url,
+            isBot: true,
+            status: isAbandoned ? 'abandoned' : 'finished',
+            time_seconds: time,
+            clicks: botClicks,
+            score: Math.round(botScore),
+            won: botWon,
+            abandoned: isAbandoned
+        };
+
+        setBotRegistry((prev) => ({ ...prev, [pKey]: entry }));
+        triggerFinishBubble(entry);
+    }, [clicks, gameMode, triggerFinishBubble]);
 
     useEffect(() => {
         if (user?.role === 'admin') {
@@ -1180,7 +1214,7 @@ function Game() {
                     const pKey = String(p.user_id || p.username || '');
                     if ((isWon || isAbandoned) && isOpponent && pKey && !shownFinishToastIdsRef.current.has(pKey)) {
                         shownFinishToastIdsRef.current.add(pKey);
-                        triggerFinishToast({
+                        triggerFinishBubble({
                             ...p,
                             isAbandoned
                         });
@@ -1214,9 +1248,9 @@ function Game() {
             socket.disconnect();
             gameSocketRef.current = null;
         };
-    }, [gameCode, isPreviewMode, navigate, triggerFinishToast, user?.id, user?.username]);
+    }, [gameCode, isPreviewMode, navigate, triggerFinishBubble, user?.id, user?.username]);
 
-    // Déclenche une simulation de joueur qui termine (trouvé / abandon) en partie solo / bot pour mettre la pression
+    // Déclenche une simulation de bot qui termine (trouvé / abandon) en temps réel pendant la partie
     useEffect(() => {
         if (!startedAt || won || abandoned || chronoDefeat) {
             return undefined;
@@ -1227,44 +1261,70 @@ function Game() {
             const pKey = candidate?.username;
             if (candidate && pKey && !shownFinishToastIdsRef.current.has(pKey)) {
                 shownFinishToastIdsRef.current.add(pKey);
-                triggerFinishToast({
-                    user_id: 'bot-0',
-                    username: candidate.username,
-                    avatar_url: candidate.avatar_url,
-                    isBot: true,
-                    isAbandoned: false
-                });
+                registerBotResult({ user_id: 'bot-0', username: candidate.username, avatar_url: candidate.avatar_url }, false);
             }
-        }, 42000);
+        }, 36000);
 
         const botTimer2 = setTimeout(() => {
             const candidate = PRESET_BOTS[1];
             const pKey = candidate?.username;
             if (candidate && pKey && !shownFinishToastIdsRef.current.has(pKey)) {
                 shownFinishToastIdsRef.current.add(pKey);
-                triggerFinishToast({
-                    user_id: 'bot-1',
-                    username: candidate.username,
-                    avatar_url: candidate.avatar_url,
-                    isBot: true,
-                    isAbandoned: true
-                });
+                registerBotResult({ user_id: 'bot-1', username: candidate.username, avatar_url: candidate.avatar_url }, true);
             }
-        }, 80000);
+        }, 65000);
 
         return () => {
             clearTimeout(botTimer1);
             clearTimeout(botTimer2);
         };
-    }, [startedAt, won, abandoned, chronoDefeat, triggerFinishToast]);
+    }, [startedAt, won, abandoned, chronoDefeat, registerBotResult]);
 
     const knowledgeResultReady = isKnowledgeMode
         && (won || abandoned)
         && knowledgeQuizSubmitted;
-    const resultReady = (abandoned && (!isKnowledgeMode || !abandonQuizPrompt || knowledgeQuizSubmitted))
+    const humanFinished = (abandoned && (!isKnowledgeMode || !abandonQuizPrompt || knowledgeQuizSubmitted))
         || chronoDefeat
         || (won && !isKnowledgeMode)
         || knowledgeResultReady;
+
+    // Simulation accélérée des bots restants une fois que le dernier joueur humain a terminé
+    useEffect(() => {
+        if (!humanFinished || simulationDone) {
+            return undefined;
+        }
+
+        const list = ensureEightParticipantsWithBots(participants, user?.username || 'Vous');
+        const unfinishedBots = list.filter((p) => p.isBot && !botRegistry[p.user_id] && !botRegistry[p.username]);
+
+        if (unfinishedBots.length === 0) {
+            setSimulationDone(true);
+            return undefined;
+        }
+
+        setIsSimulatingBots(true);
+        let currentIndex = 0;
+        const playerTime = Math.max(1, elapsedSecondsRef.current || 1);
+
+        const interval = setInterval(() => {
+            if (currentIndex >= unfinishedBots.length) {
+                clearInterval(interval);
+                setIsSimulatingBots(false);
+                setSimulationDone(true);
+                return;
+            }
+
+            const bot = unfinishedBots[currentIndex];
+            const isBotWon = (currentIndex + 1) % 3 !== 0;
+            const extraTime = (currentIndex + 1) * 3 + Math.floor(Math.random() * 4);
+            registerBotResult(bot, !isBotWon, playerTime + extraTime);
+            currentIndex += 1;
+        }, 260);
+
+        return () => clearInterval(interval);
+    }, [humanFinished, simulationDone, participants, botRegistry, registerBotResult, user?.username]);
+
+    const resultReady = humanFinished && simulationDone;
 
     // La modale s'affiche brièvement pour célébrer le résultat puis ouvre automatiquement le volet du classement.
     useEffect(() => {
@@ -1673,7 +1733,8 @@ function Game() {
         abandoned,
         chronoDefeat,
         isFinal: isGameFinished,
-        gameMode
+        gameMode,
+        botRegistry
     });
 
     const resultTitle = abandoned
@@ -1961,29 +2022,40 @@ function Game() {
                 )}
             </div>
 
-            {/* Pop-up dynamique non-bloquant de la bulle du joueur qui a fini (trouvé / abandon) */}
-            {finishToasts.length > 0 && (
-                <div className="game-finish-toasts-container" aria-live="assertive" role="status">
-                    {finishToasts.map((toast) => (
-                        <div
-                            key={toast.id}
-                            className={`game-finish-toast ${toast.isAbandoned ? 'is-abandon' : 'is-found'}`}
-                        >
-                            <div className="game-finish-toast-avatar">
-                                {toast.avatar_url ? (
-                                    <img src={resolveMediaUrl(toast.avatar_url)} alt="" />
-                                ) : (
-                                    <span>{String(toast.username || '?').slice(0, 1).toUpperCase()}</span>
-                                )}
-                            </div>
-                            <div className="game-finish-toast-content">
-                                <span className="game-finish-toast-player">{toast.username}</span>
-                                <span className={`game-finish-toast-badge ${toast.isAbandoned ? 'badge-abandon' : 'badge-found'}`}>
-                                    {toast.statusLabel || (toast.isAbandoned ? 'A abandonné 🏳️' : 'A trouvé la cible ! 🎯')}
-                                </span>
-                            </div>
+            {/* Pop-up bulle ronde épurée au centre de l'écran (trouvé / abandon) */}
+            {finishPopup && (
+                <div className="game-center-bubble-overlay" key={finishPopup.id} aria-live="assertive" role="status">
+                    <div className={`game-center-bubble-circle ${finishPopup.isAbandoned ? 'is-abandon' : 'is-found'}`}>
+                        {finishPopup.avatar_url ? (
+                            <img src={resolveMediaUrl(finishPopup.avatar_url)} alt="" className="game-center-bubble-img" />
+                        ) : (
+                            <span className="game-center-bubble-initial">
+                                {String(finishPopup.username || '?').slice(0, 1).toUpperCase()}
+                            </span>
+                        )}
+                        <span className="game-center-bubble-badge-icon">
+                            {finishPopup.isAbandoned ? '🏳️' : '🎯'}
+                        </span>
+                    </div>
+                    <div className="game-center-bubble-info">
+                        <span className="game-center-bubble-name">{finishPopup.username}</span>
+                        <span className={`game-center-bubble-tag ${finishPopup.isAbandoned ? 'is-abandon' : 'is-found'}`}>
+                            {finishPopup.isAbandoned ? 'A abandonné' : 'A trouvé la cible !'}
+                        </span>
+                    </div>
+                </div>
+            )}
+
+            {/* Simulation accélérée des bots restants à la fin */}
+            {isSimulatingBots && (
+                <div className="game-simulation-overlay" aria-live="polite">
+                    <div className="game-simulation-card">
+                        <div className="game-simulation-spinner" />
+                        <div className="game-simulation-text">
+                            <strong>Simulation des explorateurs…</strong>
+                            <span>Accélération du temps pour clôturer la manche</span>
                         </div>
-                    ))}
+                    </div>
                 </div>
             )}
 
@@ -2067,7 +2139,7 @@ function Game() {
                     title={showLeaderboardDrawer ? "Rétracter le classement" : "Ouvrir le classement des scores"}
                     aria-label={showLeaderboardDrawer ? "Rétracter le classement" : "Ouvrir le classement"}
                 >
-                    <Trophy size={20} className="shrink-0 text-amber-800" />
+                    <Trophy size={20} className="shrink-0 text-amber-700" />
                     <span className="text-[10px] font-bold text-amber-900 leading-none">
                         {showLeaderboardDrawer ? '▶' : '◀'}
                     </span>
@@ -2075,102 +2147,117 @@ function Game() {
 
                 <div className="game-drawer-header">
                     <div className="flex items-center gap-2">
-                        <Trophy size={18} className="text-amber-800 shrink-0" />
+                        <Trophy size={18} className="text-amber-700 shrink-0" />
                         <h3 id="drawer-leaderboard-title" className="text-sm font-bold text-slate-900 m-0">
-                            Classement de la partie
+                            Classement de la manche
                         </h3>
                     </div>
                     <div className="flex items-center gap-2">
                         {isGameFinished ? (
-                            <span className="inline-flex items-center gap-1 rounded-full border border-emerald-300 bg-emerald-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-900">
+                            <span className="inline-flex items-center gap-1 rounded-full border border-emerald-300 bg-emerald-50 px-2.5 py-0.5 text-[11px] font-bold text-emerald-800">
                                 🏁 Résultats finaux
                             </span>
                         ) : (
-                            <span className="inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-900">
-                                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                            <span className="inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-50 px-2.5 py-0.5 text-[11px] font-bold text-amber-800">
+                                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-ping" />
                                 En direct
                             </span>
                         )}
                     </div>
                 </div>
 
-                <div className="game-drawer-body flex-1 overflow-y-auto min-h-0">
-                    <div className="overflow-hidden rounded-lg border border-amber-900/20 bg-white/85 shadow-xs">
-                        <table className="w-full text-xs">
-                            <thead className="bg-[#ebe1cf] text-slate-800 border-b border-amber-900/20">
+                <div className="game-drawer-body flex-1 overflow-y-auto min-h-0 p-3">
+                    <div className="game-leaderboard-card">
+                        <table className="game-leaderboard-table">
+                            <thead>
                                 <tr>
-                                    <th className="py-2 px-1 font-bold text-center w-7">#</th>
-                                    <th className="py-2 px-1.5 font-bold text-left">Joueur</th>
-                                    {isKnowledgeMode && (
-                                        <th className="py-2 px-1 font-bold text-center">Ratio</th>
-                                    )}
-                                    <th className="py-2 px-1 font-bold text-center">Score</th>
-                                    <th className="py-2 px-1 font-bold text-center">Clics</th>
-                                    <th className="py-2 px-1 font-bold text-center">Temps</th>
-                                    <th className="py-2 px-1 font-bold text-center w-6">🚩</th>
+                                    <th className="th-rank">#</th>
+                                    <th className="th-player">Joueur</th>
+                                    <th className="th-status">Statut</th>
+                                    {isKnowledgeMode && <th className="th-ratio">Ratio</th>}
+                                    <th className="th-score">Score</th>
+                                    <th className="th-clicks">Clics</th>
+                                    <th className="th-time">Temps</th>
+                                    <th className="th-report"></th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-amber-900/10">
+                            <tbody>
                                 {liveLeaderboard.map((player, idx) => {
-                                    const rankIcon = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `${idx + 1}.`;
+                                    const rankBadge = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `${idx + 1}`;
+                                    const isPlaying = player.status === 'playing';
+                                    const isAbandoned = player.status === 'abandoned' || player.abandoned;
+                                    const isFinished = player.status === 'finished' || player.won;
+
                                     return (
                                         <tr
                                             key={player.user_id || idx}
-                                            className={`transition ${player.isCurrent ? 'bg-amber-200/80 font-semibold text-amber-950' : 'text-slate-800 hover:bg-black/5'}`}
+                                            className={`game-leaderboard-row ${player.isCurrent ? 'is-self' : ''}`}
                                         >
-                                            <td className="py-2 px-1 text-center font-bold">{rankIcon}</td>
-                                            <td className="py-2 px-1.5">
-                                                <div className="flex items-center gap-1.5 min-w-0">
-                                                    <span className="w-5 h-5 rounded-full overflow-hidden shrink-0 bg-slate-700 text-[10px] flex items-center justify-center text-white font-bold">
+                                            <td className="td-rank">
+                                                <span className={`rank-badge ${idx < 3 ? `is-top-${idx + 1}` : ''}`}>
+                                                    {rankBadge}
+                                                </span>
+                                            </td>
+                                            <td className="td-player">
+                                                <div className="flex items-center gap-2 min-w-0">
+                                                    <span className="game-player-avatar-mini">
                                                         {player.avatar_url ? (
-                                                            <img src={resolveMediaUrl(player.avatar_url)} alt="" className="w-full h-full object-cover" />
+                                                            <img src={resolveMediaUrl(player.avatar_url)} alt="" />
                                                         ) : (
                                                             String(player.username || '?').slice(0, 1).toUpperCase()
                                                         )}
                                                     </span>
-                                                    <span className="truncate max-w-[70px] sm:max-w-[95px]">{player.username}</span>
+                                                    <span className="game-player-name truncate">{player.username}</span>
                                                     {player.isCurrent && (
-                                                        <span className="rounded bg-amber-800 text-white px-1 py-0.2 text-[8px] uppercase font-bold tracking-wider shrink-0">Vous</span>
+                                                        <span className="self-tag">Vous</span>
                                                     )}
-                                                    {player.abandoned && (
-                                                        <span className="text-[9px] text-rose-700/90 font-semibold italic shrink-0" title="A abandonné la partie">
-                                                            (Abandon)
-                                                        </span>
-                                                    )}
-                                                    {player.isBot && !player.isCurrent && !player.abandoned && (
-                                                        <span className="text-[10px] opacity-60 shrink-0" title="Bot">🤖</span>
+                                                    {player.isBot && !player.isCurrent && (
+                                                        <span className="bot-tag" title="Bot">BOT</span>
                                                     )}
                                                 </div>
                                             </td>
-                                            {isKnowledgeMode && (
-                                                <td className="py-2 px-1 text-center font-semibold text-amber-900 text-[11px] whitespace-nowrap">
-                                                    {player.ratio || '-'}
-                                                </td>
-                                            )}
-                                            <td className="py-2 px-1 text-center font-bold text-amber-900 whitespace-nowrap">
-                                                {Math.round(player.score)} pts
+                                            <td className="td-status">
+                                                {isPlaying && (
+                                                    <span className="status-pill is-playing">
+                                                        <span className="pulse-dot" /> En jeu
+                                                    </span>
+                                                )}
+                                                {isFinished && (
+                                                    <span className="status-pill is-finished">
+                                                        🎯 {formatClock(player.time_seconds)}
+                                                    </span>
+                                                )}
+                                                {isAbandoned && (
+                                                    <span className="status-pill is-abandon">
+                                                        🏳️ Abandon
+                                                    </span>
+                                                )}
                                             </td>
-                                            <td className="py-2 px-1 text-center">{player.clicks}</td>
-                                            <td className="py-2 px-1 text-center font-mono text-[11px] whitespace-nowrap">
+                                            {isKnowledgeMode && (
+                                                <td className="td-ratio font-mono">{player.ratio || '-'}</td>
+                                            )}
+                                            <td className="td-score font-bold">{Math.round(player.score)}</td>
+                                            <td className="td-clicks">{player.clicks}</td>
+                                            <td className="td-time font-mono">
                                                 {formatClock(player.time_seconds)}
                                             </td>
-                                            <td className="py-2 px-1 text-center">
+                                            <td className="td-report">
                                                 {!player.isCurrent && (
                                                     <button
                                                         type="button"
                                                         onClick={(e) => {
-                                                             e.stopPropagation();
-                                                             setReportTarget({
-                                                                 id: player.user_id || `bot-${idx}`,
-                                                                 username: player.username,
-                                                                 isBot: player.isBot
-                                                             });
-                                                         }}
-                                                        className="inline-flex h-5 w-5 items-center justify-center text-slate-400 hover:text-red-600 transition rounded hover:bg-red-50"
+                                                            e.stopPropagation();
+                                                            setReportTarget({
+                                                                id: player.user_id || `bot-${idx}`,
+                                                                username: player.username,
+                                                                isBot: player.isBot
+                                                            });
+                                                        }}
+                                                        className="game-report-btn"
                                                         title={`Signaler ${player.username}`}
                                                         aria-label={`Signaler ${player.username}`}
                                                     >
-                                                        <Flag size={10} />
+                                                        <Flag size={12} strokeWidth={1.8} />
                                                     </button>
                                                 )}
                                             </td>
