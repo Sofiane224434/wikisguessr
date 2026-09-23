@@ -19,8 +19,8 @@
     "guest_eyebrow": "The Next-Generation Wikipedia Challenge",
     "welcome": "Welcome, {{username}}",
     "subtitle": "Start with a Wikipedia article and navigate to a target page using only the links you encounter along the way. Every click counts.",
-    "quick_game": "Quick Game",
-    "play_now": "Play Now",
+    "quick_game": "Play!",
+    "play_now": "Play!",
     "principle": "The Principle",
     "how_title": "How do you play WikisGuessr?",
     "how_subtitle": "You don't need to know Wikipedia by heart: observation, logic, and curiosity make all the difference.",
@@ -73,7 +73,21 @@
     "new_password": "New Password",
     "confirm_new_password": "Confirm the new password",
     "back": "Back to the login page",
-    "verifying": "Verifying email address..."
+    "verifying": "Verifying email address...",
+    "password_rules": {
+      "title": "Password Requirements",
+      "min_length": "At least 8 characters",
+      "uppercase": "1 uppercase letter (A-Z)",
+      "lowercase": "1 lowercase letter (a-z)",
+      "number": "1 number (0-9)",
+      "special": "1 special character (!@#$...)",
+      "match": "Passwords match",
+      "mismatch": "Passwords do not match",
+      "strength_weak": "Weak",
+      "strength_medium": "Medium",
+      "strength_good": "Good",
+      "strength_strong": "Strong"
+    }
   },
   "register": {
     "title": "Registration",

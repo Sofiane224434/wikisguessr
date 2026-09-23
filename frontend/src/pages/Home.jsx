@@ -1,4 +1,4 @@
-import { ArrowRight, BookOpenCheck, Brain, Clock3, Compass, Flag, Link2, LogIn, MousePointerClick, Trophy, UserRound, UsersRound } from 'lucide-react';
+import { ArrowRight, BookOpenCheck, Brain, Clock3, Compass, Flag, Link2, LogIn, MousePointerClick, Play, Sparkles, Trophy, UserRound, UsersRound } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/Authcontext.jsx';
 import { useTranslation } from 'react-i18next';
@@ -69,14 +69,19 @@ function Home() {
             <section className="home-feature" aria-labelledby="home-title">
                 <div className="home-feature-shade" />
                 <div className="home-feature-content">
-                    <p className="home-eyebrow">{user ? t('home.welcome', { username: user.username }) : t('home.guest_eyebrow')}</p>
+                    <div className="home-eyebrow-container">
+                        <span className="home-eyebrow-badge">
+                            <Sparkles size={14} aria-hidden="true" />
+                            <span>{user ? t('home.welcome', { username: user.username }) : t('home.guest_eyebrow')}</span>
+                        </span>
+                    </div>
                     <h1 id="home-title">{t('home.title')}</h1>
                     <p>{t('home.subtitle')}</p>
                     <div className="home-feature-actions">
                         <button type="button" className="home-primary-action" onClick={() => openMode('normal')}>
-                            <Compass size={20} aria-hidden="true" />
-                            <span>{user ? t('home.quick_game') : t('home.play_now')}</span>
-                            <ArrowRight size={18} aria-hidden="true" />
+                            <Play size={20} fill="currentColor" aria-hidden="true" />
+                            <span className="home-cta-label">{user ? t('home.quick_game') : t('home.play_now')}</span>
+                            <ArrowRight size={19} aria-hidden="true" />
                         </button>
                         {!user && (
                             <button type="button" className="home-sign-in-action" onClick={() => signIn('/')}>

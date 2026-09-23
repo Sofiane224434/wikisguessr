@@ -23,6 +23,29 @@ const USERNAME_CHANGE_COOLDOWN_DAYS = 30;
 const USERNAME_CHANGE_COOLDOWN_MS = USERNAME_CHANGE_COOLDOWN_DAYS * 24 * 60 * 60 * 1000;
 const USERNAME_PATTERN = /^[\p{L}\p{N}_.-]{3,30}$/u;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const SPECIAL_CHAR_PATTERN = /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?~`]/;
+
+export const validatePasswordRobustness = (password) => {
+    if (!password || typeof password !== 'string') {
+        return { valid: false, error: 'Le mot de passe est requis' };
+    }
+    if (password.length < 8) {
+        return { valid: false, error: 'Le mot de passe doit contenir au moins 8 caractères' };
+    }
+    if (!/[A-Z]/.test(password)) {
+        return { valid: false, error: 'Le mot de passe doit contenir au moins une lettre majuscule' };
+    }
+    if (!/[a-z]/.test(password)) {
+        return { valid: false, error: 'Le mot de passe doit contenir au moins une lettre minuscule' };
+    }
+    if (!/[0-9]/.test(password)) {
+        return { valid: false, error: 'Le mot de passe doit contenir au moins un chiffre' };
+    }
+    if (!SPECIAL_CHAR_PATTERN.test(password)) {
+        return { valid: false, error: 'Le mot de passe doit contenir au moins un caractère spécial (!@#$%...)' };
+    }
+    return { valid: true };
+};
 
 export const isUserSuperAdmin = (user) => {
     if (!user) return false;
@@ -133,6 +156,11 @@ export const register = async (req, res) => {
         const { username, email, password, confirmPassword, redirectPath } = req.body;
         if (!username || !email || !password) {
             return res.status(400).json({ error: 'Username, email et mot de passe requis' });
+        }
+
+        const passwordValidation = validatePasswordRobustness(password);
+        if (!passwordValidation.valid) {
+            return res.status(400).json({ error: passwordValidation.error });
         }
 
         if (confirmPassword !== undefined && password !== confirmPassword) {
@@ -316,8 +344,9 @@ export const resetPassword = async (req, res) => {
             return res.status(400).json({ error: 'Token et mot de passe requis' });
         }
 
-        if (String(password).length < 8) {
-            return res.status(400).json({ error: 'Le mot de passe doit contenir au moins 8 caracteres' });
+        const passwordValidation = validatePasswordRobustness(password);
+        if (!passwordValidation.valid) {
+            return res.status(400).json({ error: passwordValidation.error });
         }
 
         const user = await User.findByPasswordResetToken(token);
@@ -399,8 +428,11 @@ export const updateProfile = async (req, res) => {
             }
         }
 
-        if (passwordChanged && String(newPassword).length < 8) {
-            return res.status(400).json({ error: 'Le nouveau mot de passe doit contenir au moins 8 caracteres' });
+        if (passwordChanged) {
+            const passwordValidation = validatePasswordRobustness(newPassword);
+            if (!passwordValidation.valid) {
+                return res.status(400).json({ error: passwordValidation.error });
+            }
         }
 
         const updatedUser = await User.updateProfile(currentUser.id, {

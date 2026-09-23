@@ -19,8 +19,8 @@
     "welcome": "Bienvenue, {{username}}",
     "title": "Votre prochaine expédition commence ici",
     "subtitle": "Partez d'un article Wikipédia et rejoignez une page cible uniquement grâce aux liens rencontrés en chemin. Chaque clic compte.",
-    "quick_game": "Partie rapide",
-    "play_now": "Jouer maintenant",
+    "quick_game": "Joue !",
+    "play_now": "Joue !",
     "principle": "Le principe",
     "how_title": "Comment jouer à WikisGuessr ?",
     "how_subtitle": "Pas besoin de connaître Wikipédia par cœur : observation, logique et curiosité font la différence.",
@@ -73,7 +73,21 @@
     "confirm_new_password": "Confirmer le nouveau mot de passe",
     "no_account": "Pas de compte ? S'inscrire",
     "back": "Retour à la connexion",
-    "verifying": "Vérification de l'adresse email en cours..."
+    "verifying": "Vérification de l'adresse email en cours...",
+    "password_rules": {
+      "title": "Exigences du mot de passe",
+      "min_length": "8 caractères minimum",
+      "uppercase": "1 lettre majuscule (A-Z)",
+      "lowercase": "1 lettre minuscule (a-z)",
+      "number": "1 chiffre (0-9)",
+      "special": "1 caractère spécial (!@#$...)",
+      "match": "Les mots de passe correspondent",
+      "mismatch": "Les mots de passe ne correspondent pas",
+      "strength_weak": "Faible",
+      "strength_medium": "Moyen",
+      "strength_good": "Bon",
+      "strength_strong": "Robuste"
+    }
   },
   "register": {
     "title": "Inscription",

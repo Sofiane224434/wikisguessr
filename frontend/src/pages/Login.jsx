@@ -4,6 +4,7 @@ import { BookOpen, KeyRound } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { authService } from '../services/api.js';
 import { useAuth } from '../context/Authcontext.jsx';
+import { PasswordRequirements, checkPasswordRules } from '../components/ui/PasswordRequirements.jsx';
 
 function Login() {
     const { t } = useTranslation();
@@ -84,13 +85,19 @@ function Login() {
 
         try {
             if (isResetPasswordMode) {
+                const rules = checkPasswordRules(newPassword, confirmNewPassword);
+                if (!rules.isRobust) {
+                    setError('Le nouveau mot de passe ne respecte pas toutes les exigences de sécurité.');
+                    return;
+                }
+
                 if (newPassword !== confirmNewPassword) {
-                    setError('La confirmation du nouveau mot de passe ne correspond pas');
+                    setError('La confirmation du nouveau mot de passe ne correspond pas.');
                     return;
                 }
 
                 const data = await authService.resetPassword(resetTokenFromUrl, newPassword);
-                setSuccessMessage(data.message || 'Mot de passe reinitialise. Connecte-toi avec ton nouveau mot de passe.');
+                setSuccessMessage(data.message || 'Mot de passe réinitialisé. Connecte-toi avec ton nouveau mot de passe.');
                 setNewPassword('');
                 setConfirmNewPassword('');
                 navigate('/login', { replace: true });
@@ -99,13 +106,21 @@ function Login() {
 
             if (isForgotPassword) {
                 const data = await authService.forgotPassword(identifier);
-                setSuccessMessage(data.message || 'Si cet email existe, un lien de reinitialisation a ete envoye.');
+                setSuccessMessage(data.message || 'Si cet email existe, un lien de réinitialisation a été envoyé.');
                 return;
             }
 
-            if (isRegister && password !== confirmPassword) {
-                setError('La confirmation du mot de passe ne correspond pas');
-                return;
+            if (isRegister) {
+                const rules = checkPasswordRules(password, confirmPassword);
+                if (!rules.isRobust) {
+                    setError('Le mot de passe doit respecter toutes les exigences de sécurité (8+ caractères, majuscule, minuscule, chiffre, symbole).');
+                    return;
+                }
+
+                if (password !== confirmPassword) {
+                    setError('La confirmation du mot de passe ne correspond pas.');
+                    return;
+                }
             }
 
             const data = isRegister
@@ -191,16 +206,19 @@ function Login() {
                     </div>
                 )}
                 {isRegister && !isForgotPassword && !isResetPasswordMode && (
-                    <div>
-                        <label htmlFor="confirmPassword">{t('register.confirm_password')}</label>
-                        <input
-                            type="password"
-                            id="confirmPassword"
-                            value={confirmPassword}
-                            onChange={(e) => setConfirmPassword(e.target.value)}
-                            required
-                        />
-                    </div>
+                    <>
+                        <div>
+                            <label htmlFor="confirmPassword">{t('register.confirm_password')}</label>
+                            <input
+                                type="password"
+                                id="confirmPassword"
+                                value={confirmPassword}
+                                onChange={(e) => setConfirmPassword(e.target.value)}
+                                required
+                            />
+                        </div>
+                        <PasswordRequirements password={password} confirmPassword={confirmPassword} />
+                    </>
                 )}
                 {isResetPasswordMode && (
                     <>
@@ -224,6 +242,7 @@ function Login() {
                                 required
                             />
                         </div>
+                        <PasswordRequirements password={newPassword} confirmPassword={confirmNewPassword} />
                     </>
                 )}
                 {error && <p className="error">{error}</p>}

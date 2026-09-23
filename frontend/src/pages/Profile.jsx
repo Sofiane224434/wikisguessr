@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/Authcontext.jsx';
 import { authService, gameService, resolveMediaUrl } from '../services/api.js';
+import { PasswordRequirements, checkPasswordRules } from '../components/ui/PasswordRequirements.jsx';
 
 const MODE_LABELS = {
     normal: 'Normal',
@@ -88,9 +89,17 @@ function Profile() {
         setProfileError(null);
         setProfileSuccess(null);
 
-        if (newPassword && newPassword !== confirmPassword) {
-            setProfileError('La confirmation du nouveau mot de passe ne correspond pas.');
-            return;
+        if (newPassword) {
+            const rules = checkPasswordRules(newPassword, confirmPassword);
+            if (!rules.isRobust) {
+                setProfileError('Le nouveau mot de passe doit respecter toutes les exigences de sécurité (8+ caractères, majuscule, minuscule, chiffre, symbole).');
+                return;
+            }
+
+            if (newPassword !== confirmPassword) {
+                setProfileError('La confirmation du nouveau mot de passe ne correspond pas.');
+                return;
+            }
         }
 
         setProfileSaving(true);
@@ -271,6 +280,12 @@ function Profile() {
                             autoComplete="new-password"
                         />
                     </label>
+
+                    {newPassword && (
+                        <div className="md:col-span-2">
+                            <PasswordRequirements password={newPassword} confirmPassword={confirmPassword} />
+                        </div>
+                    )}
 
                     <label className="grid gap-1.5 text-sm font-medium text-slate-700 md:col-span-2">
                         {t('profile.current_password')}
