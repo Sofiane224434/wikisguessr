@@ -684,6 +684,15 @@ function Game() {
     const [simulationDone, setSimulationDone] = useState(false);
     const shownFinishToastIdsRef = useRef(new Set());
 
+    const gameCode = searchParams.get('code');
+    const previewTitle = searchParams.get('previewTitle');
+    const isPreviewMode = !gameCode && Boolean(previewTitle);
+    const gameMode = String(game?.mode || '').trim().toLowerCase();
+    const isChronoMode = gameMode === 'chrono';
+    const isKnowledgeMode = gameMode === 'knowledge';
+    const chronoDefeat = isChronoMode && !won && (chronoRemainingSeconds <= 0 || chronoScore <= 0);
+    const canInteractWithArticle = !won && !chronoDefeat && !abandoned;
+
     const triggerFinishBubble = useCallback((participant) => {
         if (!participant || !participant.username) return;
         const pKey = String(participant.user_id || participant.username);
@@ -751,15 +760,6 @@ function Game() {
             })
             .catch(() => {});
     }, [user?.role]);
-
-    const gameCode = searchParams.get('code');
-    const previewTitle = searchParams.get('previewTitle');
-    const isPreviewMode = !gameCode && Boolean(previewTitle);
-    const gameMode = String(game?.mode || '').trim().toLowerCase();
-    const isChronoMode = gameMode === 'chrono';
-    const isKnowledgeMode = gameMode === 'knowledge';
-    const chronoDefeat = isChronoMode && !won && (chronoRemainingSeconds <= 0 || chronoScore <= 0);
-    const canInteractWithArticle = !won && !chronoDefeat && !abandoned;
 
     const saveCurrentGameState = useCallback((snapshot) => {
         if (!gameCode) {
