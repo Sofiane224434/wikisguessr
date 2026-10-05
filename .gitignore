@@ -33,3 +33,12 @@ shared-context/
 project-context.md
 *contexte*prive*.md
 conception/contexte-projets-prive.md
+
+# Private Context Rules
+sync/
+
+# Private Context Rules
+ai-context/
+.agents/
+/AGENTS.md
+/GEMINI.md

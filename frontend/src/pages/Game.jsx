@@ -1129,7 +1129,7 @@ function Game() {
                 const persistedState = readPersistedGameState(gameCode);
 
                 if (persistedState?.currentArticle && Array.isArray(persistedState.articleHistory) && persistedState.articleHistory.length > 0) {
-                    await loadInitialArticle(persistedState.currentArticle, data.game.target_article, true, {
+                    await loadArticle(persistedState.currentArticle, data.game.target_article, true, {
                         mode: data.game.mode,
                         wikiLanguage: data.game.wiki_lang,
                         restoreSnapshot: persistedState
@@ -1138,7 +1138,7 @@ function Game() {
                     return;
                 }
 
-                await loadInitialArticle(data.game.start_article, data.game.target_article, true, { mode: data.game.mode, wikiLanguage: data.game.wiki_lang });
+                await loadArticle(data.game.start_article, data.game.target_article, true, { mode: data.game.mode, wikiLanguage: data.game.wiki_lang });
                 gameReadyRef.current = true;
             })
             .catch((err) => {
@@ -1175,7 +1175,7 @@ function Game() {
 
         setGame(previewGame);
         gameReadyRef.current = false;
-        loadInitialArticle(initialTitle, initialTitle, true, { mode: previewGame.mode })
+        loadArticle(initialTitle, initialTitle, true, { mode: previewGame.mode })
             .catch((err) => {
                 setError(err.message || 'Impossible de charger la previsualisation');
                 setError('Impossible de charger la previsualisation');
